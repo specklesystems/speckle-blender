@@ -1,0 +1,8 @@
+bpy_speckle/__pycache__/
+bpy_speckle/callbacks/__pycache__/
+bpy_speckle/convert/__pycache__/
+bpy_speckle/convert/from_speckle/__pycache__/
+bpy_speckle/convert/to_speckle/__pycache__/
+bpy_speckle/operators/__pycache__/
+bpy_speckle/properties/__pycache__/
+bpy_speckle/ui/__pycache__/
