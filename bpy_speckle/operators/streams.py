@@ -137,6 +137,8 @@ class ReceiveStreamObjects(bpy.types.Operator):
                     new_object = func(context.scene, new_object)
 
                 if new_object is None: # Make sure that the injected function returned an object
+                    new_obj = new_object
+                    _report("Script '{}' returned None.".format(func.__module__))
                     continue
 
                 new_object.speckle.stream_id = stream.id
@@ -222,10 +224,11 @@ class SendStreamObjects(bpy.types.Operator):
 
         for obj in selected:
 
-            if obj.type != 'MESH':
-                continue
+            # if obj.type != 'MESH':
+            #     continue
 
             new_object = obj
+
             '''
             Run injected function
             '''
@@ -233,20 +236,22 @@ class SendStreamObjects(bpy.types.Operator):
                 new_object = func(context.scene, obj)
 
                 if new_object is None: # Make sure that the injected function returned an object
+                    new_obj = obj
+                    _report("Script '{}' returned None.".format(func.__module__))
                     continue
 
             _report("Converting {}".format(obj.name))
-
 
             ngons = obj.get("speckle_ngons_as_polylines", False)
 
             if ngons:
                 export.extend(export_ngons_as_polylines(obj, scale))
             else:
-                export.append(to_speckle_object(obj, scale))
+                export.extend(to_speckle_object(obj, scale))
 
+        #_report(export)
 
-        base = Base(data=export)
+        base = Base(Default=export)
         transport = ServerTransport(client, stream.id)
 
         obj_id = operations.send(base, [transport])

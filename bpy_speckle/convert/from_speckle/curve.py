@@ -21,7 +21,7 @@ def import_line(scurve, bcurve, scale):
 
         return line
 
-CONVERT["Line"] = import_line
+CONVERT[Line] = import_line
 
 def import_polyline(scurve, bcurve, scale):
 
@@ -45,7 +45,7 @@ def import_polyline(scurve, bcurve, scale):
 
         return polyline
 
-CONVERT["Polyline"] = import_polyline
+CONVERT[Polyline] = import_polyline
 
 def import_nurbs_curve(scurve, bcurve, scale):
 
@@ -58,18 +58,23 @@ def import_nurbs_curve(scurve, bcurve, scale):
         nurbs = bcurve.splines.new('NURBS')
 
         if hasattr(scurve, "closed"):
-            nurbs.use_cyclic_u = scurve.closed
+            nurbs.use_cyclic_u = scurve.closed != 0
 
         nurbs.points.add(N - 1)
         for i in range(0, N):
             nurbs.points[i].co = (float(points[i * 3]) * scale, float(points[i * 3+ 1]) * scale, float(points[i * 3+ 2]) * scale, 1)
 
-        nurbs.use_endpoint_u = True
+        if len(scurve.weights == len(nurbs.points)):
+            for i, w in enumerate(scurve.weights):
+                nurbs.points[i].weight = w
+
+        # TODO: anaylize curve knots to decide if use_endpoint_u or use_bezier_u should be enabled
+        #nurbs.use_endpoint_u = True
         nurbs.order_u = scurve.degree + 1
                 
         return nurbs   
 
-CONVERT["Curve"] = import_nurbs_curve
+CONVERT[Curve] = import_nurbs_curve
 
 def import_arc(rcurve, bcurve, scale):
     '''
@@ -150,7 +155,7 @@ def import_arc(rcurve, bcurve, scale):
 
     return arc
 
-CONVERT["Arc"] = import_arc
+CONVERT[Arc] = import_arc
 
 def import_null(speckle_object, bcurve, scale):
     '''
@@ -165,16 +170,20 @@ def import_polycurve(scurve, bcurve, scale):
     '''
     segments = scurve.segments
 
-    for seg in segments:
-        speckle_type = seg.get("type", "")
+    curves = []
 
-        if speckle_type in CONVERT.keys() and speckle_type in SCHEMAS.keys():
-            segcurve = SCHEMAS[speckle_type].parse_obj(seg)
-            CONVERT[speckle_type](segcurve, bcurve, scale)
+    for seg in segments:
+        speckle_type = type(seg)
+
+        if speckle_type in CONVERT.keys():
+            #segcurve = SCHEMAS[speckle_type].parse_obj(seg)
+            curves.append(CONVERT[speckle_type](seg, bcurve, scale))
         else:
             print("Unsupported curve type: {}".format(speckle_type))
 
-CONVERT['Polycurve'] = import_polycurve
+    return curves
+
+CONVERT[Polycurve] = import_polycurve
 
 def import_curve(speckle_curve, scale, name=None):
     '''
@@ -195,10 +204,10 @@ def import_curve(speckle_curve, scale, name=None):
     curve_data.dimensions = '3D'
     curve_data.resolution_u = 12
 
-    if speckle_curve.type not in CONVERT.keys():
+    if type(speckle_curve) not in CONVERT.keys():
         print("Unsupported curve type: {}".format(speckle_curve.type))
         return None
 
-    CONVERT[speckle_curve.type](speckle_curve, curve_data, scale)
+    CONVERT[type(speckle_curve)](speckle_curve, curve_data, scale)
 
     return curve_data

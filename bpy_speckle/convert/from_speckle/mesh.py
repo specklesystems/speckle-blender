@@ -1,6 +1,5 @@
 import bpy, bmesh, struct
 import base64
-from bpy_speckle.util import find_key_case_insensitive
 
 def add_vertices(smesh, bmesh, scale=1.0):
     sverts = smesh.vertices

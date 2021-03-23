@@ -7,6 +7,8 @@ from bpy.props import StringProperty, BoolProperty, FloatProperty, CollectionPro
 
 from bpy_speckle.functions import _add_user, _report
 
+import datetime
+
 '''
 Compatibility 
 TODO: evaluate if we should still support Blender <2.80
@@ -152,7 +154,9 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
                         commit = branch.commits[int(branch.commit)]
                         area = col.box()
                         area.label(text=commit.message)
-                        col.label(text=commit.created_at)
+                        #dt = datetime.datetime.fromisoformat(commit.created_at)
+                        dt = datetime.datetime.strptime(commit.created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+                        col.label(text="{}".format(dt.ctime()))
                         col.label(text="{} ({})".format(commit.author_name, commit.author_id))
                         col.label(text=commit.source_application)
                 else:

@@ -11,6 +11,7 @@ from speckle.objects.geometry import *
 FROM_SPECKLE_SCHEMAS = {
     Mesh: import_mesh,
     Brep: import_brep,
+    Curve: import_curve,
     Line: import_curve,
     Polyline: import_curve,
     Polycurve: import_curve,
@@ -18,15 +19,15 @@ FROM_SPECKLE_SCHEMAS = {
 }
 
 
-FROM_SPECKLE = {
-    "Mesh": import_mesh, 
-    "Brep": import_brep,
-    "Curve": import_curve,
-    "Line": import_curve,
-    "Polyline": import_curve,
-    "Polycurve":import_curve,
-    "Arc":import_curve,
-}
+# FROM_SPECKLE = {
+#     "Mesh": import_mesh, 
+#     "Brep": import_brep,
+#     "Curve": import_curve,
+#     "Line": import_curve,
+#     "Polyline": import_curve,
+#     "Polycurve":import_curve,
+#     "Arc":import_curve,
+# }
 
 
 TO_SPECKLE = {
@@ -80,41 +81,45 @@ def try_add_property(speckle_object, blender_object, prop, prop_name):
         blender_object[prop_name] = speckle_object[prop]
 
 
-def add_dictionary(prop, blender_object, superkey=None):
-    for key in prop.keys():
-        key_name = "{}.{}".format(superkey, key) if superkey else "{}".format(key)
-        if isinstance(prop[key], dict):
-            subtype = prop[key].get("type", None)
-            if subtype and subtype in FROM_SPECKLE.keys():
-                continue
-            else:
-                add_dictionary(prop[key], blender_object, key_name)
-        elif hasattr(prop[key], "type"):
-            subtype = prop[key].type
-            if subtype and subtype in FROM_SPECKLE.keys():
-                continue
-        else:
-            try:
-                blender_object[key_name] = prop[key]
-            except KeyError:
-                pass
+# def add_dictionary(prop, blender_object, superkey=None):
+#     for key in prop.keys():
+#         key_name = "{}.{}".format(superkey, key) if superkey else "{}".format(key)
+#         if isinstance(prop[key], dict):
+#             subtype = prop[key].get("type", None)
+#             if subtype and subtype in FROM_SPECKLE.keys():
+#                 continue
+#             else:
+#                 add_dictionary(prop[key], blender_object, key_name)
+#         elif hasattr(prop[key], "type"):
+#             subtype = prop[key].type
+#             if subtype and subtype in FROM_SPECKLE.keys():
+#                 continue
+#         else:
+#             try:
+#                 blender_object[key_name] = prop[key]
+#             except KeyError:
+#                 pass
 
 def add_custom_properties(speckle_object, blender_object):
 
     if blender_object is None:
         return
 
-    blender_object['_speckle_type'] = "Undefined"
-    blender_object['_speckle_name'] = "SpeckleObject"
+    blender_object['_speckle_type'] = type(speckle_object).__name__
+    #blender_object['_speckle_name'] = "SpeckleObject"
 
     properties = None
 
+    ignore = ["_chunkable", "_units"]
+
     for key in speckle_object.get_dynamic_member_names():
+        if key in ignore:
+            continue
         if isinstance(speckle_object[key], int) or isinstance(speckle_object[key], str) or isinstance(speckle_object[key], float) or isinstance(speckle_object[key], dict):
             blender_object[key] = speckle_object[key]
 
-    if properties:
-        add_dictionary(properties, blender_object, "")
+    # if properties:
+    #     add_dictionary(properties, blender_object, "")
 
 def dict_to_speckle_object(data):
     if 'type' in data.keys() and data['type'] in SCHEMAS.keys():
@@ -159,7 +164,6 @@ def from_speckle_object(speckle_object, scale, name=None):
         else:
             blender_object = bpy.data.objects.new(speckle_name, obdata) 
 
-
         blender_object.speckle.object_id = str(speckle_object.id)
         blender_object.speckle.enabled = True
 
@@ -203,7 +207,7 @@ def get_speckle_subobjects(attr, scale, name):
                     subobjects.extend(get_speckle_subobjects(props, scale, name))
     return subobjects
 
-ignored_keys=["speckle", "_speckle_type", "_speckle_name", "_speckle_transform", "_RNA_UI", "transform"]
+ignored_keys=["speckle", "_speckle_type", "_speckle_name", "_speckle_transform", "_RNA_UI", "transform", "_units", "_chunkable"]
 
 def get_blender_custom_properties(obj, max_depth=1000):
     global ignored_keys
@@ -214,7 +218,7 @@ def get_blender_custom_properties(obj, max_depth=1000):
     if hasattr(obj, 'keys'):
         d = {}
         for key in obj.keys():
-            if key in ignored_keys:
+            if key in ignored_keys or key.startswith("_"):
                 continue
             d[key] = get_blender_custom_properties(obj[key], max_depth-1)
         return d
@@ -223,19 +227,21 @@ def get_blender_custom_properties(obj, max_depth=1000):
     else:
         return obj
 
-
 def to_speckle_object(blender_object, scale):
     blender_type = blender_object.type
-
-    speckle_object = {}
+    speckle_objects = []
 
     if blender_type in TO_SPECKLE.keys():
-        speckle_object = TO_SPECKLE[blender_type](blender_object, scale)
+        converted = TO_SPECKLE[blender_type](blender_object, blender_object.data, scale)
+        if isinstance(converted, list):
+            speckle_objects.extend([c for c in converted if c != None])
 
-    speckle_object.properties = get_blender_custom_properties(blender_object)
+    for so in speckle_objects:
+        so.properties = get_blender_custom_properties(blender_object)
 
-    # Set object transform
-    speckle_object.properties['transform'] = [y for x in blender_object.matrix_world for y in x]
+        # Set object transform
+        so.properties['transform'] = [y for x in blender_object.matrix_world for y in x]
 
-    return speckle_object
+    # _report(speckle_objects)
+    return speckle_objects
 
