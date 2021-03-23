@@ -20,6 +20,32 @@ else:
     Region = "UI"
 
 
+def wrap(width, text):
+    '''
+    Split strings into width for 
+    wrapping
+    '''
+    lines = []
+
+    arr = text.split()
+    lengthSum = 0
+
+    line = []
+    for var in arr:
+        lengthSum += len(var) + 1
+        if lengthSum <= width:
+            line.append(var)
+        else:
+            lines.append(' '.join(line))
+            line = [var]
+            lengthSum = len(var)
+
+    lines.append(' '.join(line))
+
+    return lines
+
+
+
 def get_available_users(self, context):
     '''
     Function to populate users list
@@ -153,8 +179,16 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
                     if len(branch.commits) > 0:
                         commit = branch.commits[int(branch.commit)]
                         area = col.box()
-                        area.label(text=commit.message)
-                        #dt = datetime.datetime.fromisoformat(commit.created_at)
+                        area.separator()
+
+                        lines = wrap(32, commit.message)
+                        for line in lines:
+                            row = area.row(align=True)
+                            row.alignment = 'EXPAND'
+                            row.scale_y = 0.4
+                            row.label(text=line)
+                        area.separator()
+
                         dt = datetime.datetime.strptime(commit.created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
                         col.label(text="{}".format(dt.ctime()))
                         col.label(text="{} ({})".format(commit.author_name, commit.author_id))
@@ -164,15 +198,15 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
 
                 col.separator()
 
-                box = col.box()
-                row = box.row()
+                area = col.box()
+                row = area.row()
                 subcol = row.column()
                 subcol.operator("speckle.receive_stream_objects", text="Receive")
                 subcol.prop(speckle, "receive_script", text="")
                 subcol = row.column()
                 subcol.operator("speckle.send_stream_objects", text="Send")                
                 subcol.prop(speckle, "send_script", text="")
-                box.prop(stream, "query", text="Filter")
+                area.prop(stream, "query", text="Filter")
 
                 col.separator()
 
@@ -183,8 +217,17 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
                 subcol.label(text=stream.units)
 
                 col.label(text="Description:")
-                box = col.box()
-                box.label(text=stream.description)
+                area = col.box()
+                area.separator()
 
+                lines = wrap(32, stream.description)
+
+                for line in lines:
+                    row = area.row(align=True)
+                    row.alignment = 'EXPAND'
+                    row.scale_y = 0.4
+                    row.label(text=line)
+
+                area.separator()
                 col.separator()
                 col.operator("speckle.view_stream_data_api", text='View stream data (API)')

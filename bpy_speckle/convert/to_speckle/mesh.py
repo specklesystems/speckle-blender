@@ -14,7 +14,8 @@ def export_mesh(blender_object, data, scale=1.0):
     verts = [tuple(mat @ x.co * scale) for x in data.vertices]
 
     # TODO: add n-gon support, using tessfaces for now
-    faces = [x.vertices for x in data.loop_triangles]
+    #faces = [x.vertices for x in data.loop_triangles]
+    faces = [p.vertices for p in data.polygons]
     unit_system = bpy.context.scene.unit_settings.system
 
     sm = Mesh(
