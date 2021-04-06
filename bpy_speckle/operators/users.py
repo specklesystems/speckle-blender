@@ -69,11 +69,11 @@ class LoadUsers(bpy.types.Operator):
 
         for profile in profiles:
             user = users.add()
-            user.server_name = profile.serverInfo.name
+            user.server_name = profile.serverInfo.name or "Speckle Server"
             user.server= profile.serverInfo.url
             user.name = profile.userInfo.name
             user.email= profile.userInfo.email
-            user.company = profile.userInfo.company
+            user.company = profile.userInfo.company or ""
             user.authToken = profile.token
             client = SpeckleClient(host=profile.serverInfo.url, use_ssl=True)
             client.authenticate(user.authToken)
