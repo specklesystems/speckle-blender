@@ -70,7 +70,7 @@ class LoadUsers(bpy.types.Operator):
         for profile in profiles:
             user = users.add()
             user.server_name = profile.serverInfo.name or "Speckle Server"
-            user.server= profile.serverInfo.url
+            user.server_url = profile.serverInfo.url
             user.name = profile.userInfo.name
             user.email= profile.userInfo.email
             user.company = profile.userInfo.company or ""
