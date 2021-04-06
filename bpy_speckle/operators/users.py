@@ -1,60 +1,32 @@
-'''
+"""
 User account operators
-'''
+"""
 
-import bpy, bmesh,os
-from bpy.props import StringProperty, BoolProperty, FloatProperty, CollectionProperty, EnumProperty
+import bpy, bmesh, os
+from bpy.props import (
+    StringProperty,
+    BoolProperty,
+    FloatProperty,
+    CollectionProperty,
+    EnumProperty,
+)
 from bpy_speckle.properties.scene import SpeckleUserObject
 
-from bpy_speckle.functions import _add_user, _report
+from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
 
 from speckle.api.client import SpeckleClient
 from speckle.api.credentials import get_default_account, get_local_accounts
 
 
-
-class AddUser(bpy.types.Operator):
-    '''
-    DEPRECATED
-    Add user to local user database,
-    login, and populate stream list with available
-    streams
-    '''
-    bl_idname = "speckle.user_add"
-    bl_label = "Add Account"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    email: StringProperty(name="Email", description="User email.", default="")
-    pwd: StringProperty(name="Password", description="User password.", default="", subtype='PASSWORD')
-    host: StringProperty(name="Server", description="Server address.", default="https://hestia.speckle.works/api/v1")
-
-    def execute(self, context):
-
-        user = context.scene.speckle.users[int(context.scene.speckle.active_user)]
-        client = speckle_clients[int(context.scene.speckle.active_user)]
-        cache = context.scene.speckle.cache
-
-        if self.host is "":
-            return {'CANCELLED'}
-
-        _add_user(client, cache, self.email, self.pwd, self.host, "Speckle Hestia")
-
-        bpy.ops.speckle.users_load()
-
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        wm = context.window_manager
-        return wm.invoke_props_dialog(self) 
-
 class LoadUsers(bpy.types.Operator):
-    '''
+    """
     Load all users from local user database
-    '''
+    """
+
     bl_idname = "speckle.users_load"
     bl_label = "Load users"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
 
@@ -72,7 +44,7 @@ class LoadUsers(bpy.types.Operator):
             user.server_name = profile.serverInfo.name or "Speckle Server"
             user.server_url = profile.serverInfo.url
             user.name = profile.userInfo.name
-            user.email= profile.userInfo.email
+            user.email = profile.userInfo.email
             user.company = profile.userInfo.company or ""
             user.authToken = profile.token
             client = SpeckleClient(host=profile.serverInfo.url, use_ssl=True)
@@ -85,15 +57,17 @@ class LoadUsers(bpy.types.Operator):
 
         if context.area:
             context.area.tag_redraw()
-        return {'FINISHED'}
+        return {"FINISHED"}
+
 
 class LoadUserStreams(bpy.types.Operator):
-    '''
+    """
     Load all available streams for active user user
-    '''
+    """
+
     bl_idname = "speckle.load_user_streams"
     bl_label = "Load user streams"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
     bl_description = "(Re)load all available user streams"
 
     def execute(self, context):
@@ -151,9 +125,8 @@ class LoadUserStreams(bpy.types.Operator):
 
             bpy.context.view_layer.update()
 
-            return {'FINISHED'}
+            return {"FINISHED"}
 
         if context.area:
             context.area.tag_redraw()
-        return {'CANCELLED'}
-
+        return {"CANCELLED"}

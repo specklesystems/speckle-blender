@@ -1,14 +1,21 @@
-'''
+"""
 Object UI elements
-'''
+"""
 
 import bpy
-from bpy.props import StringProperty, BoolProperty, FloatProperty, CollectionProperty, EnumProperty
+from bpy.props import (
+    StringProperty,
+    BoolProperty,
+    FloatProperty,
+    CollectionProperty,
+    EnumProperty,
+)
+
 
 class OBJECT_PT_speckle(bpy.types.Panel):
-    bl_space_type = 'PROPERTIES'
-    #bl_idname = 'OBJECT_PT_speckle'
-    bl_region_type = 'WINDOW'
+    bl_space_type = "PROPERTIES"
+    # bl_idname = 'OBJECT_PT_speckle'
+    bl_region_type = "WINDOW"
     bl_context = "object"
     bl_label = "Speckle"
 
@@ -23,6 +30,6 @@ class OBJECT_PT_speckle(bpy.types.Panel):
         col.prop(ob.speckle, "send_or_receive", expand=True)
         col.prop(ob.speckle, "stream_id", text="Stream ID")
         col.prop(ob.speckle, "object_id", text="Object ID")
-        col.operator("speckle.update_object", text='Update')
-        col.operator("speckle.reset_object", text='Reset')
-        col.operator("speckle.delete_object", text='Delete')
+        col.operator("speckle.update_object", text="Update")
+        col.operator("speckle.reset_object", text="Reset")
+        col.operator("speckle.delete_object", text="Delete")

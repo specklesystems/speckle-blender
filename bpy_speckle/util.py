@@ -1,13 +1,12 @@
-
 def find_key_case_insensitive(data, key, default=None):
     value = data.get(key)
     if value:
         return value
 
-    '''
+    """
     Necessary to find keys where the first character
     is capitalized
-    '''
+    """
     value = data.get(key[0].upper() + key[1:])
     if value:
         return value
@@ -17,6 +16,7 @@ def find_key_case_insensitive(data, key, default=None):
         return value
 
     return default
+
 
 def get_iddata(base, uuid, name, obdata):
     """
@@ -32,17 +32,17 @@ def get_iddata(base, uuid, name, obdata):
     founditem = None
     if uuid is not None:
         for item in base:
-            if item.get('speckle_id', None) == str(uuid):
+            if item.get("speckle_id", None) == str(uuid):
                 founditem = item
                 break
     elif name:
         for item in base:
-            if item.get('name', None) == name:
+            if item.get("name", None) == name:
                 founditem = item
                 break
     if founditem:
         theitem = founditem
-        theitem['name'] = name
+        theitem["name"] = name
         if obdata:
             theitem.data = obdata
     else:

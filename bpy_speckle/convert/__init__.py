@@ -20,7 +20,7 @@ FROM_SPECKLE_SCHEMAS = {
 
 
 # FROM_SPECKLE = {
-#     "Mesh": import_mesh, 
+#     "Mesh": import_mesh,
 #     "Brep": import_brep,
 #     "Curve": import_curve,
 #     "Line": import_curve,
@@ -36,24 +36,23 @@ TO_SPECKLE = {
     "EMPTY": export_empty,
 }
 
+
 def set_transform(speckle_object, blender_object):
     transform = None
     if hasattr(speckle_object, "transform"):
         transform = speckle_object.transform
-    elif hasattr(speckle_object, "properties") and speckle_object.properties is not None:
+    elif (
+        hasattr(speckle_object, "properties") and speckle_object.properties is not None
+    ):
         transform = speckle_object.properties.get("transform", None)
 
     if transform:
         if len(transform) == 16:
             mat = Matrix(
-                [
-                    transform[0:4],
-                    transform[4:8],
-                    transform[8:12],
-                    transform[12:16]
-                ]
-                )
+                [transform[0:4], transform[4:8], transform[8:12], transform[12:16]]
+            )
             blender_object.matrix_world = mat
+
 
 def add_material(smesh, blender_object):
     if blender_object.data == None:
@@ -66,7 +65,7 @@ def add_material(smesh, blender_object):
     if props:
         material = find_key_case_insensitive(props, "material")
         if material:
-            material_name = material.get('name', None)
+            material_name = material.get("name", None)
             if material_name:
                 mat = bpy.data.materials.get(material_name)
 
@@ -100,13 +99,14 @@ def try_add_property(speckle_object, blender_object, prop, prop_name):
 #             except KeyError:
 #                 pass
 
+
 def add_custom_properties(speckle_object, blender_object):
 
     if blender_object is None:
         return
 
-    blender_object['_speckle_type'] = type(speckle_object).__name__
-    #blender_object['_speckle_name'] = "SpeckleObject"
+    blender_object["_speckle_type"] = type(speckle_object).__name__
+    # blender_object['_speckle_name'] = "SpeckleObject"
 
     properties = None
 
@@ -115,22 +115,30 @@ def add_custom_properties(speckle_object, blender_object):
     for key in speckle_object.get_dynamic_member_names():
         if key in ignore:
             continue
-        if isinstance(speckle_object[key], int) or isinstance(speckle_object[key], str) or isinstance(speckle_object[key], float) or isinstance(speckle_object[key], dict):
+        if (
+            isinstance(speckle_object[key], int)
+            or isinstance(speckle_object[key], str)
+            or isinstance(speckle_object[key], float)
+            or isinstance(speckle_object[key], dict)
+        ):
             blender_object[key] = speckle_object[key]
 
     # if properties:
     #     add_dictionary(properties, blender_object, "")
 
+
 def dict_to_speckle_object(data):
-    if 'type' in data.keys() and data['type'] in SCHEMAS.keys():
-        obj = SCHEMAS[data['type']].parse_obj(data)
+    if "type" in data.keys() and data["type"] in SCHEMAS.keys():
+        obj = SCHEMAS[data["type"]].parse_obj(data)
         for key in obj.properties.keys():
             if isinstance(obj.properties[key], dict):
                 obj.properties[key] = dict_to_speckle_object(obj.properties[key])
             elif isinstance(obj.properties[key], list):
                 for i in range(len(obj.properties[key])):
                     if isinstance(obj.properties[key][i], dict):
-                        obj.properties[key][i] = dict_to_speckle_object(obj.properties[key][i])
+                        obj.properties[key][i] = dict_to_speckle_object(
+                            obj.properties[key][i]
+                        )
         return obj
     else:
         for key in data.keys():
@@ -142,9 +150,10 @@ def dict_to_speckle_object(data):
                         data[key][i] = dict_to_speckle_object(data[key][i])
         return data
 
+
 def from_speckle_object(speckle_object, scale, name=None):
     if type(speckle_object) in FROM_SPECKLE_SCHEMAS.keys():
-        #print("Got object type: {}".format(type(speckle_object)))
+        # print("Got object type: {}".format(type(speckle_object)))
         if name:
             speckle_name = name
         elif hasattr(speckle_object, "name") and speckle_object.name:
@@ -154,7 +163,9 @@ def from_speckle_object(speckle_object, scale, name=None):
         else:
             speckle_name = "Unidentified Speckle Object"
 
-        obdata = FROM_SPECKLE_SCHEMAS[type(speckle_object)](speckle_object, scale, speckle_name)
+        obdata = FROM_SPECKLE_SCHEMAS[type(speckle_object)](
+            speckle_object, scale, speckle_name
+        )
 
         if speckle_name in bpy.data.objects.keys():
             blender_object = bpy.data.objects[speckle_name]
@@ -162,7 +173,7 @@ def from_speckle_object(speckle_object, scale, name=None):
             if hasattr(obdata, "materials"):
                 blender_object.data.materials.clear()
         else:
-            blender_object = bpy.data.objects.new(speckle_name, obdata) 
+            blender_object = bpy.data.objects.new(speckle_name, obdata)
 
         blender_object.speckle.object_id = str(speckle_object.id)
         blender_object.speckle.enabled = True
@@ -171,11 +182,12 @@ def from_speckle_object(speckle_object, scale, name=None):
         add_material(speckle_object, blender_object)
         set_transform(speckle_object, blender_object)
 
-        return blender_object 
+        return blender_object
 
     else:
         _report("Invalid input: {}".format(speckle_object))
         return None
+
 
 def get_speckle_subobjects(attr, scale, name):
 
@@ -185,7 +197,7 @@ def get_speckle_subobjects(attr, scale, name):
             subtype = attr[key].get("type", None)
             if subtype:
                 name = "{}.{}".format(name, key)
-                #print("{} :: {}".format(name, subtype))
+                # print("{} :: {}".format(name, subtype))
                 subobject = from_speckle_object(attr[key], scale, name)
                 add_custom_properties(attr[key], subobject)
 
@@ -197,7 +209,7 @@ def get_speckle_subobjects(attr, scale, name):
             subtype = attr[key].type
             if subtype:
                 name = "{}.{}".format(name, key)
-                #print("{} :: {}".format(name, subtype))
+                # print("{} :: {}".format(name, subtype))
                 subobject = from_speckle_object(attr[key], scale, name)
                 add_custom_properties(attr[key], subobject)
 
@@ -207,25 +219,41 @@ def get_speckle_subobjects(attr, scale, name):
                     subobjects.extend(get_speckle_subobjects(props, scale, name))
     return subobjects
 
-ignored_keys=["speckle", "_speckle_type", "_speckle_name", "_speckle_transform", "_RNA_UI", "transform", "_units", "_chunkable"]
+
+ignored_keys = [
+    "speckle",
+    "_speckle_type",
+    "_speckle_name",
+    "_speckle_transform",
+    "_RNA_UI",
+    "transform",
+    "_units",
+    "_chunkable",
+]
+
 
 def get_blender_custom_properties(obj, max_depth=1000):
     global ignored_keys
 
     if max_depth < 0:
         return obj
-    
-    if hasattr(obj, 'keys'):
+
+    if hasattr(obj, "keys"):
         d = {}
         for key in obj.keys():
             if key in ignored_keys or key.startswith("_"):
                 continue
-            d[key] = get_blender_custom_properties(obj[key], max_depth-1)
+            d[key] = get_blender_custom_properties(obj[key], max_depth - 1)
         return d
-    elif isinstance(obj, list) or isinstance(obj, tuple) or isinstance(obj, idprop.types.IDPropertyArray):
-        return [get_blender_custom_properties(o, max_depth-1) for o in obj]
+    elif (
+        isinstance(obj, list)
+        or isinstance(obj, tuple)
+        or isinstance(obj, idprop.types.IDPropertyArray)
+    ):
+        return [get_blender_custom_properties(o, max_depth - 1) for o in obj]
     else:
         return obj
+
 
 def to_speckle_object(blender_object, scale):
     blender_type = blender_object.type
@@ -240,8 +268,7 @@ def to_speckle_object(blender_object, scale):
         so.properties = get_blender_custom_properties(blender_object)
 
         # Set object transform
-        so.properties['transform'] = [y for x in blender_object.matrix_world for y in x]
+        so.properties["transform"] = [y for x in blender_object.matrix_world for y in x]
 
     # _report(speckle_objects)
     return speckle_objects
-
