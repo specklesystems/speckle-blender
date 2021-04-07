@@ -1,14 +1,15 @@
-'''
+"""
 Drawing callback to display active Speckle user
-'''
+"""
 
 import blf
 import bpy
 
+
 def draw_speckle_info(self, context):
-    '''
+    """
     Draw active user info on the 3d viewport
-    '''
+    """
     scn = bpy.context.scene
     if len(scn.speckle.users) > 0:
         user = scn.speckle.users[int(scn.speckle.active_user)]
