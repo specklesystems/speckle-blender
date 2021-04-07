@@ -154,7 +154,7 @@ def import_mesh(speckle_mesh, scale=1.0, name=None):
         if not name:
             name = str(speckle_mesh.id)
 
-    if name in bpy.data.meshes.keys() and False:
+    if "name" in bpy.data.meshes.keys() and False:
         mesh = bpy.data.meshes[name]
     else:
         mesh = bpy.data.meshes.new(name=name)
