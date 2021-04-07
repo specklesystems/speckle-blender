@@ -49,7 +49,7 @@ def import_polyline(scurve, bcurve, scale):
         #    polyline.use_cyclic_u = scurve["closed"]
 
         polyline.points.add(N - 1)
-        for i in range(0, N):
+        for i in range(N):
             polyline.points[i].co = (
                 float(value[i * 3]) * scale,
                 float(value[i * 3 + 1]) * scale,
@@ -77,7 +77,7 @@ def import_nurbs_curve(scurve, bcurve, scale):
             nurbs.use_cyclic_u = scurve.closed != 0
 
         nurbs.points.add(N - 1)
-        for i in range(0, N):
+        for i in range(N):
             nurbs.points[i].co = (
                 float(points[i * 3]) * scale,
                 float(points[i * 3 + 1]) * scale,
@@ -218,11 +218,7 @@ def import_curve(speckle_curve, scale, name=None):
     Convert Curve object
     """
     if not name:
-        name = speckle_curve.geometryHash
-        if name == None:
-            name = speckle_curve.id
-            if name == None:
-                name = "SpeckleCurve"
+        name = speckle_curve.geometryHash or speckle_curve.id or "SpeckleCurve"
 
     if name in bpy.data.curves.keys():
         curve_data = bpy.data.curves[name]

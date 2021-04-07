@@ -5,10 +5,7 @@ from bpy_speckle.util import find_key_case_insensitive
 
 def import_brep(speckle_brep, scale, name=None):
     if not name:
-        name = speckle_brep.geometryHash
-
-        if not name:
-            name = speckle_brep.id
+        name = speckle_brep.geometryHash or speckle_brep.id
 
     if speckle_brep.displayValue:
 
