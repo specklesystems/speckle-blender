@@ -5,16 +5,15 @@ import base64
 def add_vertices(smesh, bmesh, scale=1.0):
     sverts = smesh.vertices
 
-    if sverts:
-        if len(sverts) > 0:
-            for i in range(0, len(sverts), 3):
-                bmesh.verts.new(
-                    (
-                        float(sverts[i]) * scale,
-                        float(sverts[i + 1]) * scale,
-                        float(sverts[i + 2]) * scale,
-                    )
+    if sverts and len(sverts) > 0:
+        for i in range(0, len(sverts), 3):
+            bmesh.verts.new(
+                (
+                    float(sverts[i]) * scale,
+                    float(sverts[i + 1]) * scale,
+                    float(sverts[i + 2]) * scale,
                 )
+            )
 
     bmesh.verts.ensure_lookup_table()
 
@@ -22,50 +21,49 @@ def add_vertices(smesh, bmesh, scale=1.0):
 def add_faces(smesh, bmesh, smooth=False):
     sfaces = smesh.faces
 
-    if sfaces:
-        if len(sfaces) > 0:
-            i = 0
-            while i < len(sfaces):
-                if sfaces[i] == 0:
-                    i += 1
-                    f = bmesh.faces.new(
-                        (
-                            bmesh.verts[int(sfaces[i])],
-                            bmesh.verts[int(sfaces[i + 1])],
-                            bmesh.verts[int(sfaces[i + 2])],
-                        )
+    if sfaces and len(sfaces) > 0:
+        i = 0
+        while i < len(sfaces):
+            if sfaces[i] == 0:
+                i += 1
+                f = bmesh.faces.new(
+                    (
+                        bmesh.verts[int(sfaces[i])],
+                        bmesh.verts[int(sfaces[i + 1])],
+                        bmesh.verts[int(sfaces[i + 2])],
                     )
-                    f.smooth = smooth
-                    i += 3
-                elif sfaces[i] == 1:
-                    i += 1
-                    f = bmesh.faces.new(
-                        (
-                            bmesh.verts[int(sfaces[i])],
-                            bmesh.verts[int(sfaces[i + 1])],
-                            bmesh.verts[int(sfaces[i + 2])],
-                            bmesh.verts[int(sfaces[i + 3])],
-                        )
+                )
+                f.smooth = smooth
+                i += 3
+            elif sfaces[i] == 1:
+                i += 1
+                f = bmesh.faces.new(
+                    (
+                        bmesh.verts[int(sfaces[i])],
+                        bmesh.verts[int(sfaces[i + 1])],
+                        bmesh.verts[int(sfaces[i + 2])],
+                        bmesh.verts[int(sfaces[i + 3])],
                     )
-                    f.smooth = smooth
-                    i += 4
-                else:
-                    print("Invalid face length.\n" + str(sfaces[i]))
-                    break
+                )
+                f.smooth = smooth
+                i += 4
+            else:
+                print("Invalid face length.\n" + str(sfaces[i]))
+                break
 
-            bmesh.faces.ensure_lookup_table()
-            bmesh.verts.index_update()
+        bmesh.faces.ensure_lookup_table()
+        bmesh.verts.index_update()
 
 
 def add_colors(smesh, bmesh):
 
-    colors = []
     scolors = smesh.colors
 
     if scolors:
+        colors = []
         if len(scolors) > 0:
 
-            for i in range(0, len(scolors)):
+            for i in range(len(scolors)):
                 col = int(scolors[i])
                 (a, r, g, b) = [
                     int(x) for x in struct.unpack("!BBBB", struct.pack("!i", col))
@@ -125,7 +123,6 @@ def add_uv_coords(smesh, bmesh):
             except:
                 print("Failed to decode texture coordinates.")
                 raise
-                pass
 
             del smesh.properties[texKey]
 
@@ -150,9 +147,7 @@ def import_mesh(speckle_mesh, scale=1.0, name=None):
     Convert Mesh object
     """
     if not name:
-        name = speckle_mesh.geometryHash
-        if not name:
-            name = str(speckle_mesh.id)
+        name = speckle_mesh.geometryHash or speckle_mesh.id
 
     if name in bpy.data.meshes.keys() and False:
         mesh = bpy.data.meshes[name]

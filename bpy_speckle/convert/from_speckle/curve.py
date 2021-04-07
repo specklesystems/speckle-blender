@@ -7,24 +7,22 @@ CONVERT = {}
 
 
 def import_line(scurve, bcurve, scale):
+    line = bcurve.splines.new("POLY")
+    line.points.add(1)
 
-    value = scurve.Value
+    line.points[0].co = (
+        float(scurve.start.x) * scale,
+        float(scurve.start.y) * scale,
+        float(scurve.start.z) * scale,
+        1,
+    )
 
-    if value:
+    if scurve.end:
 
-        line = bcurve.splines.new("POLY")
-        line.points.add(1)
-
-        line.points[0].co = (
-            float(value[0]) * scale,
-            float(value[1]) * scale,
-            float(value[2]) * scale,
-            1,
-        )
         line.points[1].co = (
-            float(value[3]) * scale,
-            float(value[4]) * scale,
-            float(value[5]) * scale,
+            float(scurve.end.x) * scale,
+            float(scurve.end.y) * scale,
+            float(scurve.end.z) * scale,
             1,
         )
 
@@ -51,7 +49,7 @@ def import_polyline(scurve, bcurve, scale):
         #    polyline.use_cyclic_u = scurve["closed"]
 
         polyline.points.add(N - 1)
-        for i in range(0, N):
+        for i in range(N):
             polyline.points[i].co = (
                 float(value[i * 3]) * scale,
                 float(value[i * 3 + 1]) * scale,
@@ -79,7 +77,7 @@ def import_nurbs_curve(scurve, bcurve, scale):
             nurbs.use_cyclic_u = scurve.closed != 0
 
         nurbs.points.add(N - 1)
-        for i in range(0, N):
+        for i in range(N):
             nurbs.points[i].co = (
                 float(points[i * 3]) * scale,
                 float(points[i * 3 + 1]) * scale,
@@ -220,11 +218,7 @@ def import_curve(speckle_curve, scale, name=None):
     Convert Curve object
     """
     if not name:
-        name = speckle_curve.geometryHash
-        if name == None:
-            name = speckle_curve.id
-            if name == None:
-                name = "SpeckleCurve"
+        name = speckle_curve.geometryHash or speckle_curve.id or "SpeckleCurve"
 
     if name in bpy.data.curves.keys():
         curve_data = bpy.data.curves[name]
