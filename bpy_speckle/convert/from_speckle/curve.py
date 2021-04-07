@@ -7,24 +7,22 @@ CONVERT = {}
 
 
 def import_line(scurve, bcurve, scale):
+    line = bcurve.splines.new("POLY")
+    line.points.add(1)
 
-    value = scurve.Value
+    line.points[0].co = (
+        float(scurve.start.x) * scale,
+        float(scurve.start.y) * scale,
+        float(scurve.start.z) * scale,
+        1,
+    )
 
-    if value:
+    if scurve.end:
 
-        line = bcurve.splines.new("POLY")
-        line.points.add(1)
-
-        line.points[0].co = (
-            float(value[0]) * scale,
-            float(value[1]) * scale,
-            float(value[2]) * scale,
-            1,
-        )
         line.points[1].co = (
-            float(value[3]) * scale,
-            float(value[4]) * scale,
-            float(value[5]) * scale,
+            float(scurve.end.x) * scale,
+            float(scurve.end.y) * scale,
+            float(scurve.end.z) * scale,
             1,
         )
 
