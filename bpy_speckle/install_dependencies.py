@@ -69,7 +69,7 @@ def install_dependencies():
                 "-q",
                 "-t",
                 "{}".format(modulespath),
-                "speckle",
+                "specklepy",
             ]
         )
 
