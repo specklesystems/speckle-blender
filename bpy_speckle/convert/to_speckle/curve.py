@@ -1,5 +1,5 @@
 import bpy, bmesh, struct
-from speckle.objects.geometry import Curve, Interval, Box, Polyline
+from specklepy.objects.geometry import Curve, Interval, Box, Polyline
 from bpy_speckle.convert.to_speckle.mesh import export_mesh
 
 

@@ -53,7 +53,7 @@ except ModuleNotFoundError as error:
 Import SpeckleBlender classes
 """
 
-from speckle.api.client import SpeckleClient  # , SpeckleCache
+from specklepy.api.client import SpeckleClient  # , SpeckleCache
 
 from bpy_speckle.ui import *
 from bpy_speckle.properties import *

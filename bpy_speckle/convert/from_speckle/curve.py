@@ -1,7 +1,7 @@
 import bpy, math
 from bpy_speckle.util import find_key_case_insensitive
 from mathutils import Vector, Quaternion
-from speckle.objects.geometry import *
+from specklepy.objects.geometry import *
 
 CONVERT = {}
 

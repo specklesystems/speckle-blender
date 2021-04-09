@@ -15,8 +15,8 @@ from bpy_speckle.properties.scene import SpeckleUserObject
 from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
 
-from speckle.api.client import SpeckleClient
-from speckle.api.credentials import get_default_account, get_local_accounts
+from specklepy.api.client import SpeckleClient
+from specklepy.api.credentials import get_default_account, get_local_accounts
 
 
 class LoadUsers(bpy.types.Operator):
