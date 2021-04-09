@@ -31,16 +31,90 @@ from specklepy.objects import Base
 from specklepy.objects.geometry import *
 
 
+def get_objects_collections(base):
+    collections = {}
+    for name in base.get_dynamic_member_names():
+        values = base[name]
+        if isinstance(values, list):
+            collections[name] = []
+            for item in values:
+                if isinstance(item, Base):
+                    collections[name].extend(get_objects_recursive(item))
+        if isinstance(values, Base):
+            collections[name] = get_objects_recursive(values)
+
+    return collections
+
+
 def get_objects_recursive(base):
     objects = []
     for name in base.get_dynamic_member_names():
-        if isinstance(base[name], list):
-            for item in base[name]:
+        value = base[name]
+        if isinstance(value, list):
+            for item in value:
                 if isinstance(item, Base):
                     objects.extend(get_objects_recursive(item))
+        if isinstance(value, Base):
+            objects.append(value)
 
     objects.append(base)
     return objects
+
+
+def create_collection(name, clear_collection=True):
+    if name in bpy.data.collections:
+        col = bpy.data.collections[name]
+        if clear_collection:
+            for obj in col.objects:
+                col.objects.unlink(obj)
+    else:
+        col = bpy.data.collections.new(name)
+
+    return col
+
+
+def create_child_collections(parent_col, children_names):
+    for name in children_names:
+        col = create_collection(name)
+        parent_col.children.link(col)
+
+
+def get_existing_collection_objs(col):
+    return {
+        obj.speckle.object_id: obj for obj in col.objects if obj.speckle.object_id != ""
+    }
+
+
+def get_collection_parents(collection, names):
+    for parent in bpy.data.collections:
+        if collection.name in parent.children.keys():
+            names.append(parent.name.replace("/", "::").replace(".", "::"))
+            get_collection_parents(parent, names)
+
+
+def get_collection_hierarchy(collection):
+    names = [collection.name.replace("/", "::").replace(".", "::")]
+    get_collection_parents(collection, names)
+
+    return names
+
+
+def create_nested_hierarchy(base, hierarchy, objects):
+    child = base
+
+    while hierarchy:
+        name = hierarchy.pop()
+        if not hasattr(child, name):
+            child[name] = Base()
+            base.add_detachable_attrs({name})
+        child = child[name]
+
+    # TODO: what do we call this attribute?
+    if not hasattr(child, "data"):
+        child["data"] = []
+    child["data"].extend(objects)
+
+    return base
 
 
 class ReceiveStreamObjects(bpy.types.Operator):
@@ -84,9 +158,10 @@ class ReceiveStreamObjects(bpy.types.Operator):
         transport = ServerTransport(client, stream.id)
         stream_data = operations.receive(commit.referencedObject, transport)
 
-        objects = get_objects_recursive(stream_data)
+        collections = get_objects_collections(stream_data)
+        print(collections.keys())
 
-        if len(objects) < 1:
+        if not collections:
             return {"CANCELLED"}
 
         """
@@ -95,24 +170,12 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id)
 
-        clear_collection = True
-
-        if name in bpy.data.collections:
-            col = bpy.data.collections[name]
-            if clear_collection:
-                for obj in col.objects:
-                    col.objects.unlink(obj)
-        else:
-            col = bpy.data.collections.new(name)
-
-        existing = {}
-        for obj in col.objects:
-            if obj.speckle.object_id != "":
-                existing[obj.speckle.object_id] = obj
-
+        col = create_collection(name)
         col.speckle.stream_id = stream.id
         col.speckle.name = stream.name
         col.speckle.units = stream_data.units
+
+        create_child_collections(col, list(collections.keys()))
 
         """
         Set conversion scale from stream units
@@ -134,58 +197,62 @@ class ReceiveStreamObjects(bpy.types.Operator):
         """
         Iterate through retrieved resources
         """
-        for obj in objects:
-            new_objects = [from_speckle_object(obj, scale)]
+        for col_name, objects in collections.items():
+            col = bpy.data.collections[col_name]
+            existing = get_existing_collection_objs(col)
+            for obj in objects:
+                new_objects = [from_speckle_object(obj, scale)]
 
-            if hasattr(obj, "properties") and obj.properties is not None:
-                new_objects.extend(
-                    get_speckle_subobjects(obj.properties, scale, obj.id)
-                )
-            elif isinstance(obj, dict) and "properties" in obj.keys():
-                new_objects.extend(
-                    get_speckle_subobjects(obj["properties"], scale, obj["id"])
-                )
-
-            """
-            Set object Speckle settings
-            """
-            for new_object in new_objects:
-
-                if new_object is None:
-                    continue
+                if hasattr(obj, "properties") and obj.properties is not None:
+                    new_objects.extend(
+                        get_speckle_subobjects(obj.properties, scale, obj.id)
+                    )
+                elif isinstance(obj, dict) and "properties" in obj.keys():
+                    new_objects.extend(
+                        get_speckle_subobjects(obj["properties"], scale, obj["id"])
+                    )
 
                 """
-                Run injected function
+                Set object Speckle settings
                 """
-                if func:
-                    new_object = func(context.scene, new_object)
+                for new_object in new_objects:
 
-                if (
-                    new_object is None
-                ):  # Make sure that the injected function returned an object
-                    new_obj = new_object
-                    _report("Script '{}' returned None.".format(func.__module__))
-                    continue
+                    if new_object is None:
+                        continue
 
-                new_object.speckle.stream_id = stream.id
-                new_object.speckle.send_or_receive = "receive"
+                    """
+                    Run injected function
+                    """
+                    if func:
+                        new_object = func(context.scene, new_object)
 
-                if new_object.speckle.object_id in existing.keys():
-                    name = existing[new_object.speckle.object_id].name
-                    existing[new_object.speckle.object_id].name = name + "__deleted"
-                    new_object.name = name
-                    col.objects.unlink(existing[new_object.speckle.object_id])
+                    if (
+                        new_object is None
+                    ):  # Make sure that the injected function returned an object
+                        new_obj = new_object
+                        _report("Script '{}' returned None.".format(func.__module__))
+                        continue
 
-                if new_object.name not in col.objects:
-                    col.objects.link(new_object)
+                    new_object.speckle.stream_id = stream.id
+                    new_object.speckle.send_or_receive = "receive"
 
-        if col.name not in bpy.context.scene.collection.children:
-            bpy.context.scene.collection.children.link(col)
+                    if new_object.speckle.object_id in existing.keys():
+                        name = existing[new_object.speckle.object_id].name
+                        existing[new_object.speckle.object_id].name = name + "__deleted"
+                        new_object.name = name
+                        col.objects.unlink(existing[new_object.speckle.object_id])
 
-        bpy.context.view_layer.update()
+                    if new_object.name not in col.objects:
+                        col.objects.link(new_object)
 
-        if context.area:
-            context.area.tag_redraw()
+            if col.name not in bpy.context.scene.collection.children:
+                bpy.context.scene.collection.children.link(col)
+
+            bpy.context.view_layer.update()
+
+            if context.area:
+                context.area.tag_redraw()
+
         return {"FINISHED"}
 
 
@@ -251,7 +318,7 @@ class SendStreamObjects(bpy.types.Operator):
             if hasattr(mod, "execute"):
                 func = mod.execute
 
-        export = []
+        export = {}
 
         for obj in selected:
 
@@ -278,13 +345,26 @@ class SendStreamObjects(bpy.types.Operator):
             ngons = obj.get("speckle_ngons_as_polylines", False)
 
             if ngons:
-                export.extend(export_ngons_as_polylines(obj, scale))
+                converted = export_ngons_as_polylines(obj, scale)
             else:
-                export.extend(to_speckle_object(obj, scale))
+                converted = to_speckle_object(obj, scale)
 
-        # _report(export)
+            if not converted:
+                continue
 
-        base = Base(Default=export)
+            collection_name = obj.users_collection[0].name
+            if not export.get(collection_name):
+                export[collection_name] = []
+
+            export[collection_name].extend(converted)
+
+        base = Base()
+        for name, objects in export.items():
+            collection = bpy.data.collections.get(name)
+            hierarchy = get_collection_hierarchy(collection)
+            print(f"NAME: {name}\nHIERARCHY: {hierarchy}")
+            create_nested_hierarchy(base, hierarchy, objects)
+
         transport = ServerTransport(client, stream.id)
 
         obj_id = operations.send(base, [transport])
@@ -516,14 +596,12 @@ class CopyStreamId(bpy.types.Operator):
 
         if len(speckle.users) < 1:
             return {"CANCELLED"}
-        else:
-            user = speckle.users[int(speckle.active_user)]
-            if len(user.streams) < 1:
-                return {"CANCELLED"}
-            else:
-                stream = user.streams[user.active_stream]
-                bpy.context.window_manager.clipboard = stream.id
-                return {"FINISHED"}
+        user = speckle.users[int(speckle.active_user)]
+        if len(user.streams) < 1:
+            return {"CANCELLED"}
+        stream = user.streams[user.active_stream]
+        bpy.context.window_manager.clipboard = stream.id
+        return {"FINISHED"}
 
 
 class CopyCommitId(bpy.types.Operator):
@@ -541,22 +619,18 @@ class CopyCommitId(bpy.types.Operator):
 
         if len(speckle.users) < 1:
             return {"CANCELLED"}
-        else:
-            user = speckle.users[int(speckle.active_user)]
-            if len(user.streams) < 1:
-                return {"CANCELLED"}
-            else:
-                stream = user.streams[user.active_stream]
-                if len(stream.branches) < 1:
-                    return {"CANCELLED"}
-                else:
-                    branch = stream.branches[int(stream.branch)]
-                    if len(branch.commits) < 1:
-                        return {"CANCELLED"}
-                    else:
-                        commit = branch.commits[int(branch.commit)]
-                        bpy.context.window_manager.clipboard = commit.id
-                return {"FINISHED"}
+        user = speckle.users[int(speckle.active_user)]
+        if len(user.streams) < 1:
+            return {"CANCELLED"}
+        stream = user.streams[user.active_stream]
+        if len(stream.branches) < 1:
+            return {"CANCELLED"}
+        branch = stream.branches[int(stream.branch)]
+        if len(branch.commits) < 1:
+            return {"CANCELLED"}
+        commit = branch.commits[int(branch.commit)]
+        bpy.context.window_manager.clipboard = commit.id
+        return {"FINISHED"}
 
 
 class CopyBranchName(bpy.types.Operator):
@@ -574,15 +648,12 @@ class CopyBranchName(bpy.types.Operator):
 
         if len(speckle.users) < 1:
             return {"CANCELLED"}
-        else:
-            user = speckle.users[int(speckle.active_user)]
-            if len(user.streams) < 1:
-                return {"CANCELLED"}
-            else:
-                stream = user.streams[user.active_stream]
-                if len(stream.branches) < 1:
-                    return {"CANCELLED"}
-                else:
-                    branch = stream.branches[int(stream.branch)]
-                    bpy.context.window_manager.clipboard = branch.name
-                return {"FINISHED"}
+        user = speckle.users[int(speckle.active_user)]
+        if len(user.streams) < 1:
+            return {"CANCELLED"}
+        stream = user.streams[user.active_stream]
+        if len(stream.branches) < 1:
+            return {"CANCELLED"}
+        branch = stream.branches[int(stream.branch)]
+        bpy.context.window_manager.clipboard = branch.name
+        return {"FINISHED"}
