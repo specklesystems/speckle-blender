@@ -8,6 +8,7 @@ from bpy_speckle.util import find_key_case_insensitive
 from bpy_speckle.functions import _report
 
 from specklepy.objects.geometry import *
+from specklepy.objects.other import RenderMaterial
 
 FROM_SPECKLE_SCHEMAS = {
     Mesh: import_mesh,
@@ -84,6 +85,31 @@ def add_blender_material(smesh, blender_object) -> None:
 
     blender_object.data.materials.append(blender_mat)
     del blender_mat
+
+
+def material_to_speckle(blender_object) -> RenderMaterial:
+    """Create and return a render material from a blender object"""
+    if not getattr(blender_object.data, "materials", None):
+        return
+
+    blender_mat = blender_object.data.materials[0]
+    speckle_mat = RenderMaterial()
+    speckle_mat.name = blender_mat.name
+
+    if blender_mat.use_nodes is True:
+        inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
+        speckle_mat.diffuse = to_argb_int(inputs["Base Color"].default_value)
+        speckle_mat.emissive = to_argb_int(inputs["Emission"].default_value)
+        speckle_mat.roughness = inputs["Roughness"].default_value
+        speckle_mat.metalness = inputs["Metallic"].default_value
+        speckle_mat.opacity = inputs["Alpha"].default_value
+
+    else:
+        speckle_mat.diffuse = to_argb_int(blender_mat.diffuse_color)
+        speckle_mat.metalness = blender_mat.metallic
+        speckle_mat.roughness = blender_mat.roughness
+
+    return speckle_mat
 
 
 def try_add_property(speckle_object, blender_object, prop, prop_name):
@@ -260,6 +286,7 @@ def get_blender_custom_properties(obj, max_depth=1000):
 def to_speckle_object(blender_object, scale):
     blender_type = blender_object.type
     speckle_objects = []
+    speckle_material = material_to_speckle(blender_object)
 
     if blender_type in TO_SPECKLE.keys():
         converted = TO_SPECKLE[blender_type](blender_object, blender_object.data, scale)
@@ -268,6 +295,9 @@ def to_speckle_object(blender_object, scale):
 
     for so in speckle_objects:
         so.properties = get_blender_custom_properties(blender_object)
+
+        if speckle_material:
+            so["renderMaterial"] = speckle_material
 
         # Set object transform
         so.properties["transform"] = [y for x in blender_object.matrix_world for y in x]

@@ -14,8 +14,6 @@ def to_rgba(argb_int: int) -> Tuple[float]:
 def to_argb_int(diffuse_colour) -> int:
     """Converts an RGBA array to an ARGB integer"""
     diffuse_colour = diffuse_colour[-1:] + diffuse_colour[0:3]
-    print(diffuse_colour)
     diffuse_colour = [int(val * 255) for val in diffuse_colour]
-    print(diffuse_colour)
 
     return int.from_bytes(diffuse_colour, byteorder="big", signed=True)
