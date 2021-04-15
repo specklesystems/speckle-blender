@@ -3,6 +3,7 @@ from mathutils import Matrix
 
 from .from_speckle import *
 from .to_speckle import *
+from .util import *
 from bpy_speckle.util import find_key_case_insensitive
 from bpy_speckle.functions import _report
 
@@ -46,33 +47,43 @@ def set_transform(speckle_object, blender_object):
     ):
         transform = speckle_object.properties.get("transform", None)
 
-    if transform:
-        if len(transform) == 16:
-            mat = Matrix(
-                [transform[0:4], transform[4:8], transform[8:12], transform[12:16]]
-            )
-            blender_object.matrix_world = mat
+    if transform and len(transform) == 16:
+        mat = Matrix(
+            [transform[0:4], transform[4:8], transform[8:12], transform[12:16]]
+        )
+        blender_object.matrix_world = mat
 
 
-def add_material(smesh, blender_object):
-    if blender_object.data == None:
-        return
-        # Add material if there is one
-    if not hasattr(smesh, "properties"):
+def add_blender_material(smesh, blender_object) -> None:
+    """Add material to a blender object if the corresponding speckle object has a render material"""
+    if blender_object.data is None:
         return
 
-    props = smesh.properties
-    if props:
-        material = find_key_case_insensitive(props, "material")
-        if material:
-            material_name = material.get("name", None)
-            if material_name:
-                mat = bpy.data.materials.get(material_name)
+    if not hasattr(smesh, "renderMaterial"):
+        return
 
-                if mat is None:
-                    mat = bpy.data.materials.new(name=material_name)
-                blender_object.data.materials.append(mat)
-                del material
+    speckle_mat = smesh.renderMaterial
+    mat_name = getattr(speckle_mat, "name", None)
+    if not mat_name:
+        mat_name = speckle_mat.applicationId or speckle_mat.id
+    blender_mat = bpy.data.materials.get(mat_name)
+    if not blender_mat:
+        blender_mat = bpy.data.materials.new(mat_name)
+
+    blender_mat.use_nodes = True
+    inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
+
+    inputs["Base Color"].default_value = to_rgba(speckle_mat.diffuse)
+    inputs["Emission"].default_value = to_rgba(speckle_mat.emissive)
+    inputs["Roughness"].default_value = speckle_mat.roughness
+    inputs["Metallic"].default_value = speckle_mat.metalness
+    inputs["Alpha"].default_value = speckle_mat.opacity
+
+    if speckle_mat.opacity < 1:
+        blender_mat.blend_method = "BLEND"
+
+    blender_object.data.materials.append(blender_mat)
+    del blender_mat
 
 
 def try_add_property(speckle_object, blender_object, prop, prop_name):
@@ -115,12 +126,7 @@ def add_custom_properties(speckle_object, blender_object):
     for key in speckle_object.get_dynamic_member_names():
         if key in ignore:
             continue
-        if (
-            isinstance(speckle_object[key], int)
-            or isinstance(speckle_object[key], str)
-            or isinstance(speckle_object[key], float)
-            or isinstance(speckle_object[key], dict)
-        ):
+        if isinstance(speckle_object[key], (int, str, float, dict)):
             blender_object[key] = speckle_object[key]
 
     # if properties:
@@ -153,7 +159,7 @@ def dict_to_speckle_object(data):
 
 def from_speckle_object(speckle_object, scale, name=None):
     if type(speckle_object) in FROM_SPECKLE_SCHEMAS.keys():
-        # print("Got object type: {}".format(type(speckle_object)))
+        print("Got object type: {}".format(type(speckle_object)))
         if name:
             speckle_name = name
         elif hasattr(speckle_object, "name") and speckle_object.name:
@@ -179,7 +185,7 @@ def from_speckle_object(speckle_object, scale, name=None):
         blender_object.speckle.enabled = True
 
         add_custom_properties(speckle_object, blender_object)
-        add_material(speckle_object, blender_object)
+        add_blender_material(speckle_object, blender_object)
         set_transform(speckle_object, blender_object)
 
         return blender_object
@@ -245,11 +251,7 @@ def get_blender_custom_properties(obj, max_depth=1000):
                 continue
             d[key] = get_blender_custom_properties(obj[key], max_depth - 1)
         return d
-    elif (
-        isinstance(obj, list)
-        or isinstance(obj, tuple)
-        or isinstance(obj, idprop.types.IDPropertyArray)
-    ):
+    elif isinstance(obj, (list, tuple, idprop.types.IDPropertyArray)):
         return [get_blender_custom_properties(o, max_depth - 1) for o in obj]
     else:
         return obj

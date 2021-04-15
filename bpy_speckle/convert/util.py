@@ -1,8 +1,8 @@
-from typing import List
+from typing import Tuple
 
 
-def to_rgba(argb_int: int) -> List[float]:
-    """Converts the int representation of a colour into a percent RGBA list"""
+def to_rgba(argb_int: int) -> Tuple[float]:
+    """Converts the int representation of a colour into a percent RGBA tuple"""
     alpha = ((argb_int >> 24) & 255) / 255
     red = ((argb_int >> 16) & 255) / 255
     green = ((argb_int >> 8) & 255) / 255
