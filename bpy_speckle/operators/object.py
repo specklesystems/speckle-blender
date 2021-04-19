@@ -11,7 +11,7 @@ from bpy.props import (
     EnumProperty,
 )
 
-from speckle.api.client import SpeckleClient
+from specklepy.api.client import SpeckleClient
 from bpy_speckle.convert import to_speckle_object
 from bpy_speckle.convert.to_speckle import export_ngons_as_polylines
 
@@ -22,7 +22,7 @@ from bpy_speckle.clients import speckle_clients
 class UpdateObject(bpy.types.Operator):
     """
     Update local (receive) or remote (send) object depending on
-    the update direction. If sending, updates the object on the 
+    the update direction. If sending, updates the object on the
     server in-place.
     """
 
@@ -150,7 +150,8 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     clear_stream: BoolProperty(
-        name="Clear stream", default=False,
+        name="Clear stream",
+        default=False,
     )
 
     def execute(self, context):

@@ -12,7 +12,7 @@ from bpy.props import (
     IntProperty,
     PointerProperty,
 )
-from speckle.api.client import SpeckleClient
+from specklepy.api.client import SpeckleClient
 
 
 class SpeckleSceneObject(bpy.types.PropertyGroup):
@@ -40,7 +40,9 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
     name: StringProperty(default="main")
     commits: CollectionProperty(type=SpeckleCommitObject)
     commit: EnumProperty(
-        name="Commit", description="Active commit", items=get_commits,
+        name="Commit",
+        description="Active commit",
+        items=get_commits,
     )
 
 
@@ -60,7 +62,9 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
     query: StringProperty(default="")
     branches: CollectionProperty(type=SpeckleBranchObject)
     branch: EnumProperty(
-        name="Branch", description="Active branch", items=get_branches,
+        name="Branch",
+        description="Active branch",
+        items=get_branches,
     )
 
 
@@ -112,7 +116,9 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
     scale: FloatProperty(default=0.001)
 
     user: StringProperty(
-        name="User", description="Current user.", default="Speckle User",
+        name="User",
+        description="Current user.",
+        default="Speckle User",
     )
 
     receive_script: EnumProperty(

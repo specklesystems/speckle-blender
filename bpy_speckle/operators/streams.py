@@ -24,11 +24,11 @@ from bpy_speckle.convert.to_speckle import export_ngons_as_polylines
 from bpy_speckle.convert import from_speckle_object
 from bpy_speckle.clients import speckle_clients
 
-from speckle.api import operations
-from speckle.api.resources.stream import Stream
-from speckle.transports.server import ServerTransport
-from speckle.objects import Base
-from speckle.objects.geometry import *
+from specklepy.api import operations
+from specklepy.api.resources.stream import Stream
+from specklepy.transports.server import ServerTransport
+from specklepy.objects import Base
+from specklepy.objects.geometry import *
 
 
 def get_objects_recursive(base):
@@ -200,7 +200,8 @@ class SendStreamObjects(bpy.types.Operator):
     bl_description = "Send selected objects to active stream"
 
     commit_message: StringProperty(
-        name="Message", default="Pushed elements from Blender.",
+        name="Message",
+        default="Pushed elements from Blender.",
     )
 
     def draw(self, context):
@@ -288,7 +289,10 @@ class SendStreamObjects(bpy.types.Operator):
 
         obj_id = operations.send(base, [transport])
         commit_id = client.commit.create(
-            stream.id, obj_id, branch.name, message=self.commit_message,
+            stream.id,
+            obj_id,
+            branch.name,
+            message=self.commit_message,
         )
 
         bpy.ops.speckle.load_user_streams()
@@ -383,7 +387,8 @@ class DeleteStream(bpy.types.Operator):
     bl_description = "Delete selected stream permanently"
 
     are_you_sure: BoolProperty(
-        name="Confirm", default=False,
+        name="Confirm",
+        default=False,
     )
 
     delete_collection: BoolProperty(name="Delete collection", default=False)

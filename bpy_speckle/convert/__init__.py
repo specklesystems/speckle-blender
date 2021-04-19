@@ -6,7 +6,7 @@ from .to_speckle import *
 from bpy_speckle.util import find_key_case_insensitive
 from bpy_speckle.functions import _report
 
-from speckle.objects.geometry import *
+from specklepy.objects.geometry import *
 
 FROM_SPECKLE_SCHEMAS = {
     Mesh: import_mesh,

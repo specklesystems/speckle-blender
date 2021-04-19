@@ -1,5 +1,5 @@
 import speckle
-from speckle.api.client import SpeckleClient
+from specklepy.api.client import SpeckleClient
 import requests
 
 from bpy_speckle.clients import speckle_clients
@@ -95,7 +95,7 @@ def _create_stream(user, stream_name, units="Millimeters"):
 def _delete_stream(client, user, stream):
     """
     Delete the active stream
-    TODO: probably doesn't need to be a separate function and can be 
+    TODO: probably doesn't need to be a separate function and can be
     folded into the operator
     """
 

@@ -3,7 +3,7 @@ import bpy, bmesh, struct
 import base64, hashlib
 from time import strftime, gmtime
 
-from speckle.objects.geometry import Mesh, Interval, Box
+from specklepy.objects.geometry import Mesh, Interval, Box
 
 
 def export_mesh(blender_object, data, scale=1.0):
