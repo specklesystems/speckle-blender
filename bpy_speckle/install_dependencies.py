@@ -81,7 +81,7 @@ def install_dependencies():
 
 if __name__ == "__main__":
     try:
-        import speckle
+        import specklepy
     except:
         print("Failed to load speckle.")
         from sys import platform
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         if platform == "win32":
             if ctypes.windll.shell32.IsUserAnAdmin():
                 install_dependencies()
-                import speckle
+                import specklepy
             else:
                 ctypes.windll.shell32.ShellExecuteW(
                     None, "runas", sys.executable, __file__, None, 1

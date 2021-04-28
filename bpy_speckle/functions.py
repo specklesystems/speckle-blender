@@ -1,4 +1,3 @@
-import speckle
 from specklepy.api.client import SpeckleClient
 import requests
 

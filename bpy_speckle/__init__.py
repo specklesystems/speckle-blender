@@ -40,7 +40,7 @@ Import PySpeckle and attempt install if not found
 """
 
 try:
-    import speckle
+    import specklepy
 except ModuleNotFoundError as error:
     print("Speckle not found.")
     # TODO: Implement audomatic installation of speckle and dependencies
