@@ -86,7 +86,6 @@ def add_blender_material(smesh, blender_object) -> None:
         blender_mat.blend_method = "BLEND"
 
     blender_object.data.materials.append(blender_mat)
-    del blender_mat
 
 
 def material_to_speckle(blender_object) -> RenderMaterial:
@@ -147,8 +146,6 @@ def add_custom_properties(speckle_object, blender_object):
     blender_object["_speckle_type"] = type(speckle_object).__name__
     # blender_object['_speckle_name'] = "SpeckleObject"
 
-    properties = None
-
     ignore = ["_chunkable", "_units"]
 
     for key in speckle_object.get_dynamic_member_names():
@@ -156,9 +153,6 @@ def add_custom_properties(speckle_object, blender_object):
             continue
         if isinstance(speckle_object[key], (int, str, float, dict)):
             blender_object[key] = speckle_object[key]
-
-    # if properties:
-    #     add_dictionary(properties, blender_object, "")
 
 
 def dict_to_speckle_object(data):

@@ -34,31 +34,94 @@ from specklepy.objects.geometry import *
 def get_objects_collections(base):
     collections = {}
     for name in base.get_dynamic_member_names():
-        values = base[name]
-        if isinstance(values, list):
-            collections[name] = []
-            for item in values:
-                if isinstance(item, Base):
-                    collections[name].extend(get_objects_recursive(item))
-        if isinstance(values, Base):
-            collections[name] = get_objects_recursive(values)
+        value = base[name]
+        if isinstance(value, list):
+            col = create_collection(name)
+            collections[name] = [item for item in value if isinstance(item, Base)]
+        if isinstance(value, Base):
+            col = create_collection(name)
+            collections[name] = get_objects_collections_recursive(value, col)
 
     return collections
 
 
-def get_objects_recursive(base):
+def get_objects_collections_recursive(base, parent_col=None):
     objects = []
     for name in base.get_dynamic_member_names():
         value = base[name]
         if isinstance(value, list):
             for item in value:
                 if isinstance(item, Base):
-                    objects.extend(get_objects_recursive(item))
+                    objects.append(item)
         if isinstance(value, Base):
-            objects.append(value)
+            col = create_collection(name)
+            parent_col.children.link(col)
+            objects.append({name: get_objects_collections_recursive(value, col)})
 
-    objects.append(base)
     return objects
+
+
+def bases_to_native(context, collections, scale, stream_id, func=None):
+    for col_name, objects in collections.items():
+        col = bpy.data.collections[col_name]
+        existing = get_existing_collection_objs(col)
+        if isinstance(objects, dict):
+            bases_to_native(context, objects, scale, stream_id)
+        elif isinstance(objects, list):
+            for obj in objects:
+                if isinstance(obj, dict):
+                    bases_to_native(context, obj, scale, stream_id)
+                else:
+                    new_objects = [from_speckle_object(obj, scale)]
+
+                    if hasattr(obj, "properties") and obj.properties is not None:
+                        new_objects.extend(
+                            get_speckle_subobjects(obj.properties, scale, obj.id)
+                        )
+                    elif isinstance(obj, dict) and "properties" in obj.keys():
+                        new_objects.extend(
+                            get_speckle_subobjects(obj["properties"], scale, obj["id"])
+                        )
+
+                    """
+                    Set object Speckle settings
+                    """
+                    for new_object in new_objects:
+                        if new_object is None:
+                            continue
+
+                        """
+                        Run injected function
+                        """
+                        if func:
+                            new_object = func(context.scene, new_object)
+
+                        if (
+                            new_object is None
+                        ):  # Make sure that the injected function returned an object
+                            new_obj = new_object
+                            _report(
+                                "Script '{}' returned None.".format(func.__module__)
+                            )
+                            continue
+
+                        new_object.speckle.stream_id = stream_id
+                        new_object.speckle.send_or_receive = "receive"
+
+                        if new_object.speckle.object_id in existing.keys():
+                            name = existing[new_object.speckle.object_id].name
+                            existing[new_object.speckle.object_id].name = (
+                                name + "__deleted"
+                            )
+                            new_object.name = name
+                            col.objects.unlink(existing[new_object.speckle.object_id])
+
+                        if new_object.name not in col.objects:
+                            col.objects.link(new_object)
+            bpy.context.view_layer.update()
+
+            if context.area:
+                context.area.tag_redraw()
 
 
 def create_collection(name, clear_collection=True):
@@ -88,6 +151,8 @@ def get_existing_collection_objs(col):
 def get_collection_parents(collection, names):
     for parent in bpy.data.collections:
         if collection.name in parent.children.keys():
+            # TODO: this should be rethought to make it clear when this is an IFC delim so we know to replace it
+            # with `/` again on receive
             names.append(parent.name.replace("/", "::").replace(".", "::"))
             get_collection_parents(parent, names)
 
@@ -158,15 +223,13 @@ class ReceiveStreamObjects(bpy.types.Operator):
         transport = ServerTransport(client, stream.id)
         stream_data = operations.receive(commit.referencedObject, transport)
 
-        collections = get_objects_collections(stream_data)
-        print(collections.keys())
-
-        if not collections:
-            return {"CANCELLED"}
-
         """
         Create or get Collection for stream objects
         """
+        collections = get_objects_collections(stream_data)
+
+        if not collections:
+            return {"CANCELLED"}
 
         name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id)
 
@@ -174,8 +237,11 @@ class ReceiveStreamObjects(bpy.types.Operator):
         col.speckle.stream_id = stream.id
         col.speckle.name = stream.name
         col.speckle.units = stream_data.units
+        if col.name not in bpy.context.scene.collection.children:
+            bpy.context.scene.collection.children.link(col)
 
-        create_child_collections(col, list(collections.keys()))
+        for child_col in collections.keys():
+            col.children.link(bpy.data.collections[child_col])
 
         """
         Set conversion scale from stream units
@@ -197,61 +263,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
         """
         Iterate through retrieved resources
         """
-        for col_name, objects in collections.items():
-            col = bpy.data.collections[col_name]
-            existing = get_existing_collection_objs(col)
-            for obj in objects:
-                new_objects = [from_speckle_object(obj, scale)]
-
-                if hasattr(obj, "properties") and obj.properties is not None:
-                    new_objects.extend(
-                        get_speckle_subobjects(obj.properties, scale, obj.id)
-                    )
-                elif isinstance(obj, dict) and "properties" in obj.keys():
-                    new_objects.extend(
-                        get_speckle_subobjects(obj["properties"], scale, obj["id"])
-                    )
-
-                """
-                Set object Speckle settings
-                """
-                for new_object in new_objects:
-
-                    if new_object is None:
-                        continue
-
-                    """
-                    Run injected function
-                    """
-                    if func:
-                        new_object = func(context.scene, new_object)
-
-                    if (
-                        new_object is None
-                    ):  # Make sure that the injected function returned an object
-                        new_obj = new_object
-                        _report("Script '{}' returned None.".format(func.__module__))
-                        continue
-
-                    new_object.speckle.stream_id = stream.id
-                    new_object.speckle.send_or_receive = "receive"
-
-                    if new_object.speckle.object_id in existing.keys():
-                        name = existing[new_object.speckle.object_id].name
-                        existing[new_object.speckle.object_id].name = name + "__deleted"
-                        new_object.name = name
-                        col.objects.unlink(existing[new_object.speckle.object_id])
-
-                    if new_object.name not in col.objects:
-                        col.objects.link(new_object)
-
-            if col.name not in bpy.context.scene.collection.children:
-                bpy.context.scene.collection.children.link(col)
-
-            bpy.context.view_layer.update()
-
-            if context.area:
-                context.area.tag_redraw()
+        bases_to_native(context, collections, scale, stream.id, func)
 
         return {"FINISHED"}
 
@@ -362,7 +374,6 @@ class SendStreamObjects(bpy.types.Operator):
         for name, objects in export.items():
             collection = bpy.data.collections.get(name)
             hierarchy = get_collection_hierarchy(collection)
-            print(f"NAME: {name}\nHIERARCHY: {hierarchy}")
             create_nested_hierarchy(base, hierarchy, objects)
 
         transport = ServerTransport(client, stream.id)
