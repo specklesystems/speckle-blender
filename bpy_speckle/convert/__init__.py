@@ -71,14 +71,16 @@ def add_blender_material(smesh, blender_object) -> None:
     if not blender_mat:
         blender_mat = bpy.data.materials.new(mat_name)
 
-    blender_mat.use_nodes = True
-    inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
+        # for now, we're not updating these materials. as per tom's suggestion, we should have a toggle
+        # that enables this as the blender mats will prob be much more complex than whatever is coming in
+        blender_mat.use_nodes = True
+        inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
 
-    inputs["Base Color"].default_value = to_rgba(speckle_mat.diffuse)
-    inputs["Emission"].default_value = to_rgba(speckle_mat.emissive)
-    inputs["Roughness"].default_value = speckle_mat.roughness
-    inputs["Metallic"].default_value = speckle_mat.metalness
-    inputs["Alpha"].default_value = speckle_mat.opacity
+        inputs["Base Color"].default_value = to_rgba(speckle_mat.diffuse)
+        inputs["Emission"].default_value = to_rgba(speckle_mat.emissive)
+        inputs["Roughness"].default_value = speckle_mat.roughness
+        inputs["Metallic"].default_value = speckle_mat.metalness
+        inputs["Alpha"].default_value = speckle_mat.opacity
 
     if speckle_mat.opacity < 1:
         blender_mat.blend_method = "BLEND"
