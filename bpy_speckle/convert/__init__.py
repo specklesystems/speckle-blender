@@ -188,14 +188,11 @@ def dict_to_speckle_object(data):
 def from_speckle_object(speckle_object, scale, name=None):
     if type(speckle_object) in FROM_SPECKLE_SCHEMAS.keys():
         print("Got object type: {}".format(type(speckle_object)))
-        if name:
-            speckle_name = name
-        elif hasattr(speckle_object, "name") and speckle_object.name:
-            speckle_name = speckle_object.name
-        elif speckle_object.id:
-            speckle_name = speckle_object.id
-        else:
-            speckle_name = "Unidentified Speckle Object"
+        speckle_name = (
+            name
+            or getattr(speckle_object, "name", None)
+            or speckle_object.speckle_type + f" -- {speckle_object.id}"
+        )
 
         obdata = FROM_SPECKLE_SCHEMAS[type(speckle_object)](
             speckle_object, scale, speckle_name
