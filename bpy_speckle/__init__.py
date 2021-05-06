@@ -23,11 +23,11 @@
 
 bl_info = {
     "name": "SpeckleBlender 2.0",
-    "author": "Tom Svilans",
+    "author": "Speckle Systems",
     "version": (0, 2, 0),
     "blender": (2, 92, 0),
     "location": "3d viewport toolbar (N), under the Speckle tab.",
-    "description": "This addon lets you use the Speckle Python client",
+    "description": "The Speckle Connector using specklepy 2.0!",
     "warning": "This add-on is WIP and should be used with caution",
     "wiki_url": "https://github.com/specklesystems/speckle-blender",
     "category": "Scene",
@@ -43,7 +43,7 @@ try:
     import specklepy
 except ModuleNotFoundError as error:
     print("Speckle not found.")
-    # TODO: Implement audomatic installation of speckle and dependencies
+    # TODO: Implement automatic installation of speckle and dependencies
     # to the local Blender module folder
 
     # from .install_dependencies import install_dependencies
