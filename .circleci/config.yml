@@ -41,6 +41,7 @@ jobs:
       - run: # Creates the inno installer
           name: InnoSetup
           command: |
+            echo hello there!
             if exist "speckle-sharp-ci-tools\Installers\%slug%\beta.yml" (set channel=beta) else (set channel=latest)
             set yaml_path="speckle-sharp-ci-tools\Installers\%slug%\%channel%.yml"
             echo %yaml_path%
