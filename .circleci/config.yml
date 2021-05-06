@@ -18,9 +18,11 @@ jobs:
         default: ''
     steps:
       - checkout
-      - run: |
-        python --version
-        python -m pip install --upgrade pip
+      - run: 
+          name: check python version & upgrade pip
+        command: |
+          python --version
+          python -m pip install --upgrade pip
       - run:
           name: install specklepy to `modules` dir
           command: python -m pip install --target=.\modules specklepy
