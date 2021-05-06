@@ -19,13 +19,11 @@ jobs:
     steps:
       - checkout
       - run: 
-          name: check python version & upgrade pip
-        command: |
-          python --version
-          python -m pip install --upgrade pip
-      - run:
           name: install specklepy to `modules` dir
-          command: python -m pip install --target=.\modules specklepy
+          command: |
+            python --version
+            python -m pip install --upgrade pip
+            python -m pip install --target=.\modules specklepy
       - attach_workspace:
           at: ./
       - run:
