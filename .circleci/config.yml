@@ -40,13 +40,7 @@ jobs:
             if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$channel.yml" -ItemType File -Value "version: $version" }
       - run: # Creates the inno installer
           name: InnoSetup
-          command: |
-            echo hello there!
-            if exist "speckle-sharp-ci-tools\Installers\%slug%\beta.yml" (set channel=beta) else (set channel=latest)
-            echo %channel%
-            for /f "tokens=1,2" %G in (speckle-sharp-ci-tools\Installers\%slug%\%channel%.yml) do (set version=%H)
-            echo %version%
-            speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\%slug%.iss /dAppVersion="2.0.0"
+          command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\%slug%.iss /dAppVersion="2.0.0"
           environment:
             slug: << parameters.slug >>
       - persist_to_workspace:
