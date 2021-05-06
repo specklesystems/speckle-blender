@@ -1,11 +1,12 @@
-bpy_speckle/__pycache__/
-bpy_speckle/callbacks/__pycache__/
-bpy_speckle/convert/__pycache__/
-bpy_speckle/convert/from_speckle/__pycache__/
-bpy_speckle/convert/to_speckle/__pycache__/
-bpy_speckle/operators/__pycache__/
-bpy_speckle/properties/__pycache__/
-bpy_speckle/ui/__pycache__/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
-.venv
+# editor
 .vscode
+
+# dev
+.venv
+Installers/
+modules/
