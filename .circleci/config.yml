@@ -46,7 +46,7 @@ jobs:
             echo %channel%
             for /f "tokens=1,2" %G in (speckle-sharp-ci-tools\Installers\%slug%\%channel%.yml) do (set version=%H)
             echo %version%
-            speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\%slug%.iss /dAppVersion=%version%
+            speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\%slug%.iss /dAppVersion="2.0.0"
           environment:
             slug: << parameters.slug >>
       - persist_to_workspace:
