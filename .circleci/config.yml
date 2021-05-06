@@ -41,9 +41,11 @@ jobs:
       - run: # Creates the inno installer
           name: InnoSetup
           command: |
-            if exist "speckle-sharp-ci-tools/Installers/%slug%/beta.yml" (set channel=beta) else (set channel=latest)
-            set yaml_path="speckle-sharp-ci-tools/Installers/%slug%/%channel%.yml"
+            if exist "speckle-sharp-ci-tools\Installers\%slug%\beta.yml" (set channel=beta) else (set channel=latest)
+            set yaml_path="speckle-sharp-ci-tools\Installers\%slug%\%channel%.yml"
+            echo %yaml_path%
             for /f "tokens=1,2" %G in (%yaml_path%) do set version=%H
+            echo %version%
             speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\%slug%.iss /dAppVersion=%version%
           environment:
             slug: << parameters.slug >>
