@@ -77,7 +77,7 @@ jobs:
       - image: cimg/base:2021.01
     steps:    
       - attach_workspace:
-          at: ./
+          at: ./ 
       - run: 
           name: List contents
           command: ls -R speckle-sharp-ci-tools/Installers
