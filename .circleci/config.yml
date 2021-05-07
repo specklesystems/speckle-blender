@@ -37,9 +37,10 @@ jobs:
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/version.txt" -ItemType File -Value "$version"
       - run: dir speckle-sharp-ci-tools & dir speckle-sharp-ci-tools\Installers & dir speckle-sharp-ci-tools\Installers\blender
       - run: more .\speckle-sharp-ci-tools\Installers\blender\version.txt
+      - run: cd speckle-sharp-ci-tools\Installers\blender & set /p test=<version.txt & echo %test%
       - run: 
           name: InnoSetup
-          command: more speckle-sharp-ci-tools\Installers\blender\version.txt & set /p version=<speckle-sharp-ci-tools\Installers\blender\version.txt & echo %version% & speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /dAppVersion=%version%
+          command: set /p version=<.\speckle-sharp-ci-tools\Installers\blender\version.txt & echo %version% & speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /dAppVersion=%version%
       - persist_to_workspace:
           root: ./
           paths:
