@@ -29,18 +29,14 @@ jobs:
             $tag = if([string]::IsNullOrEmpty($env:CIRCLE_TAG)) { "0.0.1" } else { $env:CIRCLE_TAG }
             $semver = $tag.replace("-beta","").Split("/")[1]  
             $version = "$($semver).$($env:CIRCLE_BUILD_NUM)"
-            $version
             $channel = "latest"
             if($tag -like "*-beta") { $channel = "beta" }
             # only create the yml if we have a tag
             if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$channel.yml" -ItemType File -Value "version: $version" }
-      - run: |
-          if exist "speckle-sharp-ci-tools/Installers/blender/beta.yml" (set channel=beta) else (set channel=latest)
-          set yaml_path="speckle-sharp-ci-tools/Installers/blender/%channel%.yml"
-          for /f "tokens=1,2" %G in (%yaml_path%) do set version=%H
-      - run: # Creates the inno installer
+            if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "version.txt" -ItemType File -Value "$version" }
+      - run: 
           name: InnoSetup
-          command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /dAppVersion=%version%
+          command: set /p version=<version.txt & speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /dAppVersion=%version%
       - persist_to_workspace:
           root: ./
           paths:
