@@ -18,40 +18,32 @@ jobs:
         default: ''
     steps:
       - checkout
-      - run: 
-          name: install specklepy to `modules` dir
-          command: |
-            python --version
-            python -m pip install --upgrade pip
-            python -m pip install --target=.\modules specklepy
       - attach_workspace:
           at: ./
       - run:
+          name: upgrade pip and install specklepy
+          command: python -m pip install --upgrade pip & python -m pip install --target=.\modules specklepy
+      - run: 
           name: Patch
           shell: powershell.exe
           command: | # If no tag, use 0.0.0.1 and don't make any YML (for testing only!)
             $tag = if([string]::IsNullOrEmpty($env:CIRCLE_TAG)) { "0.0.1" } else { $env:CIRCLE_TAG }
             $semver = $tag.replace("-beta","").Split("/")[1]  
             $version = "$($semver).$($env:CIRCLE_BUILD_NUM)"
-            $version
             $channel = "latest"
             if($tag -like "*-beta") { $channel = "beta" }
             # only create the yml if we have a tag
-            if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$channel.yml" -ItemType File -Value "version: $version" }
-      - run: # Creates the inno installer
+            New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $version"
+            New-Item -Force "speckle-sharp-ci-tools/Installers/blender/version.txt" -ItemType File -Value "$version"
+      - run: dir speckle-sharp-ci-tools & dir speckle-sharp-ci-tools\Installers & dir speckle-sharp-ci-tools\Installers\blender
+      - run: dir
+      - run: 
           name: InnoSetup
-          command: |
-            if exist "speckle-sharp-ci-tools/Installers/%slug%/beta.yml" (set channel=beta) else (set channel=latest)
-            set yaml_path="speckle-sharp-ci-tools/Installers/%slug%/%channel%.yml"
-            for /f "tokens=1,2" %G in (%yaml_path%) do set version=%H
-            speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\%slug%.iss /dAppVersion=%version%
-          environment:
-            slug: << parameters.slug >>
+          command: more speckle-sharp-ci-tools\Installers\blender\version.txt & set /p version=<"speckle-sharp-ci-tools\Installers\blender\version.txt" & echo %version% & speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /dAppVersion=%version%
       - persist_to_workspace:
           root: ./
           paths:
             - speckle-sharp-ci-tools/Installers
-
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
       - image: cimg/base:2021.01
@@ -69,7 +61,7 @@ jobs:
       - image: cimg/base:2021.01
     steps:    
       - attach_workspace:
-          at: ./
+          at: ./ 
       - run: 
           name: List contents
           command: ls -R speckle-sharp-ci-tools/Installers
@@ -86,20 +78,20 @@ workflows:
     jobs:
       - get-ci-tools:
           filters:
-            tags:
-              only: /[0-9]+(\.[0-9]+)*/
             branches:
-              ignore: /.*/ # For testing only! /ci\/.*/
-      
+              only:
+                - main
+                - /ci*/ 
+
       - build-connector:
           slug: blender  
           requires:
               - get-ci-tools
           filters:
-            tags:
-              only: /[0-9]+(\.[0-9]+)*/
             branches:
-              ignore: /.*/ # For testing only! /ci\/.*/
+              only:
+                - main
+                - /ci*/ only! /ci\/.*/
       
       - deploy:
           requires:
