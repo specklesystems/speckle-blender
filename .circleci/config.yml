@@ -38,13 +38,16 @@ jobs:
       - run: dir
       - run: cd ../ & dir & cd project
       - run: cd speckle-sharp-ci-tools/Installers/blender & dir
+      - run: 
+          command: if exist "speckle-sharp-ci-tools/Installers/%slug%/beta.yml" (set channel=beta) else (set channel=latest)
+          environment:
+            slug: << parameters.slug >>
       - run:
-          name: get version
-          command: |
-            if exist "speckle-sharp-ci-tools/Installers/%slug%/beta.yml" (set channel=beta) else (set channel=latest)
-            set yaml_path="speckle-sharp-ci-tools/Installers/%slug%/%channel%.yml"
-            for /f "tokens=1,2" %G in (%yaml_path%) do set version=%H
-            echo %version%
+          command: set yaml_path="speckle-sharp-ci-tools/Installers/%slug%/%channel%.yml"
+          environment:
+            slug: << parameters.slug >>
+      - run:
+          command: for /f "tokens=1,2" %G in (%yaml_path%) do set version=%H
           environment:
             slug: << parameters.slug >>
       - run: # Creates the inno installer
