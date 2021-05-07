@@ -77,22 +77,13 @@ jobs:
 workflows:
   deploy:
     jobs:
-      - get-ci-tools:
-          filters:
-            branches:
-              only:
-                - main
-                - /ci*/
+      - get-ci-tools
 
       - build-connector:
           slug: blender  
           requires:
               - get-ci-tools
-          filters:
-            branches:
-              only:
-                - main
-                - /ci*/
+
       
       - deploy:
           requires:
