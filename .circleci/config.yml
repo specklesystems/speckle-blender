@@ -81,7 +81,7 @@ workflows:
             branches:
               only:
                 - main
-                - /ci*/ 
+                - /ci\/.*/
 
       - build-connector:
           slug: blender  
