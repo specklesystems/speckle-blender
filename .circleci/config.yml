@@ -22,6 +22,7 @@ jobs:
           at: ./
       - run: python -m pip install --upgrade pip
       - run: python -m pip install --target=.\modules specklepy
+      - run: mkdir speckle-sharp-ci-tools\Installers\blender
       - run: 
           name: Patch
           shell: powershell.exe
