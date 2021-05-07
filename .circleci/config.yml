@@ -28,7 +28,7 @@ jobs:
           shell: powershell.exe
           command:
             | # If no tag, use 0.0.0.1 and don't make any YML (for testing only!)
-            $tag = if([string]::IsNullOrEmpty($env:CIRCLE_TAG)) { "0.0.1" } else { $env:CIRCLE_TAG }
+            $tag = if([string]::IsNullOrEmpty($env:CIRCLE_TAG)) { "1.0.1" } else { $env:CIRCLE_TAG }
             $semver = $tag.replace("-beta","").Split("/")[1]  
             $version = "$($semver).$($env:CIRCLE_BUILD_NUM)"
             $channel = "latest"
