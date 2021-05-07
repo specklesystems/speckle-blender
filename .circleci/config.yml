@@ -36,7 +36,7 @@ jobs:
             if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "version.txt" -ItemType File -Value "$version" }
       - run: 
           name: InnoSetup
-          command: set /p version=<version.txt & speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /dAppVersion=%version%
+          command: set /p version=<version.txt & echo %version% & speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /dAppVersion=%version%
       - persist_to_workspace:
           root: ./
           paths:
