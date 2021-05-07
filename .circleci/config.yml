@@ -33,7 +33,8 @@ jobs:
             if($tag -like "*-beta") { $channel = "beta" }
             # only create the yml if we have a tag
             if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$channel.yml" -ItemType File -Value "version: $version" }
-            if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "version.txt" -ItemType File -Value "$version" }
+            if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/version.txt" -ItemType File -Value "$version" }
+      - run: cd "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/" & dir 
       - run: dir
       - run: 
           name: InnoSetup
