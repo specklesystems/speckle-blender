@@ -28,7 +28,7 @@ jobs:
             more modules\specklepy\objects\__init__.py
       - attach_workspace:
           at: ./
-      - run:
+      - run: 
           name: Patch
           shell: powershell.exe
           command: | # If no tag, use 0.0.0.1 and don't make any YML (for testing only!)
