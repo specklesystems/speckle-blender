@@ -40,12 +40,11 @@ jobs:
             if($tag -like "*-beta") { $channel = "beta" }
             # only create the yml if we have a tag
             if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$channel.yml" -ItemType File -Value "version: $version" }
+      - run: 
+          command: more "speckle-sharp-ci-tools/Installers/blender/latest.yml"
       - run:
           name: get version
           command: |
-            echo hello
-            echo goodbye
-            echo wow
             if exist "speckle-sharp-ci-tools/Installers/%slug%/beta.yml" (set channel=beta) else (set channel=latest)
             set yaml_path="speckle-sharp-ci-tools/Installers/%slug%/%channel%.yml"
             for /f "tokens=1,2" %G in (%yaml_path%) do set version=%H
