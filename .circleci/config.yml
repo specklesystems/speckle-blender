@@ -20,10 +20,9 @@ jobs:
       - checkout
       - attach_workspace:
           at: ./
-      - run: |
-          python --version
-          python -m pip install --upgrade pip
-          python -m pip install --target=.\modules specklepy
+      - run: python --version
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --target=.\modules specklepy
       - run: 
           name: Patch
           shell: powershell.exe
@@ -39,8 +38,6 @@ jobs:
       - run: dir
       - run: cd ../ & dir & cd project
       - run: cd speckle-sharp-ci-tools/Installers/blender & dir
-      - run: 
-          command: more "speckle-sharp-ci-tools/Installers/blender/latest.yml"
       - run:
           name: get version
           command: |
