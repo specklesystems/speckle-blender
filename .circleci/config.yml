@@ -91,7 +91,7 @@ workflows:
             branches:
               only:
                 - main
-                - /ci*/ only! /ci\/.*/
+                - /ci\/.*/
       
       - deploy:
           requires:
