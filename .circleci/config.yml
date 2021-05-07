@@ -36,10 +36,11 @@ jobs:
             # only create the yml if we have a tag
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $version"
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/version.txt" -ItemType File -Value "$version"
-      - run: more speckle-sharp-ci-tools/Installers/blender/version.txt & echo hello & SET wow=42 & echo %wow%
+      - run: set /p version=<speckle-sharp-ci-tools\Installers\blender\version.txt
+      - run: echo %version% & more speckle-sharp-ci-tools\Installers\blender\version.txt
       - run:
           name: InnoSetup
-          command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss
+          command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /dAppVersion=%version%
       - persist_to_workspace:
           root: ./
           paths:
