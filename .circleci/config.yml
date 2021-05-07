@@ -29,20 +29,14 @@ jobs:
           command:
             | # If no tag, use 0.0.0.1 and don't make any YML (for testing only!)
             $tag = if([string]::IsNullOrEmpty($env:CIRCLE_TAG)) { "0.0.1" } else { $env:CIRCLE_TAG }
-            $semver = $tag.replace("-beta","").Split("/")[1]  
+            $semver = $tag.replace("-beta","")
             $version = "$($semver).$($env:CIRCLE_BUILD_NUM)"
             $channel = "latest"
             if($tag -like "*-beta") { $channel = "beta" }
             # only create the yml if we have a tag
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $version"
-            New-Item -Force "speckle-sharp-ci-tools/Installers/blender/version.txt" -ItemType File -Value "$version"
-      - run:
-          name: InnoSetup
-          command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /dAppVersion=<.\speckle-sharp-ci-tools\Installers\blender\version.txt
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - speckle-sharp-ci-tools/Installers
+            echo $version
+            speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /dAppVersion=$version
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
       - image: cimg/base:2021.01
