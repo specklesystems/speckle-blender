@@ -24,7 +24,7 @@ jobs:
             python --version
             python -m pip install --upgrade pip
             python -m pip install --target=.\modules specklepy
-            if exist .\modules\specklepy echo specklepy successfully installed
+            IF EXIST ".\modules\specklepy" (ECHO specklepy successfully installed) ELSE (ECHO specklepy not found)
       - attach_workspace:
           at: ./
       - run:
