@@ -80,8 +80,10 @@ workflows:
       - get-ci-tools:
           filters:
             branches:
-              ignore: /.*/ # For testing only! /ci\/.*/
-      
+              only:
+                - main
+                - /ci*/
+
       - build-connector:
           slug: blender  
           requires:
