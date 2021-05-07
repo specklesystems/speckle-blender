@@ -21,9 +21,9 @@ jobs:
       - run: 
           name: install specklepy to `modules` dir
           command: |
-            python --version
-            python -m pip install --upgrade pip
-            python -m pip install --target=.\modules specklepy
+            python --version &
+            python -m pip install --upgrade pip &
+            python -m pip install --target=.\modules specklepy &
             IF EXIST ".\modules\specklepy" (ECHO specklepy successfully installed) ELSE (ECHO specklepy not found)
             more modules\specklepy\objects\__init__.py
       - attach_workspace:
@@ -43,9 +43,9 @@ jobs:
       - run:
           name: get version
           command: |
-            if exist "speckle-sharp-ci-tools/Installers/%slug%/beta.yml" (set channel=beta) else (set channel=latest)
-            set yaml_path="speckle-sharp-ci-tools/Installers/%slug%/%channel%.yml"
-            for /f "tokens=1,2" %G in (%yaml_path%) do set version=%H
+            if exist "speckle-sharp-ci-tools/Installers/%slug%/beta.yml" (set channel=beta) else (set channel=latest) &
+            set yaml_path="speckle-sharp-ci-tools/Installers/%slug%/%channel%.yml" &
+            for /f "tokens=1,2" %G in (%yaml_path%) do set version=%H &
             echo %version%
           environment:
             slug: << parameters.slug >>
