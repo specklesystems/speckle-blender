@@ -41,6 +41,10 @@ jobs:
             # only create the yml if we have a tag
             if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$channel.yml" -ItemType File -Value "version: $version" }
       - run: 
+          command: dir
+      - run: 
+          command: cd speckle-sharp-ci-tools/Installers/blender & dir
+      - run: 
           command: more "speckle-sharp-ci-tools/Installers/blender/latest.yml"
       - run:
           name: get version
