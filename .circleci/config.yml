@@ -29,7 +29,7 @@ jobs:
           command:
             | # If no tag, use 0.0.0.1 and don't make any YML (for testing only!)
             $tag = if([string]::IsNullOrEmpty($env:CIRCLE_TAG)) { "1.0.1" } else { $env:CIRCLE_TAG }
-            $semver = $tag.replace("-beta","").Split("/")[1]  
+            $semver = $tag.replace("-beta","")
             $version = "$($semver).$($env:CIRCLE_BUILD_NUM)"
             $channel = "latest"
             if($tag -like "*-beta") { $channel = "beta" }
