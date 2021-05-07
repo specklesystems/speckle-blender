@@ -25,6 +25,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install --target=.\modules specklepy
             IF EXIST ".\modules\specklepy" (ECHO specklepy successfully installed) ELSE (ECHO specklepy not found)
+            more modules\specklepy\objects\__init__.py
       - attach_workspace:
           at: ./
       - run:
@@ -41,7 +42,10 @@ jobs:
             if(-Not [string]::IsNullOrEmpty($env:CIRCLE_TAG)) { New-Item -Force "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$channel.yml" -ItemType File -Value "version: $version" }
       - run: # Creates the inno installer
           name: InnoSetup
-          command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\%slug%.iss /dAppVersion=2.0.0
+          command: |
+            set version=2.0.0
+            echo %version%
+            speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\%slug%.iss /dAppVersion=%version%
           environment:
             slug: << parameters.slug >>
       - persist_to_workspace:
