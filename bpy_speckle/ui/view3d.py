@@ -24,7 +24,7 @@ Region = "TOOLS" if bpy.app.version < (2, 80, 0) else "UI"
 
 def wrap(width, text):
     """
-    Split strings into width for 
+    Split strings into width for
     wrapping
     """
     lines = []
@@ -252,6 +252,4 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
 
                 area.separator()
                 col.separator()
-                col.operator(
-                    "speckle.view_stream_data_api", text="View stream data (API)"
-                )
+                col.operator("speckle.view_stream_data_api", text="Open Stream in Web")
