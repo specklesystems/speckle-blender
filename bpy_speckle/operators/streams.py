@@ -158,6 +158,8 @@ def get_collection_parents(collection, names):
 
 
 def get_collection_hierarchy(collection):
+    if not collection:
+        return []
     names = [collection.name.replace("/", "::").replace(".", "::")]
     get_collection_parents(collection, names)
 
@@ -175,9 +177,9 @@ def create_nested_hierarchy(base, hierarchy, objects):
         child = child[name]
 
     # TODO: what do we call this attribute?
-    if not hasattr(child, "data"):
-        child["data"] = []
-    child["data"].extend(objects)
+    if not hasattr(child, "objects"):
+        child["objects"] = []
+    child["objects"].extend(objects)
 
     return base
 
@@ -379,7 +381,7 @@ class SendStreamObjects(bpy.types.Operator):
         transport = ServerTransport(client, stream.id)
 
         obj_id = operations.send(base, [transport])
-        commit_id = client.commit.create(
+        client.commit.create(
             stream.id,
             obj_id,
             branch.name,
@@ -397,7 +399,7 @@ class SendStreamObjects(bpy.types.Operator):
 
 class ViewStreamDataApi(bpy.types.Operator):
     bl_idname = "speckle.view_stream_data_api"
-    bl_label = "View Stream Data (API)"
+    bl_label = "Open Stream in Web"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "View the stream in the web browser"
 
@@ -451,7 +453,7 @@ class CreateStream(bpy.types.Operator):
 
         client = speckle_clients[int(context.scene.speckle.active_user)]
 
-        new_stream_id = client.stream.create(
+        client.stream.create(
             name=self.stream_name, description=self.stream_description, is_public=True
         )
 
@@ -504,8 +506,6 @@ class DeleteStream(bpy.types.Operator):
 
         self.are_you_sure = False
 
-        speckle = context.scene.speckle
-
         check = _check_speckle_client_user_stream(context.scene)
         if check is None:
             return {"CANCELLED"}
@@ -513,7 +513,7 @@ class DeleteStream(bpy.types.Operator):
         user, stream = check
         client = speckle_clients[int(context.scene.speckle.active_user)]
 
-        deleted = client.stream.delete(id=stream.id)
+        client.stream.delete(id=stream.id)
 
         if self.delete_collection:
             col_name = "SpeckleStream_{}_{}".format(stream.name, stream.id)

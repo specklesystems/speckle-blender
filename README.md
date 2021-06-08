@@ -35,7 +35,7 @@ This code is WIP and as such should be used with extreme caution on non-sensitiv
 - Select the user from the dropdown list in the `Users` panel. This will populate the `Streams` list with available streams for the selected user.
 - Select a branch and commit from the dropdown menus.
 - Click on `Receive` to download the objects from the selected stream, branch, and commit. The stream objects will be loaded into a Blender Collection, named `<STREAM_NAME> [ <STREAM_BRANCH> @ <BRANCH_COMMIT> ]`. <!-- You can filter the stream by entering a query into the `Filter` field (i.e. `properties.weight>10` or `type="Mesh"`). -->
-- Click on `View stream data (API)` to view the stream in your web browser.
+- Click on `Open Stream in Web` to view the stream in your web browser.
 
 ## Caveats
 

@@ -2,6 +2,7 @@
 User account operators
 """
 
+from typing import cast
 import bpy, bmesh, os
 from bpy.props import (
     StringProperty,
@@ -47,9 +48,13 @@ class LoadUsers(bpy.types.Operator):
             user.email = profile.userInfo.email
             user.company = profile.userInfo.company or ""
             user.authToken = profile.token
-            client = SpeckleClient(host=profile.serverInfo.url, use_ssl=True)
-            client.authenticate(user.authToken)
-            speckle_clients.append(client)
+            try:
+                client = SpeckleClient(host=profile.serverInfo.url, use_ssl=True)
+                client.authenticate(user.authToken)
+                speckle_clients.append(client)
+            except Exception as ex:
+                _report(ex)
+                users.remove(len(users) - 1)
 
         context.scene.speckle.active_user_index = int(context.scene.speckle.active_user)
         bpy.ops.speckle.load_user_streams()
