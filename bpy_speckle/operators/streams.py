@@ -173,7 +173,7 @@ def create_nested_hierarchy(base, hierarchy, objects):
         name = hierarchy.pop()
         if not hasattr(child, name):
             child[name] = Base()
-            base.add_detachable_attrs({name})
+            child.add_detachable_attrs({name})
         child = child[name]
 
     # TODO: what do we call this attribute?
