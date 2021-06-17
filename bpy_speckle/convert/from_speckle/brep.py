@@ -7,7 +7,9 @@ def import_brep(speckle_brep, scale, name=None):
     if not name:
         name = speckle_brep.geometryHash or speckle_brep.id
 
-    display = speckle_brep.displayMesh or speckle_brep.displayValue
+    display = getattr(
+        speckle_brep, "displayMesh", getattr(speckle_brep, "displayValue", None)
+    )
     if display:
         if name in bpy.data.meshes.keys():
             mesh = bpy.data.meshes[name]
