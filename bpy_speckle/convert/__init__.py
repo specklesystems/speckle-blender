@@ -180,13 +180,13 @@ def dict_to_speckle_object(data):
 
 
 def from_speckle_object(speckle_object, scale, name=None):
+    speckle_name = (
+        name
+        or getattr(speckle_object, "name", None)
+        or speckle_object.speckle_type + f" -- {speckle_object.id}"
+    )
     if type(speckle_object) in FROM_SPECKLE_SCHEMAS.keys():
         print("Got object type: {}".format(type(speckle_object)))
-        speckle_name = (
-            name
-            or getattr(speckle_object, "name", None)
-            or speckle_object.speckle_type + f" -- {speckle_object.id}"
-        )
 
         try:
             obdata = FROM_SPECKLE_SCHEMAS[type(speckle_object)](
@@ -213,6 +213,10 @@ def from_speckle_object(speckle_object, scale, name=None):
         # set_transform(speckle_object, blender_object)
 
         return blender_object
+    elif hasattr(speckle_object, "displayMesh"):
+        return from_speckle_object(speckle_object.displayMesh, scale, speckle_name)
+    elif hasattr(speckle_object, "displayValue"):
+        return from_speckle_object(speckle_object.displayValue, scale, speckle_name)
 
     else:
         _report("Invalid input: {}".format(speckle_object))
