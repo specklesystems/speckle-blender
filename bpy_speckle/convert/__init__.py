@@ -188,9 +188,13 @@ def from_speckle_object(speckle_object, scale, name=None):
             or speckle_object.speckle_type + f" -- {speckle_object.id}"
         )
 
-        obdata = FROM_SPECKLE_SCHEMAS[type(speckle_object)](
-            speckle_object, scale, speckle_name
-        )
+        try:
+            obdata = FROM_SPECKLE_SCHEMAS[type(speckle_object)](
+                speckle_object, scale, speckle_name
+            )
+        except Exception as e:  # conversion error
+            _report(f"Error converting {speckle_object} \n{e}")
+            return None
 
         if speckle_name in bpy.data.objects.keys():
             blender_object = bpy.data.objects[speckle_name]
