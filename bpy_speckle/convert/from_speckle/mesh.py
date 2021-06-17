@@ -1,5 +1,6 @@
 import bpy, bmesh, struct
 import base64
+from bpy_speckle.functions import _report
 
 
 def add_vertices(smesh, bmesh, scale=1.0):
@@ -23,29 +24,36 @@ def add_faces(smesh, bmesh, smooth=False):
 
     if sfaces and len(sfaces) > 0:
         i = 0
+        # TODO: why does `faces.new()` seem to fail so often?
         while i < len(sfaces):
             if sfaces[i] == 0:
                 i += 1
-                f = bmesh.faces.new(
-                    (
-                        bmesh.verts[int(sfaces[i])],
-                        bmesh.verts[int(sfaces[i + 1])],
-                        bmesh.verts[int(sfaces[i + 2])],
+                try:
+                    f = bmesh.faces.new(
+                        (
+                            bmesh.verts[int(sfaces[i])],
+                            bmesh.verts[int(sfaces[i + 1])],
+                            bmesh.verts[int(sfaces[i + 2])],
+                        )
                     )
-                )
-                f.smooth = smooth
+                    f.smooth = smooth
+                except Exception as e:
+                    _report(f"Failed to create face for mesh {smesh.id} \n{e}")
                 i += 3
             elif sfaces[i] == 1:
                 i += 1
-                f = bmesh.faces.new(
-                    (
-                        bmesh.verts[int(sfaces[i])],
-                        bmesh.verts[int(sfaces[i + 1])],
-                        bmesh.verts[int(sfaces[i + 2])],
-                        bmesh.verts[int(sfaces[i + 3])],
+                try:
+                    f = bmesh.faces.new(
+                        (
+                            bmesh.verts[int(sfaces[i])],
+                            bmesh.verts[int(sfaces[i + 1])],
+                            bmesh.verts[int(sfaces[i + 2])],
+                            bmesh.verts[int(sfaces[i + 3])],
+                        )
                     )
-                )
-                f.smooth = smooth
+                    f.smooth = smooth
+                except Exception as e:
+                    _report(f"Failed to create face for mesh {smesh.id} \n{e}")
                 i += 4
             else:
                 print("Invalid face length.\n" + str(sfaces[i]))

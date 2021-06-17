@@ -205,7 +205,8 @@ def from_speckle_object(speckle_object, scale, name=None):
 
         add_custom_properties(speckle_object, blender_object)
         add_blender_material(speckle_object, blender_object)
-        set_transform(speckle_object, blender_object)
+        # TODO: chat with tom re transforms
+        # set_transform(speckle_object, blender_object)
 
         return blender_object
 
