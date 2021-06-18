@@ -83,7 +83,7 @@ class LoadUserStreams(bpy.types.Operator):
             client = speckle_clients[int(context.scene.speckle.active_user)]
 
             try:
-                streams = client.stream.list()
+                streams = client.stream.list(stream_limit=20)
             except Exception as e:
                 _report("Failed to retrieve streams: {}".format(e))
                 return

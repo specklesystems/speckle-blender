@@ -1,6 +1,6 @@
 import bpy, math
 from bpy_speckle.util import find_key_case_insensitive
-from mathutils import Vector, Quaternion
+import mathutils
 from specklepy.objects.geometry import *
 
 CONVERT = {}
@@ -85,7 +85,7 @@ def import_nurbs_curve(scurve, bcurve, scale):
                 1,
             )
 
-        if len(scurve.weights == len(nurbs.points)):
+        if len(scurve.weights) == len(nurbs.points):
             for i, w in enumerate(scurve.weights):
                 nurbs.points[i].weight = w
 
@@ -109,7 +109,7 @@ def import_arc(rcurve, bcurve, scale):
         return
 
     origin = plane.origin
-    normal = Vector(plane.normal.value)
+    normal = mathutils.Vector([plane.normal.x, plane.normal.y, plane.normal.z])
 
     xaxis = plane.xdir
     yaxis = plane.ydir
@@ -118,20 +118,20 @@ def import_arc(rcurve, bcurve, scale):
     startAngle = rcurve.startAngle
     endAngle = rcurve.endAngle
 
-    startQuat = Quaternion(normal, startAngle)
-    endQuat = Quaternion(normal, endAngle)
+    startQuat = mathutils.Quaternion(normal, startAngle)
+    endQuat = mathutils.Quaternion(normal, endAngle)
 
     """
     Get start and end vectors, centre point, angles, etc.
     """
 
-    r1 = Vector(plane.xdir.value)
+    r1 = mathutils.Vector([plane.xdir.x, plane.xdir.y, plane.xdir.z])
     r1.rotate(startQuat)
 
-    r2 = Vector(plane.xdir.value)
+    r2 = mathutils.Vector([plane.xdir.x, plane.xdir.y, plane.xdir.z])
     r2.rotate(endQuat)
 
-    c = Vector(plane.origin.value) * scale
+    c = mathutils.Vector([plane.origin.x, plane.origin.y, plane.origin.z]) * scale
 
     spt = c + r1 * radius
     ept = c + r2 * radius
@@ -149,7 +149,7 @@ def import_arc(rcurve, bcurve, scale):
 
     Ndiv = max(int(math.floor(angle / 0.3)), 2)
     step = angle / float(Ndiv)
-    stepQuat = Quaternion(normal, step)
+    stepQuat = mathutils.Quaternion(normal, step)
     tan = math.tan(step / 2) * radius
 
     arc.points.add(Ndiv + 1)

@@ -180,17 +180,23 @@ def dict_to_speckle_object(data):
 
 
 def from_speckle_object(speckle_object, scale, name=None):
+    speckle_name = (
+        name
+        or getattr(speckle_object, "name", None)
+        or speckle_object.speckle_type + f" -- {speckle_object.id}"
+    )
+
+    # try native conversion
     if type(speckle_object) in FROM_SPECKLE_SCHEMAS.keys():
         print("Got object type: {}".format(type(speckle_object)))
-        speckle_name = (
-            name
-            or getattr(speckle_object, "name", None)
-            or speckle_object.speckle_type + f" -- {speckle_object.id}"
-        )
 
-        obdata = FROM_SPECKLE_SCHEMAS[type(speckle_object)](
-            speckle_object, scale, speckle_name
-        )
+        try:
+            obdata = FROM_SPECKLE_SCHEMAS[type(speckle_object)](
+                speckle_object, scale, speckle_name
+            )
+        except Exception as e:  # conversion error
+            _report(f"Error converting {speckle_object} \n{e}")
+            return None
 
         if speckle_name in bpy.data.objects.keys():
             blender_object = bpy.data.objects[speckle_name]
@@ -210,9 +216,16 @@ def from_speckle_object(speckle_object, scale, name=None):
 
         return blender_object
 
-    else:
-        _report("Invalid input: {}".format(speckle_object))
-        return None
+    # try display mesh
+    mesh = getattr(
+        speckle_object, "displayMesh", getattr(speckle_object, "displayValue", None)
+    )
+    if mesh:
+        return from_speckle_object(mesh, scale, speckle_name)
+
+    # return none if fail
+    _report("Invalid input: {}".format(speckle_object))
+    return None
 
 
 def get_speckle_subobjects(attr, scale, name):
