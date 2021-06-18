@@ -1,7 +1,6 @@
 """
 Stream operators
 """
-
 import bpy, bmesh, os
 import webbrowser
 from bpy.props import (
@@ -234,7 +233,6 @@ class ReceiveStreamObjects(bpy.types.Operator):
             return {"CANCELLED"}
 
         name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id)
-
         col = create_collection(name)
         col.speckle.stream_id = stream.id
         col.speckle.name = stream.name
@@ -380,12 +378,16 @@ class SendStreamObjects(bpy.types.Operator):
 
         transport = ServerTransport(client, stream.id)
 
-        obj_id = operations.send(base, [transport])
+        obj_id = operations.send(
+            base,
+            [transport],
+        )
         client.commit.create(
             stream.id,
             obj_id,
             branch.name,
             message=self.commit_message,
+            source_application="blender",
         )
 
         bpy.ops.speckle.load_user_streams()
