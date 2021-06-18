@@ -185,6 +185,8 @@ def from_speckle_object(speckle_object, scale, name=None):
         or getattr(speckle_object, "name", None)
         or speckle_object.speckle_type + f" -- {speckle_object.id}"
     )
+
+    # try native conversion
     if type(speckle_object) in FROM_SPECKLE_SCHEMAS.keys():
         print("Got object type: {}".format(type(speckle_object)))
 
@@ -213,14 +215,17 @@ def from_speckle_object(speckle_object, scale, name=None):
         # set_transform(speckle_object, blender_object)
 
         return blender_object
-    elif hasattr(speckle_object, "displayMesh"):
-        return from_speckle_object(speckle_object.displayMesh, scale, speckle_name)
-    elif hasattr(speckle_object, "displayValue"):
-        return from_speckle_object(speckle_object.displayValue, scale, speckle_name)
 
-    else:
-        _report("Invalid input: {}".format(speckle_object))
-        return None
+    # try display mesh
+    mesh = getattr(
+        speckle_object, "displayMesh", getattr(speckle_object, "displayValue", None)
+    )
+    if mesh:
+        return from_speckle_object(mesh, scale, speckle_name)
+
+    # return none if fail
+    _report("Invalid input: {}".format(speckle_object))
+    return None
 
 
 def get_speckle_subobjects(attr, scale, name):
