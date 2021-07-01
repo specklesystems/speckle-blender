@@ -26,7 +26,6 @@ def export_mesh(blender_object, data, scale=1.0):
         colors=[],
         units="m" if unit_system == "METRIC" else "ft",
         bbox=Box(area=0.0, volume=0.0),
-        applicationId="Blender",
     )
 
     for f in faces:
