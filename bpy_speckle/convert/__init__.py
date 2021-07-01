@@ -4,8 +4,7 @@ from mathutils import Matrix
 from .from_speckle import *
 from .to_speckle import *
 from .util import *
-from bpy_speckle.util import find_key_case_insensitive
-from bpy_speckle.functions import _report
+from bpy_speckle.functions import _report, get_scale_length
 
 from specklepy.objects.geometry import *
 from specklepy.objects.other import RenderMaterial
@@ -19,17 +18,6 @@ FROM_SPECKLE_SCHEMAS = {
     Polycurve: import_curve,
     Arc: import_curve,
 }
-
-
-# FROM_SPECKLE = {
-#     "Mesh": import_mesh,
-#     "Brep": import_brep,
-#     "Curve": import_curve,
-#     "Line": import_curve,
-#     "Polyline": import_curve,
-#     "Polycurve":import_curve,
-#     "Arc":import_curve,
-# }
 
 
 TO_SPECKLE = {
@@ -146,7 +134,10 @@ def add_custom_properties(speckle_object, blender_object):
     blender_object["_speckle_type"] = type(speckle_object).__name__
     # blender_object['_speckle_name'] = "SpeckleObject"
 
-    ignore = ["_chunkable", "_units"]
+    ignore = ["_chunkable", "_units", "units"]
+
+    if hasattr(speckle_object, "applicationId"):
+        blender_object["applicationId"] = speckle_object.applicationId
 
     for key in speckle_object.get_dynamic_member_names():
         if key in ignore:
@@ -185,6 +176,10 @@ def from_speckle_object(speckle_object, scale, name=None):
         or getattr(speckle_object, "name", None)
         or speckle_object.speckle_type + f" -- {speckle_object.id}"
     )
+
+    units = getattr(speckle_object, "units", None)
+    if units:
+        scale = get_scale_length(units) / bpy.context.scene.unit_settings.scale_length
 
     # try native conversion
     if type(speckle_object) in FROM_SPECKLE_SCHEMAS.keys():
@@ -278,12 +273,12 @@ def get_blender_custom_properties(obj, max_depth=1000):
         return obj
 
     if hasattr(obj, "keys"):
-        d = {}
-        for key in obj.keys():
-            if key in ignored_keys or key.startswith("_"):
-                continue
-            d[key] = get_blender_custom_properties(obj[key], max_depth - 1)
-        return d
+        return {
+            key: get_blender_custom_properties(obj[key], max_depth - 1)
+            for key in obj.keys()
+            if key not in ignored_keys and not key.startswith("_")
+        }
+
     elif isinstance(obj, (list, tuple, idprop.types.IDPropertyArray)):
         return [get_blender_custom_properties(o, max_depth - 1) for o in obj]
     else:
@@ -302,6 +297,7 @@ def to_speckle_object(blender_object, scale):
 
     for so in speckle_objects:
         so.properties = get_blender_custom_properties(blender_object)
+        so.applicationId = so.properties.pop("applicationId", None)
 
         if speckle_material:
             so["renderMaterial"] = speckle_material
