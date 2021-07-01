@@ -110,7 +110,7 @@ class DeleteObject(bpy.types.Operator):
                 for x in res["resource"]["objects"]
                 if x["_id"] == active.speckle.object_id
             ]
-            if existing == None:
+            if existing is None:
                 return {"CANCELLED"}
             # print("Existing: %s" % SpeckleResource.to_json_pretty(existing))
             new_objects = [
@@ -177,7 +177,7 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
                 res = client.objects.create([polyline])
                 print(res)
 
-                if res == None:
+                if res is None:
                     _report(client.me)
                     continue
                 placeholders.extend(res)
@@ -185,7 +185,7 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
                 # polyline['_id'] = res['_id']
                 # placeholders.append({'type':'Placeholder', '_id':res['_id']})
 
-            if len(placeholders) < 1:
+            if not placeholders:
                 return {"CANCELLED"}
 
                 # Get list of existing objects in stream and append new object to list
@@ -247,7 +247,7 @@ class UploadObject(bpy.types.Operator):
             sm = to_speckle_object(active, scale)
 
             placeholders = client.objects.create([sm])
-            if placeholders == None:
+            if placeholders is None:
                 return {"CANCELLED"}
 
             sstream = client.streams.get(stream.id)

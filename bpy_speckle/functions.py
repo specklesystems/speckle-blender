@@ -1,6 +1,4 @@
 from specklepy.api.client import SpeckleClient
-import requests
-
 from bpy_speckle.clients import speckle_clients
 
 """
