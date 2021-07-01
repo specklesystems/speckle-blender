@@ -2,8 +2,100 @@ import bpy, bmesh, struct
 from specklepy.objects.geometry import Curve, Interval, Box, Polyline
 from bpy_speckle.convert.to_speckle.mesh import export_mesh
 
+UNITS = "m"
+
+
+def bezier_to_speckle(matrix, spline, scale, name=None):
+    degree = 3
+    closed = spline.use_cyclic_u
+
+    points = []
+    for i, bp in enumerate(spline.bezier_points):
+        if i > 0:
+            points.append(tuple(matrix @ bp.handle_left * scale))
+        points.append(tuple(matrix @ bp.co * scale))
+        if i < len(spline.bezier_points) - 1:
+            points.append(tuple(matrix @ bp.handle_right * scale))
+
+    if closed:
+        points.append(tuple(matrix @ spline.bezier_points[-1].handle_right * scale))
+        points.append(tuple(matrix @ spline.bezier_points[0].handle_left * scale))
+        points.append(tuple(matrix @ spline.bezier_points[0].co * scale))
+
+    num_points = len(points)
+
+    knot_count = num_points + degree - 1
+    knots = [0] * knot_count
+
+    for i in range(1, len(knots)):
+        knots[i] = i // 3
+
+    length = spline.calc_length()
+    domain = Interval(start=0, end=length, totalChildrenCount=0)
+    return Curve(
+        name=name,
+        degree=degree,
+        closed=spline.use_cyclic_u,
+        periodic=spline.use_cyclic_u,
+        points=list(sum(points, ())),  # magic (flatten list of tuples)
+        weights=[1] * num_points,
+        knots=knots,
+        rational=False,
+        area=0,
+        volume=0,
+        length=length,
+        domain=domain,
+        units=UNITS,
+        bbox=Box(area=0.0, volume=0.0),
+    )
+
+
+def nurbs_to_speckle(matrix, spline, scale, name=None):
+    knots = makeknots(spline)
+    # print("knots: {}".format(knots))
+    points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
+    degree = spline.order_u - 1
+
+    length = spline.calc_length()
+    domain = Interval(start=0, end=length, totalChildrenCount=0)
+
+    return Curve(
+        name=name,
+        degree=degree,
+        closed=spline.use_cyclic_u,
+        periodic=spline.use_cyclic_u,
+        points=list(sum(points, ())),  # magic (flatten list of tuples)
+        weights=[pt.weight for pt in spline.points],
+        knots=knots,
+        rational=False,
+        area=0,
+        volume=0,
+        length=length,
+        domain=domain,
+        units=UNITS,
+        bbox=Box(area=0.0, volume=0.0),
+    )
+
+
+def poly_to_speckle(matrix, spline, scale, name=None):
+    points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
+
+    length = spline.calc_length()
+    domain = Interval(start=0, end=length, totalChildrenCount=0)
+    return Polyline(
+        name=name,
+        closed=spline.use_cyclic_u,
+        value=list(sum(points, ())),  # magic (flatten list of tuples)
+        length=length,
+        domain=domain,
+        bbox=Box(area=0.0, volume=0.0),
+        area=0,
+        units=UNITS,
+    )
+
 
 def export_curve(blender_object, data, scale=1.0):
+    UNITS = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
 
     if blender_object.type != "CURVE":
         return None
@@ -18,115 +110,22 @@ def export_curve(blender_object, data, scale=1.0):
         mesh = export_mesh(blender_object, blender_object.to_mesh(), scale)
         curves.extend(mesh)
 
-    unit_system = bpy.context.scene.unit_settings.system
-
     for spline in data.splines:
         if spline.type == "BEZIER":
-
-            degree = 3
-            closed = spline.use_cyclic_u
-
-            points = []
-            for i, bp in enumerate(spline.bezier_points):
-                if i > 0:
-                    points.append(tuple(mat @ bp.handle_left * scale))
-                points.append(tuple(mat @ bp.co * scale))
-                if i < len(spline.bezier_points) - 1:
-                    points.append(tuple(mat @ bp.handle_right * scale))
-
-            if closed:
-                points.append(
-                    tuple(mat @ spline.bezier_points[-1].handle_right * scale)
-                )
-                points.append(tuple(mat @ spline.bezier_points[0].handle_left * scale))
-                points.append(tuple(mat @ spline.bezier_points[0].co * scale))
-
-            num_points = len(points)
-
-            knot_count = num_points + degree - 1
-            knots = [0] * knot_count
-
-            for i in range(1, len(knots), 1):
-                knots[i] = i // 3
-
-            length = spline.calc_length()
-            domain = Interval(
-                start=0, end=length, totalChildrenCount=0, applicationId="Blender"
-            )
-            bezier = Curve(
-                degree=degree,
-                closed=spline.use_cyclic_u,
-                periodic=spline.use_cyclic_u,
-                points=list(sum(points, ())),  # magic (flatten list of tuples)
-                weights=[1] * num_points,
-                knots=knots,
-                rational=False,
-                area=0,
-                volume=0,
-                length=length,
-                domain=domain,
-                units="m" if unit_system == "METRIC" else "ft",
-                bbox=Box(area=0.0, volume=0.0),
-                applicationId="Blender",
-            )
-
-            curves.append(bezier)
+            curves.append(bezier_to_speckle(mat, spline, scale, blender_object.name))
 
         elif spline.type == "NURBS":
-
-            knots = makeknots(spline)
-            # print("knots: {}".format(knots))
-            points = [tuple(mat @ pt.co.xyz * scale) for pt in spline.points]
-            degree = spline.order_u - 1
-
-            length = spline.calc_length()
-            domain = Interval(
-                start=0, end=length, totalChildrenCount=0, applicationId="Blender"
-            )
-            nurbs = Curve(
-                name=blender_object.name,
-                degree=degree,
-                closed=spline.use_cyclic_u,
-                periodic=spline.use_cyclic_u,
-                points=list(sum(points, ())),  # magic (flatten list of tuples)
-                weights=[pt.weight for pt in spline.points],
-                knots=knots,
-                rational=False,
-                area=0,
-                volume=0,
-                length=length,
-                domain=domain,
-                units="m" if unit_system == "METRIC" else "ft",
-                bbox=Box(area=0.0, volume=0.0),
-                applicationId="Blender",
-            )
-
-            curves.append(nurbs)
+            curves.append(nurbs_to_speckle(mat, spline, scale, blender_object.name))
 
         elif spline.type == "POLY":
-            points = [tuple(mat @ pt.co.xyz * scale) for pt in spline.points]
-
-            length = spline.calc_length()
-            domain = Interval(
-                start=0, end=length, totalChildrenCount=0, applicationId="Blender"
-            )
-            poly = Polyline(
-                name=blender_object.name,
-                closed=spline.use_cyclic_u,
-                value=list(sum(points, ())),  # magic (flatten list of tuples)
-                length=length,
-                domain=domain,
-                bbox=Box(area=0.0, volume=0.0),
-                area=0,
-                units="m" if unit_system == "METRIC" else "ft",
-                applicationId="Blender",
-            )
-            curves.append(poly)
+            curves.append(poly_to_speckle(mat, spline, scale, blender_object.name))
 
     return curves
 
 
 def export_ngons_as_polylines(blender_object, data, scale=1.0):
+    UNITS = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
+
     if blender_object.type != "MESH":
         return None
 
@@ -139,7 +138,7 @@ def export_ngons_as_polylines(blender_object, data, scale=1.0):
         for v in poly.vertices:
             value.extend(mat @ verts[v].co * scale)
 
-        domain = Interval(start=0, end=1, applicationId="Blender")
+        domain = Interval(start=0, end=1)
         poly = Polyline(
             name="{}_{}".format(blender_object.name, i),
             closed=True,
@@ -148,8 +147,7 @@ def export_ngons_as_polylines(blender_object, data, scale=1.0):
             domain=domain,
             bbox=Box(area=0.0, volume=0.0),
             area=0,
-            units="m" if unit_system == "METRIC" else "ft",
-            applicationId="Blender",
+            units=UNITS,
         )
 
         polylines.append(poly)
