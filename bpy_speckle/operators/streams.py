@@ -1,6 +1,7 @@
 """
 Stream operators
 """
+from itertools import chain
 import bpy, bmesh, os
 import webbrowser
 from bpy.props import (
@@ -31,12 +32,13 @@ from specklepy.objects.geometry import *
 
 
 def get_objects_collections(base):
+    """Create collections based on the dynamic members on a root commit object"""
     collections = {}
     for name in base.get_dynamic_member_names():
         value = base[name]
         if isinstance(value, list):
             col = create_collection(name)
-            collections[name] = [item for item in value if isinstance(item, Base)]
+            collections[name] = get_objects_nested_lists(value)
         if isinstance(value, Base):
             col = create_collection(name)
             collections[name] = get_objects_collections_recursive(value, col)
@@ -44,7 +46,21 @@ def get_objects_collections(base):
     return collections
 
 
+def get_objects_nested_lists(items):
+    """For handling the weird nested lists that come from Grasshopper"""
+    objects = []
+
+    if isinstance(items[0], list):
+        items = list(chain.from_iterable(items))
+        objects.extend(get_objects_nested_lists(items))
+    else:
+        objects = [item for item in items if isinstance(item, Base)]
+
+    return objects
+
+
 def get_objects_collections_recursive(base, parent_col=None):
+    """Recursively create collections based on the dynamic members on nested `Base` objects within the root commit object"""
     objects = []
     for name in base.get_dynamic_member_names():
         value = base[name]
