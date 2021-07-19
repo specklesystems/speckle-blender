@@ -2,6 +2,7 @@
 Stream operators
 """
 from itertools import chain
+from typing import Dict
 import bpy, bmesh, os
 import webbrowser
 from bpy.props import (
@@ -31,14 +32,14 @@ from specklepy.objects import Base
 from specklepy.objects.geometry import *
 
 
-def get_objects_collections(base):
+def get_objects_collections(base) -> Dict:
     """Create collections based on the dynamic members on a root commit object"""
     collections = {}
     for name in base.get_dynamic_member_names():
         value = base[name]
         if isinstance(value, list):
             col = create_collection(name)
-            collections[name] = get_objects_nested_lists(value)
+            collections[name] = get_objects_nested_lists(value, col)
         if isinstance(value, Base):
             col = create_collection(name)
             collections[name] = get_objects_collections_recursive(value, col)
@@ -46,22 +47,37 @@ def get_objects_collections(base):
     return collections
 
 
-def get_objects_nested_lists(items):
+def get_objects_nested_lists(items, parent_col=None) -> List:
     """For handling the weird nested lists that come from Grasshopper"""
     objects = []
 
     if isinstance(items[0], list):
         items = list(chain.from_iterable(items))
-        objects.extend(get_objects_nested_lists(items))
+        objects.extend(get_objects_nested_lists(items, parent_col))
     else:
-        objects = [item for item in items if isinstance(item, Base)]
+        objects = [
+            get_objects_collections_recursive(item, parent_col)
+            for item in items
+            if isinstance(item, Base)
+        ]
 
     return objects
 
 
-def get_objects_collections_recursive(base, parent_col=None):
+def get_objects_collections_recursive(base, parent_col=None) -> List:
     """Recursively create collections based on the dynamic members on nested `Base` objects within the root commit object"""
+    # if it's a convertable (registered) class and not just a plain `Base`, return the object itself
+    object_type = Base.get_registered_type(base.speckle_type)
+    if (
+        (object_type and object_type != Base)
+        or hasattr(base, "displayMesh")
+        or hasattr(base, "displayValue")
+    ):
+        return [base]
+
+    # if it's an unknown type, try to drill further down to find convertable objects
     objects = []
+
     for name in base.get_dynamic_member_names():
         value = base[name]
         if isinstance(value, list):
@@ -69,8 +85,10 @@ def get_objects_collections_recursive(base, parent_col=None):
                 if isinstance(item, Base):
                     objects.append(item)
         if isinstance(value, Base):
-            col = create_collection(name)
-            parent_col.children.link(col)
+            col = parent_col.children.get(name)
+            if not parent_col.children.get(name):
+                col = create_collection(name)
+                parent_col.children.link(col)
             objects.append({name: get_objects_collections_recursive(value, col)})
 
     return objects
@@ -85,58 +103,69 @@ def bases_to_native(context, collections, scale, stream_id, func=None):
         elif isinstance(objects, list):
             for obj in objects:
                 if isinstance(obj, dict):
-                    bases_to_native(context, obj, scale, stream_id)
+                    bases_to_native(context, obj, scale, stream_id, func)
+                elif isinstance(obj, list):
+                    for item in obj:
+                        if isinstance(item, dict):
+                            bases_to_native(context, item, scale, stream_id, func)
+                        elif isinstance(item, Base):
+                            base_to_native(
+                                context, item, scale, stream_id, col, existing, func
+                            )
+                elif isinstance(obj, Base):
+                    base_to_native(context, obj, scale, stream_id, col, existing, func)
                 else:
-                    new_objects = [from_speckle_object(obj, scale)]
+                    _report(
+                        f"Something went wrong when receiving collection: {col_name}"
+                    )
 
-                    if hasattr(obj, "properties") and obj.properties is not None:
-                        new_objects.extend(
-                            get_speckle_subobjects(obj.properties, scale, obj.id)
-                        )
-                    elif isinstance(obj, dict) and "properties" in obj.keys():
-                        new_objects.extend(
-                            get_speckle_subobjects(obj["properties"], scale, obj["id"])
-                        )
-
-                    """
-                    Set object Speckle settings
-                    """
-                    for new_object in new_objects:
-                        if new_object is None:
-                            continue
-
-                        """
-                        Run injected function
-                        """
-                        if func:
-                            new_object = func(context.scene, new_object)
-
-                        if (
-                            new_object is None
-                        ):  # Make sure that the injected function returned an object
-                            new_obj = new_object
-                            _report(
-                                "Script '{}' returned None.".format(func.__module__)
-                            )
-                            continue
-
-                        new_object.speckle.stream_id = stream_id
-                        new_object.speckle.send_or_receive = "receive"
-
-                        if new_object.speckle.object_id in existing.keys():
-                            name = existing[new_object.speckle.object_id].name
-                            existing[new_object.speckle.object_id].name = (
-                                name + "__deleted"
-                            )
-                            new_object.name = name
-                            col.objects.unlink(existing[new_object.speckle.object_id])
-
-                        if new_object.name not in col.objects:
-                            col.objects.link(new_object)
             bpy.context.view_layer.update()
 
             if context.area:
                 context.area.tag_redraw()
+
+
+def base_to_native(context, base, scale, stream_id, col, existing, func=None):
+    new_objects = [from_speckle_object(base, scale)]
+
+    if hasattr(base, "properties") and base.properties is not None:
+        new_objects.extend(get_speckle_subobjects(base.properties, scale, base.id))
+    elif isinstance(base, dict) and "properties" in base.keys():
+        new_objects.extend(
+            get_speckle_subobjects(base["properties"], scale, base["id"])
+        )
+
+    """
+    Set object Speckle settings
+    """
+    for new_object in new_objects:
+        if new_object is None:
+            continue
+
+        """
+        Run injected function
+        """
+        if func:
+            new_object = func(context.scene, new_object)
+
+        if (
+            new_object is None
+        ):  # Make sure that the injected function returned an object
+            new_obj = new_object
+            _report("Script '{}' returned None.".format(func.__module__))
+            continue
+
+        new_object.speckle.stream_id = stream_id
+        new_object.speckle.send_or_receive = "receive"
+
+        if new_object.speckle.object_id in existing.keys():
+            name = existing[new_object.speckle.object_id].name
+            existing[new_object.speckle.object_id].name = name + "__deleted"
+            new_object.name = name
+            col.objects.unlink(existing[new_object.speckle.object_id])
+
+        if new_object.name not in col.objects:
+            col.objects.link(new_object)
 
 
 def create_collection(name, clear_collection=True):
