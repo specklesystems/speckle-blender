@@ -45,7 +45,7 @@ This code is WIP and as such should be used with extreme caution on non-sensitiv
 ## Custom properties
 
 - **SpeckleBlender** will look for a `texture_coordinates` property and use that to create a UV layer for the imported object. These texture coordinates are a space-separated list of floats (`[u v u v u v etc...]`) that is encoded as a base64 blob. This is subject to change as **SpeckleBlender** develops.
-- If a `material` property is found, **SpeckleBlender** will create a material named using the sub-property `material.name`. If a material with that name already exists in Blender, **SpeckleBlender** will just assign that existing material to the object. This allows geometry to be updated without having to re-assign and re-create materials.
+- If a `renderMaterial` property is found, **SpeckleBlender** will create a material named using the sub-property `renderMaterial.name`. If a material with that name already exists in Blender, **SpeckleBlender** will just assign that existing material to the object. This allows geometry to be updated without having to re-assign and re-create materials.
 - Vertex colors are supported. The `colors` list from Speckle meshes is translated to a vertex color layer.
 - Speckle properties will be imported as custom properties on Blender objects. Nested dictionaries are expanded to individual properties by flattening their key hierarchy. I.e. `propA:{'propB': {'propC':10, 'propD':'foobar'}}` is flattened to `propA.propB.propC = 10` and `propA.propB.propD = "foobar"`.
 
