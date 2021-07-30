@@ -55,6 +55,8 @@ class LoadUsers(bpy.types.Operator):
             except Exception as ex:
                 _report(ex)
                 users.remove(len(users) - 1)
+            if profile.isDefault:
+                context.scene.speckle.active_user = str(len(users) - 1)
 
         context.scene.speckle.active_user_index = int(context.scene.speckle.active_user)
         bpy.ops.speckle.load_user_streams()
