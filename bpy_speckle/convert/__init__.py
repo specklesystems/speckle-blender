@@ -9,7 +9,6 @@ from bpy_speckle.functions import _report, get_scale_length
 from specklepy.objects.geometry import *
 from specklepy.objects.other import RenderMaterial
 
-from devtools import debug
 
 FROM_SPECKLE_SCHEMAS = {
     Mesh: import_mesh,
