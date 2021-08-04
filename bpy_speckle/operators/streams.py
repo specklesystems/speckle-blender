@@ -286,8 +286,10 @@ class ReceiveStreamObjects(bpy.types.Operator):
             bpy.context.scene.collection.children.link(col)
 
         for child_col in collections.keys():
-            col.children.link(bpy.data.collections[child_col])
-
+            try:
+                col.children.link(bpy.data.collections[child_col])
+            except:
+                pass
         """
         Set conversion scale from stream units
         """
