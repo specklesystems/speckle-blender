@@ -9,6 +9,8 @@ from bpy_speckle.functions import _report, get_scale_length
 from specklepy.objects.geometry import *
 from specklepy.objects.other import RenderMaterial
 
+from devtools import debug
+
 FROM_SPECKLE_SCHEMAS = {
     Mesh: import_mesh,
     Brep: import_brep,
@@ -52,9 +54,10 @@ def add_blender_material(smesh, blender_object) -> None:
         return
 
     speckle_mat = getattr(smesh, "renderMaterial", None) or smesh["@renderMaterial"]
-    mat_name = getattr(speckle_mat, "name", None) or speckle_mat["@name"]
+    mat_name = getattr(speckle_mat, "name", None) or speckle_mat.__dict__.get("@name")
     if not mat_name:
         mat_name = speckle_mat.applicationId or speckle_mat.id
+
     blender_mat = bpy.data.materials.get(mat_name)
     if not blender_mat:
         blender_mat = bpy.data.materials.new(mat_name)
@@ -196,6 +199,7 @@ def from_speckle_object(speckle_object, scale, name=None):
         if speckle_name in bpy.data.objects.keys():
             blender_object = bpy.data.objects[speckle_name]
             blender_object.data = obdata
+            blender_object.matrix_world = Matrix()
             if hasattr(obdata, "materials"):
                 blender_object.data.materials.clear()
         else:
