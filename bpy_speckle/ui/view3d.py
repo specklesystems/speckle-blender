@@ -253,3 +253,25 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
                 area.separator()
                 col.separator()
                 col.operator("speckle.view_stream_data_api", text="Open Stream in Web")
+
+
+class VIEW3D_PT_SpeckleHelp(bpy.types.Panel):
+    """
+    Speckle Help UI panel in the 3d viewport
+    """
+
+    bl_space_type = "VIEW_3D"
+    bl_region_type = Region
+    bl_category = "Speckle"
+    bl_context = "objectmode"
+    bl_label = "Help"
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        col.operator("speckle.open_speckle_guide")
+        col.separator()
+        col.operator("speckle.open_speckle_tutorials")
+        col.separator()
+        col.operator("speckle.open_speckle_forum")

@@ -23,6 +23,7 @@ from .streams import (
     CopyBranchName,
 )
 from .commit import DeleteCommit
+from .misc import OpenSpeckleGuide, OpenSpeckleTutorials, OpenSpeckleForum
 
 operator_classes = [
     LoadUsers,
@@ -49,5 +50,14 @@ operator_classes.extend(
 )
 
 operator_classes.extend(
-    [ViewStreamDataApi, DeleteStream, SelectOrphanObjects, UpdateGlobal, CreateStream,]
+    [
+        ViewStreamDataApi,
+        DeleteStream,
+        SelectOrphanObjects,
+        UpdateGlobal,
+        CreateStream,
+        OpenSpeckleGuide,
+        OpenSpeckleTutorials,
+        OpenSpeckleForum,
+    ]
 )
