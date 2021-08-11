@@ -17,6 +17,7 @@ from .streams import (
 )
 from .streams import (
     UpdateGlobal,
+    AddStreamFromURL,
     CreateStream,
     CopyStreamId,
     CopyCommitId,
@@ -55,6 +56,7 @@ operator_classes.extend(
         DeleteStream,
         SelectOrphanObjects,
         UpdateGlobal,
+        AddStreamFromURL,
         CreateStream,
         OpenSpeckleGuide,
         OpenSpeckleTutorials,

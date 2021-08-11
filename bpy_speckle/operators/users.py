@@ -67,6 +67,37 @@ class LoadUsers(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def add_user_stream(user, stream):
+    s = user.streams.add()
+    s.name = stream.name
+    s.id = stream.id
+    s.description = stream.description
+
+    if not stream.branches:
+        return
+
+    for b in stream.branches.items:
+        branch = s.branches.add()
+        branch.name = b.name
+
+        if not b.commits:
+            continue
+
+        for c in b.commits.items:
+            commit = branch.commits.add()
+            commit.id = commit.name = c.id
+            commit.message = c.message
+            commit.author_name = c.authorName
+            commit.author_id = c.authorId
+            commit.created_at = c.createdAt
+            commit.source_application = str(c.sourceApplication)
+
+    if hasattr(s, "baseProperties"):
+        s.units = stream.baseProperties.units
+    else:
+        s.units = "Meters"
+
+
 class LoadUserStreams(bpy.types.Operator):
     """
     Load all available streams for active user user
@@ -99,36 +130,8 @@ class LoadUserStreams(bpy.types.Operator):
             default_units = "Meters"
 
             for s in streams:
-                stream = user.streams.add()
-                stream.name = s.name
-                stream.id = s.id
-                stream.description = s.description
-
                 sstream = client.stream.get(id=s.id)
-
-                if not sstream.branches:
-                    continue
-
-                for b in sstream.branches.items:
-                    branch = stream.branches.add()
-                    branch.name = b.name
-
-                    if not b.commits:
-                        continue
-
-                    for c in b.commits.items:
-                        commit = branch.commits.add()
-                        commit.id = c.id
-                        commit.message = c.message
-                        commit.author_name = c.authorName
-                        commit.author_id = c.authorId
-                        commit.created_at = c.createdAt
-                        commit.source_application = str(c.sourceApplication)
-
-                if hasattr(s, "baseProperties"):
-                    stream.units = s.baseProperties.units
-                else:
-                    stream.units = default_units
+                add_user_stream(user, sstream)
 
             bpy.context.view_layer.update()
 

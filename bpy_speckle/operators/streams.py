@@ -4,6 +4,7 @@ Stream operators
 from itertools import chain
 from typing import Dict
 import bpy, bmesh, os
+from specklepy.api.models import Commit
 import webbrowser
 from bpy.props import (
     StringProperty,
@@ -12,7 +13,6 @@ from bpy.props import (
     CollectionProperty,
     EnumProperty,
 )
-
 from bpy_speckle.functions import (
     _check_speckle_client_user_stream,
     _create_stream,
@@ -24,12 +24,15 @@ from bpy_speckle.convert.to_speckle import export_ngons_as_polylines
 
 from bpy_speckle.convert import from_speckle_object
 from bpy_speckle.clients import speckle_clients
+from bpy_speckle.operators.users import add_user_stream
 
 from specklepy.api import operations
+from specklepy.api.credentials import StreamWrapper
 from specklepy.api.resources.stream import Stream
 from specklepy.transports.server import ServerTransport
 from specklepy.objects import Base
 from specklepy.objects.geometry import *
+from specklepy.logging.exceptions import SpeckleException
 
 
 def get_objects_collections(base) -> Dict:
@@ -462,6 +465,84 @@ class ViewStreamDataApi(bpy.types.Operator):
                 webbrowser.open("%s/streams/%s" % (user.server_url, stream.id), new=2)
                 return {"FINISHED"}
         return {"CANCELLED"}
+
+
+class AddStreamFromURL(bpy.types.Operator):
+    """
+    Add / select a stream using its url
+    """
+
+    bl_idname = "speckle.add_stream_from_url"
+    bl_label = "Add stream from URL"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Add an existing stream by providing its URL"
+    stream_url: StringProperty(
+        name="Stream URL", default="https://speckle.xyz/streams/3073b96e86"
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+        col.prop(self, "stream_url")
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        if len(context.scene.speckle.users) > 0:
+            return wm.invoke_props_dialog(self)
+
+        return {"CANCELLED"}
+
+    def execute(self, context):
+        speckle = context.scene.speckle
+
+        wrapper = StreamWrapper(self.stream_url)
+        user_index = next(
+            (i for i, u in enumerate(speckle.users) if wrapper.host in u.server_url),
+            None,
+        )
+        if user_index is None:
+            return {"CANCELLED"}
+        speckle.active_user = str(user_index)
+        user = speckle.users[user_index]
+
+        client = speckle_clients[user_index]
+        stream = client.stream.get(wrapper.stream_id)
+        if not isinstance(stream, Stream):
+            raise SpeckleException("Could not get the requested stream")
+
+        index, b_stream = next(
+            ((i, s) for i, s in enumerate(user.streams) if s.id == stream.id),
+            (None, None),
+        )
+
+        if index is None:
+            add_user_stream(user, stream)
+            user.active_stream, b_stream = next(
+                (i, s) for i, s in enumerate(user.streams) if s.id == stream.id
+            )
+        else:
+            user.active_stream = index
+
+        if wrapper.branch_name:
+            b_index = b_stream.branches.find(wrapper.branch_name)
+            b_stream.branch = str(b_index if b_index != -1 else 0)
+        elif wrapper.commit_id:
+            commit = client.commit.get(wrapper.stream_id, wrapper.commit_id)
+            if isinstance(commit, Commit):
+                b_index = b_stream.branches.find(commit.branchName)
+                if b_index == -1:
+                    b_index = 0
+                b_stream.branch = str(b_index)
+                c_index = b_stream.branches[b_index].commits.find(commit.id)
+                b_stream.branches[b_index].commit = str(c_index if c_index != -1 else 0)
+
+        # Update view layer
+        context.view_layer.update()
+
+        if context.area:
+            context.area.tag_redraw()
+
+        return {"FINISHED"}
 
 
 class CreateStream(bpy.types.Operator):
