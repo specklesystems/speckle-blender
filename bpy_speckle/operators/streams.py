@@ -4,6 +4,7 @@ Stream operators
 from itertools import chain
 from typing import Dict
 import bpy, bmesh, os
+from specklepy.api.models import Commit
 import webbrowser
 from bpy.props import (
     StringProperty,
@@ -509,15 +510,31 @@ class AddStreamFromURL(bpy.types.Operator):
         if not isinstance(stream, Stream):
             raise SpeckleException("Could not get the requested stream")
 
-        blender_stream = next(
-            (i for i, s in enumerate(user.streams) if s.id == stream.id), None
+        index, b_stream = next(
+            ((i, s) for i, s in enumerate(user.streams) if s.id == stream.id),
+            (None, None),
         )
 
-        if not blender_stream:
+        if index is None:
             add_user_stream(user, stream)
-        user.active_stream = next(
-            i for i, s in enumerate(user.streams) if s.id == stream.id
-        )
+            user.active_stream, b_stream = next(
+                (i, s) for i, s in enumerate(user.streams) if s.id == stream.id
+            )
+        else:
+            user.active_stream = index
+
+        if wrapper.branch_name:
+            b_index = b_stream.branches.find(wrapper.branch_name)
+            b_stream.branch = str(b_index if b_index != -1 else 0)
+        elif wrapper.commit_id:
+            commit = client.commit.get(wrapper.stream_id, wrapper.commit_id)
+            if isinstance(commit, Commit):
+                b_index = b_stream.branches.find(commit.branchName)
+                if b_index == -1:
+                    b_index = 0
+                b_stream.branch = str(b_index)
+                c_index = b_stream.branches[b_index].commits.find(commit.id)
+                b_stream.branches[b_index].commit = str(c_index if c_index != -1 else 0)
 
         # Update view layer
         context.view_layer.update()

@@ -85,7 +85,7 @@ def add_user_stream(user, stream):
 
         for c in b.commits.items:
             commit = branch.commits.add()
-            commit.id = c.id
+            commit.id = commit.name = c.id
             commit.message = c.message
             commit.author_name = c.authorName
             commit.author_id = c.authorId
