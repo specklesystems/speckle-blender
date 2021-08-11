@@ -284,7 +284,7 @@ python-versions = ">=3.5"
 
 [[package]]
 name = "specklepy"
-version = "2.2.6"
+version = "2.2.7"
 description = "The Python SDK for Speckle 2.0"
 category = "main"
 optional = false
@@ -583,8 +583,8 @@ smmap = [
     {file = "smmap-4.0.0.tar.gz", hash = "sha256:7e65386bd122d45405ddf795637b7f7d2b532e7e401d46bbe3fb49b9986d5182"},
 ]
 specklepy = [
-    {file = "specklepy-2.2.6-py3-none-any.whl", hash = "sha256:8eeed25e0a878326d31fc68370fa01725975098e2ad802bd9f9871d0c00b748c"},
-    {file = "specklepy-2.2.6.tar.gz", hash = "sha256:67adc5e843d7d4e3ef08222a03292ed7abd2e06a0156114071546197c93dae4b"},
+    {file = "specklepy-2.2.7-py3-none-any.whl", hash = "sha256:863bca2bc3dd4ea7639ea039378203b0203327bb07eb5193a4ec2ae9e7e6bc13"},
+    {file = "specklepy-2.2.7.tar.gz", hash = "sha256:918f0987b1ab95be3705b7d52f1fac05a4dd2f24564ac56feb2b4e1623130fe5"},
 ]
 svn = [
     {file = "svn-1.0.1.tar.gz", hash = "sha256:55f81f07853cc1d66d4800b0cfe2d3376ff02361a2b2361459dc22a0fab95247"},
