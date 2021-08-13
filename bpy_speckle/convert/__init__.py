@@ -288,12 +288,14 @@ def get_blender_custom_properties(obj, max_depth=1000):
         return obj
 
 
-def to_speckle_object(blender_object, scale):
+def to_speckle_object(blender_object, scale, desgraph=None):
     blender_type = blender_object.type
     speckle_objects = []
     speckle_material = material_to_speckle(blender_object)
 
     if blender_type in TO_SPECKLE.keys():
+        if desgraph:
+            blender_object = blender_object.evaluated_get(desgraph)
         converted = TO_SPECKLE[blender_type](blender_object, blender_object.data, scale)
         if isinstance(converted, list):
             speckle_objects.extend([c for c in converted if c != None])

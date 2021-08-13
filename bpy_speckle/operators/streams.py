@@ -328,6 +328,7 @@ class SendStreamObjects(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Send selected objects to active stream"
 
+    apply_modifiers: BoolProperty(name="Apply modifiers", default=True)
     commit_message: StringProperty(
         name="Message",
         default="Pushed elements from Blender.",
@@ -337,6 +338,7 @@ class SendStreamObjects(bpy.types.Operator):
         layout = self.layout
         col = layout.column()
         col.prop(self, "commit_message")
+        col.prop(self, "apply_modifiers")
 
     def invoke(self, context, event):
         wm = context.window_manager
@@ -409,7 +411,13 @@ class SendStreamObjects(bpy.types.Operator):
             if ngons:
                 converted = export_ngons_as_polylines(obj, scale)
             else:
-                converted = to_speckle_object(obj, scale)
+                converted = to_speckle_object(
+                    obj,
+                    scale,
+                    bpy.context.evaluated_depsgraph_get()
+                    if self.apply_modifiers
+                    else None,
+                )
 
             if not converted:
                 continue
