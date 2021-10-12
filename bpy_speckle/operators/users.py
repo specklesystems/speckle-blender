@@ -49,7 +49,10 @@ class LoadUsers(bpy.types.Operator):
             user.company = profile.userInfo.company or ""
             user.authToken = profile.token
             try:
-                client = SpeckleClient(host=profile.serverInfo.url, use_ssl=True)
+                client = SpeckleClient(
+                    host=profile.serverInfo.url,
+                    use_ssl="https" in profile.serverInfo.url,
+                )
                 client.authenticate(user.authToken)
                 speckle_clients.append(client)
             except Exception as ex:
@@ -77,6 +80,9 @@ def add_user_stream(user, stream):
         return
 
     for b in stream.branches.items:
+        if b.name == "globals":
+            continue
+
         branch = s.branches.add()
         branch.name = b.name
 

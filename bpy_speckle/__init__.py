@@ -54,6 +54,7 @@ Import SpeckleBlender classes
 """
 
 from specklepy.api.client import SpeckleClient  # , SpeckleCache
+from specklepy.logging import metrics
 
 from bpy_speckle.ui import *
 from bpy_speckle.properties import *
@@ -93,6 +94,8 @@ def register():
 
     for cls in speckle_classes:
         register_class(cls)
+
+    metrics.set_host_app("Blender")
 
     """
     Register all new properties
