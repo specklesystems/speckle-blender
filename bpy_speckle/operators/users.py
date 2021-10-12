@@ -80,6 +80,9 @@ def add_user_stream(user, stream):
         return
 
     for b in stream.branches.items:
+        if b.name == "globals":
+            continue
+
         branch = s.branches.add()
         branch.name = b.name
 
