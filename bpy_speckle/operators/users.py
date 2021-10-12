@@ -49,7 +49,10 @@ class LoadUsers(bpy.types.Operator):
             user.company = profile.userInfo.company or ""
             user.authToken = profile.token
             try:
-                client = SpeckleClient(host=profile.serverInfo.url, use_ssl=True)
+                client = SpeckleClient(
+                    host=profile.serverInfo.url,
+                    use_ssl="https" in profile.serverInfo.url,
+                )
                 client.authenticate(user.authToken)
                 speckle_clients.append(client)
             except Exception as ex:
