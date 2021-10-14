@@ -20,9 +20,9 @@ jobs:
       - checkout
       - attach_workspace:
           at: ./
-      - run:
-          name: upgrade pip and install specklepy
-          command: python -m pip install --upgrade pip & python -m pip install --target=.\modules specklepy
+      # - run:
+      #     name: upgrade pip and install specklepy
+      #     command: python -m pip install --upgrade pip & python -m pip install --target=.\modules specklepy
       - run:
           name: Patch
           shell: powershell.exe
