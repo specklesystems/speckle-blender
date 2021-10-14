@@ -24,9 +24,14 @@ def export_mesh(blender_object, data, scale=1.0):
         vertices=list(sum(verts, ())),
         faces=[],
         colors=[],
+        textureCoordinates=[],
         units="m" if unit_system == "METRIC" else "ft",
         bbox=Box(area=0.0, volume=0.0),
     )
+
+    if data.uv_layers.active:
+        for vt in data.uv_layers.active.data:
+            sm.textureCoordinates.extend([vt.uv.x, vt.uv.y])
 
     for f in faces:
         if len(f) == 3:

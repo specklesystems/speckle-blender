@@ -55,8 +55,7 @@ def add_blender_material(smesh, blender_object) -> None:
     speckle_mat = getattr(smesh, "renderMaterial", None) or smesh["@renderMaterial"]
     mat_name = getattr(speckle_mat, "name", None) or speckle_mat.__dict__.get("@name")
     if not mat_name:
-        mat_name = speckle_mat.applicationId or speckle_mat.id
-
+        mat_name = speckle_mat.applicationId or speckle_mat.id or speckle_mat.get_id()
     blender_mat = bpy.data.materials.get(mat_name)
     if not blender_mat:
         blender_mat = bpy.data.materials.new(mat_name)

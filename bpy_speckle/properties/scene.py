@@ -48,10 +48,11 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
 
 class SpeckleStreamObject(bpy.types.PropertyGroup):
     def get_branches(self, context):
-        if len(self.branches) > 0:
+        if self.branches:
             return [
                 (str(i), branch.name, branch.name, i)
                 for i, branch in enumerate(self.branches)
+                if branch.name != "globals"
             ]
         return [("0", "<none>", "<none>", 0)]
 
