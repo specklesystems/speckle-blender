@@ -79,10 +79,8 @@ def add_user_stream(user, stream):
     if not stream.branches:
         return
 
+    # branches = [branch for branch in stream.branches.items if branch.name != "globals"]
     for b in stream.branches.items:
-        if b.name == "globals":
-            continue
-
         branch = s.branches.add()
         branch.name = b.name
 
@@ -132,7 +130,6 @@ class LoadUserStreams(bpy.types.Operator):
 
             user.streams.clear()
 
-            streams = sorted(streams, key=lambda x: x.name, reverse=False)
             default_units = "Meters"
 
             for s in streams:
