@@ -269,8 +269,14 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         commit = branch.commits.items[int(bbranch.commit)]
 
-        transport = ServerTransport(client, stream.id)
+        transport = ServerTransport(stream.id, client)
         stream_data = operations.receive(commit.referencedObject, transport)
+        client.commit.received(
+            bstream.id,
+            commit.id,
+            source_application="blender",
+            message="received commit from Speckle Blender",
+        )
 
         """
         Create or get Collection for stream objects
@@ -434,7 +440,7 @@ class SendStreamObjects(bpy.types.Operator):
             hierarchy = get_collection_hierarchy(collection)
             create_nested_hierarchy(base, hierarchy, objects)
 
-        transport = ServerTransport(client, stream.id)
+        transport = ServerTransport(stream.id, client)
 
         obj_id = operations.send(
             base,
