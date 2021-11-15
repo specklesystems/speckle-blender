@@ -271,6 +271,12 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         transport = ServerTransport(stream.id, client)
         stream_data = operations.receive(commit.referencedObject, transport)
+        client.commit.received(
+            bstream.id,
+            commit.id,
+            source_application="blender",
+            message="received commit from Speckle Blender",
+        )
 
         """
         Create or get Collection for stream objects
