@@ -28,11 +28,11 @@ def add_faces(smesh, bmesh, smooth=False):
         while i < len(sfaces):
             n = sfaces[i]
             if n < 3:
-                n += 3
+                n += 3  # 0 -> 3, 1 -> 4
 
             i += 1
             try:
-                f = bmesh.faces.new(sfaces[i, i + n])
+                f = bmesh.faces.new([bmesh.verts[int(x)] for x in sfaces[i: i + n]])
                 f.smooth = smooth
             except Exception as e:
                 _report(f"Failed to create face for mesh {smesh.id} \n{e}")
