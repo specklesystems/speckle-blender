@@ -26,38 +26,17 @@ def add_faces(smesh, bmesh, smooth=False):
         i = 0
         # TODO: why does `faces.new()` seem to fail so often?
         while i < len(sfaces):
-            if sfaces[i] == 0:
-                i += 1
-                try:
-                    f = bmesh.faces.new(
-                        (
-                            bmesh.verts[int(sfaces[i])],
-                            bmesh.verts[int(sfaces[i + 1])],
-                            bmesh.verts[int(sfaces[i + 2])],
-                        )
-                    )
-                    f.smooth = smooth
-                except Exception as e:
-                    _report(f"Failed to create face for mesh {smesh.id} \n{e}")
-                i += 3
-            elif sfaces[i] == 1:
-                i += 1
-                try:
-                    f = bmesh.faces.new(
-                        (
-                            bmesh.verts[int(sfaces[i])],
-                            bmesh.verts[int(sfaces[i + 1])],
-                            bmesh.verts[int(sfaces[i + 2])],
-                            bmesh.verts[int(sfaces[i + 3])],
-                        )
-                    )
-                    f.smooth = smooth
-                except Exception as e:
-                    _report(f"Failed to create face for mesh {smesh.id} \n{e}")
-                i += 4
-            else:
-                print("Invalid face length.\n" + str(sfaces[i]))
-                break
+            n = sfaces[i]
+            if n < 3:
+                n += 3
+
+            i += 1
+            try:
+                f = bmesh.faces.new(sfaces[i, i + n])
+                f.smooth = smooth
+            except Exception as e:
+                _report(f"Failed to create face for mesh {smesh.id} \n{e}")
+            i += n
 
         bmesh.faces.ensure_lookup_table()
         bmesh.verts.index_update()
