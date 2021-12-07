@@ -20,9 +20,6 @@ jobs:
       - checkout
       - attach_workspace:
           at: ./
-      # - run:
-      #     name: upgrade pip and install specklepy
-      #     command: python -m pip install --upgrade pip & python -m pip install --target=.\modules specklepy
       - run:
           name: Patch
           shell: powershell.exe
@@ -36,13 +33,34 @@ jobs:
             # only create the yml if we have a tag
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $version"
             echo $version
+            ls
             python patch_version.py $version
             speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss
       - persist_to_workspace:
           root: ./
           paths:
             - speckle-sharp-ci-tools/Installers
-            
+
+  install-specklepy: # due to ujson dep, we need to match the py version to the install
+    docker:
+      - image: "cimg/python:<<parameters.tag>>"
+    parameters:
+      tag:
+        default: "3.9"
+        type: string
+    steps:
+      - checkout
+      - run:
+          name: upgrade pip and install specklepy
+          command: |
+            specklepyver=$(python patch_version.py)
+            echo installing specklepy $specklepyver
+            python -m pip install --target=./modules-<<parameters.tag>> specklepy==$specklepyver
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - modules-*
+          
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
       - image: cimg/base:2021.01
@@ -50,10 +68,6 @@ jobs:
       - run: # Could not get ssh to work, so using a personal token
           name: Clone
           command: git clone https://$GITHUB_TOKEN@github.com/specklesystems/speckle-sharp-ci-tools.git speckle-sharp-ci-tools
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - speckle-sharp-ci-tools
       - persist_to_workspace:
           root: ./
           paths:
@@ -77,41 +91,39 @@ jobs:
           to: s3://speckle-releases/installers/
 
 workflows:
-  build:
-    jobs:
-      - get-ci-tools:
-          filters:
-            branches:
-              only:
-                - main
-                - /ci\/.*/
-
-      - build-connector:
-          slug: blender
-          requires:
-            - get-ci-tools
-          filters:
-            branches:
-              only:
-                - main
-                - /ci\/.*/
-  deploy:
+  main:
     jobs:
       - get-ci-tools:
           filters:
             tags:
-              only: /[0-9]+(\.[0-9]+)*/
+              only: /.*/
             branches:
-              ignore: /.*/ # For testing only! /ci\/.*/
+              only:
+                - main
+                - /ci\/.*/
+      - install-specklepy:
+          matrix:
+            parameters:
+              tag: ["3.7", "3.9"]
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only:
+                - main
+                - /ci\/.*/
       - build-connector:
           slug: blender
           requires:
             - get-ci-tools
+            - install-specklepy
           filters:
             tags:
-              only: /[0-9]+(\.[0-9]+)*/
+              only: /.*/
             branches:
-              ignore: /.*/ # For testing only! /ci\/.*/
+              only:
+                - main
+                - /ci\/.*/
       - deploy:
           requires:
             - get-ci-tools

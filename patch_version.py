@@ -50,6 +50,7 @@ def get_specklepy_version():
 
 def main():
     if len(sys.argv) < 2:
+        print(get_specklepy_version())
         return
 
     tag = sys.argv[1]
