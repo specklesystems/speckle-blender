@@ -116,6 +116,7 @@ workflows:
           slug: blender
           requires:
             - get-ci-tools
+            - install-specklepy
           filters:
             tags:
               only: /.*/
