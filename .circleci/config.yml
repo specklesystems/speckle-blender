@@ -21,17 +21,17 @@ jobs:
       - attach_workspace:
           at: ./
       - run: 
-          name: Install 3.7
+          name: Install specklepy with python 3.7
           shell: powershell.exe
           command: |
             python --version
             $specklepy=(python patch_version.py)
             python -m pip install --target=./modules-3.7 specklepy==$specklepy
       - run: 
-          name: Install 3.9
+          name: Install python 3.9 and specklepy 
           shell: powershell.exe
           command: |
-            choco install python --version=3.9
+            choco install python --version=3.9.2
             C:\Python39\python.exe --version
             $specklepy=(python patch_version.py)
             C:\Python39\python.exe -m pip install --target=./modules-3.9 specklepy==$specklepy
