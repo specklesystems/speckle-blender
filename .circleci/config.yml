@@ -119,9 +119,11 @@ workflows:
               tag: ["3.7", "3.9"]
           filters:
             tags:
-              only: /[0-9]+(\.[0-9]+)*/
+              only: /.*/
             branches:
-              ignore: /.*/ # For testing only! /ci\/.*/
+              only:
+                - main
+                - /ci\/.*/
       - deploy:
           requires:
             - get-ci-tools
