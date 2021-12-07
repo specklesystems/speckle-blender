@@ -20,9 +20,6 @@ jobs:
       - checkout
       - attach_workspace:
           at: ./
-      # - run:
-      #     name: upgrade pip and install specklepy
-      #     command: python -m pip install --upgrade pip & python -m pip install --target=.\modules specklepy
       - run:
           name: Patch
           shell: powershell.exe
@@ -42,7 +39,25 @@ jobs:
           root: ./
           paths:
             - speckle-sharp-ci-tools/Installers
-            
+
+  install-specklepy: # due to ujson dep, we need to match the py version to the install
+    docker:
+      - image: "cimg/python:<<parameters.tag>>"
+    parameters:
+      tag:
+        default: "3.9"
+        type: string
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run:
+          name: upgrade pip and install specklepy
+          command: |
+            specklepyver=$(python patch_version.py)
+            echo installing specklepy $specklepyver
+            python -m pip install --upgrade pip & python -m pip install --target=.\modules-<<parameters.tag>> specklepy==$specklepyver
+          
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
       - image: cimg/base:2021.01
@@ -77,36 +92,31 @@ jobs:
           to: s3://speckle-releases/installers/
 
 workflows:
-  build:
-    jobs:
-      - get-ci-tools:
-          filters:
-            branches:
-              only:
-                - main
-                - /ci\/.*/
-
-      - build-connector:
-          slug: blender
-          requires:
-            - get-ci-tools
-          filters:
-            branches:
-              only:
-                - main
-                - /ci\/.*/
-  deploy:
+  main:
     jobs:
       - get-ci-tools:
           filters:
             tags:
-              only: /[0-9]+(\.[0-9]+)*/
+              only: /.*/
             branches:
-              ignore: /.*/ # For testing only! /ci\/.*/
+              only:
+                - main
+                - /ci\/.*/
       - build-connector:
           slug: blender
           requires:
             - get-ci-tools
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only:
+                - main
+                - /ci\/.*/
+      - install-specklepy:
+          matrix:
+            parameters:
+              tag: ["3.7", "3.9"]
           filters:
             tags:
               only: /[0-9]+(\.[0-9]+)*/
