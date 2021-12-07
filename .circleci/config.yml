@@ -56,7 +56,7 @@ jobs:
           command: |
             specklepyver=$(python patch_version.py)
             echo installing specklepy $specklepyver
-            python -m pip install --target=.\modules-<<parameters.tag>> specklepy==$specklepyver
+            python -m pip install --target=./modules-<<parameters.tag>> specklepy==$specklepyver
       - persist_to_workspace:
           root: ./
           paths:
