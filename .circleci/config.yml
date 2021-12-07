@@ -55,6 +55,7 @@ jobs:
             specklepyver=$(python patch_version.py)
             echo installing specklepy $specklepyver
             python -m pip install --target=./modules-<<parameters.tag>> specklepy==$specklepyver
+            ls ./modules-<<parameters.tag>>
       - persist_to_workspace:
           root: ./
           paths:
@@ -100,10 +101,10 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-      - build-connector:
-          slug: blender
-          requires:
-            - get-ci-tools
+      - install-specklepy:
+          matrix:
+            parameters:
+              tag: ["3.7", "3.9"]
           filters:
             tags:
               only: /.*/
@@ -111,10 +112,10 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-      - install-specklepy:
-          matrix:
-            parameters:
-              tag: ["3.7", "3.9"]
+      - build-connector:
+          slug: blender
+          requires:
+            - get-ci-tools
           filters:
             tags:
               only: /.*/
