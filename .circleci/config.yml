@@ -57,6 +57,10 @@ jobs:
             specklepyver=$(python patch_version.py)
             echo installing specklepy $specklepyver
             python -m pip install --target=.\modules-<<parameters.tag>> specklepy==$specklepyver
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - modules-<<parameters.tag>>
           
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
