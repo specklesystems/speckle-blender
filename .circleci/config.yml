@@ -100,10 +100,10 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-      - build-connector:
-          slug: blender
-          requires:
-            - get-ci-tools
+      - install-specklepy:
+          matrix:
+            parameters:
+              tag: ["3.7", "3.9"]
           filters:
             tags:
               only: /.*/
@@ -111,10 +111,10 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-      - install-specklepy:
-          matrix:
-            parameters:
-              tag: ["3.7", "3.9"]
+      - build-connector:
+          slug: blender
+          requires:
+            - get-ci-tools
           filters:
             tags:
               only: /.*/
