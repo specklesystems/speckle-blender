@@ -59,7 +59,7 @@ jobs:
       - persist_to_workspace:
           root: ./
           paths:
-            - modules-*/*
+            - modules-*
           
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
