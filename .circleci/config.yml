@@ -32,9 +32,9 @@ jobs:
           shell: powershell.exe
           command: |
             choco install python --version=3.9
-            python --version
+            C:\Python39\python.exe --version
             $specklepy=(python patch_version.py)
-            python -m pip install --target=./modules-3.9 specklepy==$specklepy
+            C:\Python39\python.exe -m pip install --target=./modules-3.9 specklepy==$specklepy
       - run:
           name: Patch
           shell: powershell.exe
@@ -55,6 +55,7 @@ jobs:
           root: ./
           paths:
             - speckle-sharp-ci-tools/Installers
+            - modules-*
 
   install-specklepy: # due to ujson dep, we need to match the py version to the install
     docker:
@@ -116,22 +117,10 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-      # - install-specklepy:
-      #     matrix:
-      #       parameters:
-      #         tag: ["3.7", "3.9"]
-      #     filters:
-      #       tags:
-      #         only: /.*/
-      #       branches:
-      #         only:
-      #           - main
-      #           - /ci\/.*/
       - build-connector:
           slug: blender
           requires:
             - get-ci-tools
-            # - install-specklepy
           filters:
             tags:
               only: /.*/
