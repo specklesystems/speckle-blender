@@ -20,6 +20,21 @@ jobs:
       - checkout
       - attach_workspace:
           at: ./
+      - run: 
+          name: Install 3.7
+          shell: powershell.exe
+          command: |
+            python --version
+            $specklepy=(python patch_version.py)
+            python -m pip install --target=./modules-3.7 specklepy==$specklepy
+      - run: 
+          name: Install 3.9
+          shell: powershell.exe
+          command: |
+            choco install python --version=3.9
+            python --version
+            $specklepy=(python patch_version.py)
+            python -m pip install --target=./modules-3.9 specklepy==$specklepy
       - run:
           name: Patch
           shell: powershell.exe
@@ -101,17 +116,17 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-      - install-specklepy:
-          matrix:
-            parameters:
-              tag: ["3.7", "3.9"]
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only:
-                - main
-                - /ci\/.*/
+      # - install-specklepy:
+      #     matrix:
+      #       parameters:
+      #         tag: ["3.7", "3.9"]
+      #     filters:
+      #       tags:
+      #         only: /.*/
+      #       branches:
+      #         only:
+      #           - main
+      #           - /ci\/.*/
       - build-connector:
           slug: blender
           requires:
