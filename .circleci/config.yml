@@ -55,7 +55,6 @@ jobs:
           root: ./
           paths:
             - speckle-sharp-ci-tools/Installers
-            - modules-*
 
   install-specklepy: # due to ujson dep, we need to match the py version to the install
     docker:
