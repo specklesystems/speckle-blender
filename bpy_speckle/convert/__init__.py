@@ -208,7 +208,7 @@ def from_speckle_object(speckle_object, scale, name=None):
 
         add_custom_properties(speckle_object, blender_object)
         add_blender_material(speckle_object, blender_object)
-        # TODO: chat with tom re transforms
+        # TODO: transforms
         # set_transform(speckle_object, blender_object)
 
         return blender_object
@@ -218,6 +218,9 @@ def from_speckle_object(speckle_object, scale, name=None):
         speckle_object, "displayMesh", getattr(speckle_object, "displayValue", None)
     )
     if mesh:
+        # add parent type here so we can use it as a blender custom prop
+        # not making it hidden, so it will get added on send as i think it might be helpful? can reconsider
+        mesh.parent_speckle_type = speckle_object.speckle_type
         return from_speckle_object(mesh, scale, speckle_name)
 
     # return none if fail
