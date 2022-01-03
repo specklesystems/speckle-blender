@@ -1,5 +1,6 @@
-import bpy, idprop
+import bpy, idprop, bpy_types
 from mathutils import Matrix
+from devtools import debug
 
 from .from_speckle import *
 from .to_speckle import *
@@ -7,7 +8,54 @@ from .util import *
 from bpy_speckle.functions import _report, get_scale_length
 
 from specklepy.objects.geometry import *
-from specklepy.objects.other import RenderMaterial
+from specklepy.objects.other import BlockInstance, RenderMaterial
+
+
+def transform_to_native(transform, scale=1.0):
+    mat = Matrix(
+        [
+            transform.value[:4],
+            transform.value[4:8],
+            transform.value[8:12],
+            transform.value[12:16],
+        ]
+    )
+    # scale the translation
+    for i in range(3):
+        mat[i][3] *= scale
+    return mat
+
+
+def block_def_to_native(definition, scale=1.0):
+    _report(f">>> creating block definition for {definition.name} ({definition.id})")
+    native_def = bpy.data.collections.get(definition.name)
+    if native_def:
+        return native_def
+
+    native_def = bpy.data.collections.new(definition.name)
+    for geo in definition.geometry:
+        b_obj = from_speckle_object(geo, scale)
+        native_def.objects.link(b_obj)
+
+    return native_def
+
+
+def import_block(instance, scale=1.0, name=None):
+    """
+    Convert BlockInstance to native
+    """
+    _report(f">>> converting block instance {instance.id}")
+
+    name = getattr(instance, "name", f"BlockInstance -- {instance.id}")
+    debug(name)
+    native_def = block_def_to_native(instance.blockDefinition, scale)
+
+    native_instance = bpy.data.objects.new(name, None)
+    native_instance.instance_collection = native_def
+    native_instance.instance_type = "COLLECTION"
+    native_instance.matrix_world = transform_to_native(instance.transform, scale)
+
+    return native_instance
 
 
 FROM_SPECKLE_SCHEMAS = {
@@ -18,6 +66,7 @@ FROM_SPECKLE_SCHEMAS = {
     Polyline: import_curve,
     Polycurve: import_curve,
     Arc: import_curve,
+    BlockInstance: import_block,
 }
 
 
@@ -201,7 +250,14 @@ def from_speckle_object(speckle_object, scale, name=None):
             if hasattr(obdata, "materials"):
                 blender_object.data.materials.clear()
         else:
-            blender_object = bpy.data.objects.new(speckle_name, obdata)
+            debug(speckle_name)
+            debug(obdata)
+            debug(obdata.name)
+            blender_object = (
+                obdata
+                if isinstance(obdata, bpy_types.Object)
+                else bpy.data.objects.new(speckle_name, obdata)
+            )
 
         blender_object.speckle.object_id = str(speckle_object.id)
         blender_object.speckle.enabled = True
