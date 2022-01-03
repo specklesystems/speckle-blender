@@ -214,14 +214,19 @@ def from_speckle_object(speckle_object, scale, name=None):
         return blender_object
 
     # try display mesh
-    mesh = getattr(
+    display = getattr(
         speckle_object, "displayMesh", getattr(speckle_object, "displayValue", None)
     )
-    if mesh:
+    if display:
         # add parent type here so we can use it as a blender custom prop
         # not making it hidden, so it will get added on send as i think it might be helpful? can reconsider
-        mesh.parent_speckle_type = speckle_object.speckle_type
-        return from_speckle_object(mesh, scale, speckle_name)
+        if isinstance(display, list):
+            for item in display:
+                item.parent_speckle_type = speckle_object.speckle_type
+                from_speckle_object(item, scale)
+        else:
+            display.parent_speckle_type = speckle_object.speckle_type
+            return from_speckle_object(display, scale, speckle_name)
 
     # return none if fail
     _report("Invalid input: {}".format(speckle_object))
