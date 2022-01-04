@@ -58,12 +58,10 @@ def convert_to_native(speckle_object, name=None):
             return None
     except Exception as ex:  # conversion error
         _report(f"Error converting {speckle_object} \n{ex}")
-        raise ex
         return None
 
     if speckle_name in bpy.data.objects.keys():
         blender_object = bpy.data.objects[speckle_name]
-        debug(speckle_type, speckle_name, type(blender_object))
         blender_object.data = (
             obj_data.data if isinstance(obj_data, bpy_types.Object) else obj_data
         )
@@ -75,7 +73,6 @@ def convert_to_native(speckle_object, name=None):
         if hasattr(obj_data, "materials"):
             blender_object.data.materials.clear()
     else:
-        debug(speckle_name, obj_data, speckle_object)
         blender_object = (
             obj_data
             if isinstance(obj_data, bpy_types.Object)
@@ -302,7 +299,6 @@ def icurve_to_native(speckle_curve, name=None, scale=1.0):
     if curve_type not in SUPPORTED_CURVES:
         _report(f"Unsupported curve type: {curve_type}")
         return None
-    debug(name, speckle_curve)
     name = name or f"{curve_type} -- {speckle_curve.id}"
     blender_curve = (
         bpy.data.curves[name]
@@ -357,10 +353,7 @@ def block_instance_to_native(instance: BlockInstance, scale=1.0):
     """
     _report(f">>> converting block instance {instance.id}")
 
-    name = (
-        getattr(instance, "name", None)
-        or f"{instance.blockDefinition.name} -- {instance.id}"
-    )
+    name = f"{getattr(instance, 'name', None) or instance.blockDefinition.name} -- {instance.id}"
     native_def = block_def_to_native(instance.blockDefinition, scale)
 
     native_instance = bpy.data.objects.new(name, None)
@@ -369,5 +362,4 @@ def block_instance_to_native(instance: BlockInstance, scale=1.0):
     native_instance.instance_collection = native_def
     native_instance.instance_type = "COLLECTION"
     native_instance.matrix_world = transform_to_native(instance.transform, scale)
-    debug(name, instance, type(native_instance), native_instance, native_instance.data)
     return native_instance

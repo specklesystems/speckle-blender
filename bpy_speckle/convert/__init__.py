@@ -121,7 +121,6 @@ def from_speckle_object(speckle_object, scale, name=None):
             blender_object = convert_to_native(speckle_object, speckle_name)
         except Exception as e:  # conversion error
             _report(f"Error converting {speckle_object} \n{e}")
-            raise e
             return None
 
         add_blender_material(speckle_object, blender_object)
