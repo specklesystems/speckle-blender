@@ -1,21 +1,11 @@
-import bpy, idprop, bpy_types
 from bpy_speckle.convert.to_native import CAN_CONVERT_TO_NATIVE, convert_to_native
 from mathutils import Matrix
-from devtools import debug
 
-from .to_speckle import *
 from .util import *
-from bpy_speckle.functions import _report, get_scale_length
+from bpy_speckle.functions import _report
 
 from specklepy.objects.geometry import *
-from specklepy.objects.other import BlockInstance, RenderMaterial
-
-
-TO_SPECKLE = {
-    "MESH": export_mesh,
-    "CURVE": export_curve,
-    "EMPTY": export_empty,
-}
+from specklepy.objects.other import RenderMaterial
 
 
 def set_transform(speckle_object, blender_object):
@@ -173,60 +163,3 @@ def get_speckle_subobjects(attr, scale, name):
                 if props:
                     subobjects.extend(get_speckle_subobjects(props, scale, name))
     return subobjects
-
-
-ignored_keys = (
-    "speckle",
-    "_speckle_type",
-    "_speckle_name",
-    "_speckle_transform",
-    "_RNA_UI",
-    "transform",
-    "_units",
-    "_chunkable",
-)
-
-
-def get_blender_custom_properties(obj, max_depth=1000):
-    global ignored_keys
-
-    if max_depth < 0:
-        return obj
-
-    if hasattr(obj, "keys"):
-        return {
-            key: get_blender_custom_properties(obj[key], max_depth - 1)
-            for key in obj.keys()
-            if key not in ignored_keys and not key.startswith("_")
-        }
-
-    elif isinstance(obj, (list, tuple, idprop.types.IDPropertyArray)):
-        return [get_blender_custom_properties(o, max_depth - 1) for o in obj]
-    else:
-        return obj
-
-
-def to_speckle_object(blender_object, scale, desgraph=None):
-    blender_type = blender_object.type
-    speckle_objects = []
-    speckle_material = material_to_speckle(blender_object)
-
-    if blender_type in TO_SPECKLE.keys():
-        if desgraph:
-            blender_object = blender_object.evaluated_get(desgraph)
-        converted = TO_SPECKLE[blender_type](blender_object, blender_object.data, scale)
-        if isinstance(converted, list):
-            speckle_objects.extend([c for c in converted if c != None])
-
-    for so in speckle_objects:
-        so.properties = get_blender_custom_properties(blender_object)
-        so.applicationId = so.properties.pop("applicationId", None)
-
-        if speckle_material:
-            so["renderMaterial"] = speckle_material
-
-        # Set object transform
-        so.properties["transform"] = [y for x in blender_object.matrix_world for y in x]
-
-    # _report(speckle_objects)
-    return speckle_objects

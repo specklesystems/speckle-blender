@@ -1,6 +1,6 @@
 import base64
 from typing import Tuple
-import bpy, struct
+import bpy, struct, idprop
 from bpy_speckle.functions import _report
 
 
@@ -184,3 +184,101 @@ def add_uv_coords(speckle_mesh, blender_mesh):
                 raise
 
             del speckle_mesh.properties[texKey]
+
+
+ignored_keys = (
+    "speckle",
+    "_speckle_type",
+    "_speckle_name",
+    "_speckle_transform",
+    "_RNA_UI",
+    "transform",
+    "_units",
+    "_chunkable",
+)
+
+
+def get_blender_custom_properties(obj, max_depth=1000):
+    if max_depth < 0:
+        return obj
+
+    if hasattr(obj, "keys"):
+        return {
+            key: get_blender_custom_properties(obj[key], max_depth - 1)
+            for key in obj.keys()
+            if key not in ignored_keys and not key.startswith("_")
+        }
+
+    elif isinstance(obj, (list, tuple, idprop.types.IDPropertyArray)):
+        return [get_blender_custom_properties(o, max_depth - 1) for o in obj]
+    else:
+        return obj
+
+
+"""
+Python implementation of Blender's NURBS curve generation for to Speckle conversion
+from: https://blender.stackexchange.com/a/34276
+"""
+
+
+def macro_knotsu(nu):
+    return nu.order_u + nu.point_count_u + (nu.order_u - 1 if nu.use_cyclic_u else 0)
+
+
+def macro_segmentsu(nu):
+    return nu.point_count_u if nu.use_cyclic_u else nu.point_count_u - 1
+
+
+def make_knots(nu):
+    knots = [0.0] * (4 + macro_knotsu(nu))
+    flag = nu.use_endpoint_u + (nu.use_bezier_u << 1)
+    if nu.use_cyclic_u:
+        calc_knots(knots, nu.point_count_u, nu.order_u, 0)
+        makecyclicknots(knots, nu.point_count_u, nu.order_u)
+    else:
+        calc_knots(knots, nu.point_count_u, nu.order_u, flag)
+    return knots
+
+
+def calc_knots(knots, pnts, order, flag):
+    pnts_order = pnts + order
+    if flag == 1:
+        k = 0.0
+        for a in range(1, pnts_order + 1):
+            knots[a - 1] = k
+            if a >= order and a <= pnts:
+                k += 1.0
+    elif flag == 2:
+        if order == 4:
+            k = 0.34
+            for a in range(pnts_order):
+                knots[a] = math.floor(k)
+                k += 1.0 / 3.0
+        elif order == 3:
+            k = 0.6
+            for a in range(pnts_order):
+                if a >= order and a <= pnts:
+                    k += 0.5
+                    knots[a] = math.floor(k)
+    else:
+        for a in range(pnts_order):
+            knots[a] = a
+
+
+def makecyclicknots(knots, pnts, order):
+    order2 = order - 1
+
+    if order > 2:
+        b = pnts + order2
+        for a in range(1, order2):
+            if knots[b] != knots[b - a]:
+                break
+
+            if a == order2:
+                knots[pnts + order - 2] += 1.0
+
+    b = order
+    c = pnts + order + order2
+    for a in range(pnts + order2, c):
+        knots[a] = knots[a - 1] + (knots[b] - knots[b - 1])
+        b -= 1

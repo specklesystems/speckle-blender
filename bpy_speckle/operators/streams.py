@@ -3,24 +3,23 @@ Stream operators
 """
 from itertools import chain
 from typing import Dict
-import bpy, bmesh, os
+import bpy
 from specklepy.api.models import Commit
 import webbrowser
 from bpy.props import (
     StringProperty,
     BoolProperty,
-    FloatProperty,
-    CollectionProperty,
-    EnumProperty,
+)
+from bpy_speckle.convert.to_speckle import (
+    convert_to_speckle,
+    ngons_to_speckle_polylines,
 )
 from bpy_speckle.functions import (
     _check_speckle_client_user_stream,
-    _create_stream,
     get_scale_length,
     _report,
 )
-from bpy_speckle.convert import to_speckle_object, get_speckle_subobjects
-from bpy_speckle.convert.to_speckle import export_ngons_as_polylines
+from bpy_speckle.convert import get_speckle_subobjects
 
 from bpy_speckle.convert import from_speckle_object
 from bpy_speckle.clients import speckle_clients
@@ -415,9 +414,9 @@ class SendStreamObjects(bpy.types.Operator):
             ngons = obj.get("speckle_ngons_as_polylines", False)
 
             if ngons:
-                converted = export_ngons_as_polylines(obj, scale)
+                converted = ngons_to_speckle_polylines(obj, scale)
             else:
-                converted = to_speckle_object(
+                converted = convert_to_speckle(
                     obj,
                     scale,
                     bpy.context.evaluated_depsgraph_get()

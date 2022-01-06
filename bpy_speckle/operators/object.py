@@ -2,7 +2,7 @@
 Object operators
 """
 
-import bpy, bmesh, os
+import bpy
 from bpy.props import (
     StringProperty,
     BoolProperty,
@@ -11,9 +11,10 @@ from bpy.props import (
     EnumProperty,
 )
 
-from specklepy.api.client import SpeckleClient
-from bpy_speckle.convert import to_speckle_object
-from bpy_speckle.convert.to_speckle import export_ngons_as_polylines
+from bpy_speckle.convert.to_speckle import (
+    convert_to_speckle,
+    ngons_to_speckle_polylines,
+)
 
 from bpy_speckle.functions import get_scale_length, _report
 from bpy_speckle.clients import speckle_clients
@@ -58,7 +59,7 @@ class UpdateObject(bpy.types.Operator):
                     stream_units
                 )
 
-                sm = to_speckle_object(active, scale)
+                sm = convert_to_speckle(active, scale)
 
                 _report("Updating object {}".format(sm["_id"]))
                 client.objects.update(active.speckle.object_id, sm)
@@ -166,7 +167,7 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
                 stream.units
             )
 
-            sp = export_ngons_as_polylines(active, scale)
+            sp = ngons_to_speckle_polylines(active, scale)
 
             if sp is None:
                 return {"CANCELLED"}
