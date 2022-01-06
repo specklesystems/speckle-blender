@@ -1,5 +1,4 @@
 import math
-from devtools import debug
 from bpy_speckle.functions import get_scale_length, _report
 import mathutils
 import bpy, bmesh, bpy_types
@@ -13,7 +12,6 @@ from .util import (
     add_colors,
     add_uv_coords,
 )
-from bpy_speckle.util import find_key_case_insensitive
 
 SUPPORTED_CURVES = (Line, Polyline, Curve, Arc, Polycurve)
 
@@ -28,17 +26,32 @@ CAN_CONVERT_TO_NATIVE = (
 
 
 def convert_to_native(speckle_object, name=None):
+    speckle_type = type(speckle_object)
     speckle_name = (
         name
         or getattr(speckle_object, "name", None)
         or speckle_object.speckle_type + f" -- {speckle_object.id}"
     )
+    if speckle_type not in CAN_CONVERT_TO_NATIVE:
+        display = getattr(
+            speckle_object, "displayMesh", getattr(speckle_object, "displayValue", None)
+        )
+        if not display:
+            _report(f"Could not convert unsupported Speckle object: {speckle_object}")
+            return
+        # add parent type here so we can use it as a blender custom prop
+        # not making it hidden, so it will get added on send as i think it might be helpful? can reconsider
+        if isinstance(display, list):
+            for item in display:
+                item.parent_speckle_type = speckle_object.speckle_type
+                convert_to_native(item)
+        else:
+            display.parent_speckle_type = speckle_object.speckle_type
+            return convert_to_native(display, speckle_name)
 
     units = getattr(speckle_object, "units", None)
     if units:
         scale = get_scale_length(units) / bpy.context.scene.unit_settings.scale_length
-
-    speckle_type = type(speckle_object)
 
     try:
         if speckle_type is Mesh:

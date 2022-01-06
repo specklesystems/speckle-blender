@@ -1,23 +1,15 @@
 """
 Commit operators
 """
-import bpy, os
+import bpy
 from bpy.props import (
-    StringProperty,
     BoolProperty,
-    FloatProperty,
-    CollectionProperty,
-    EnumProperty,
 )
 
 from bpy_speckle.functions import (
     _check_speckle_client_user_stream,
-    _create_stream,
-    get_scale_length,
-    _report,
 )
 
-from bpy_speckle.convert import from_speckle_object
 from bpy_speckle.clients import speckle_clients
 
 
@@ -32,7 +24,8 @@ class DeleteCommit(bpy.types.Operator):
     bl_description = "Delete active commit permanently"
 
     are_you_sure: BoolProperty(
-        name="Confirm", default=False,
+        name="Confirm",
+        default=False,
     )
 
     def draw(self, context):
@@ -66,20 +59,11 @@ class DeleteCommit(bpy.types.Operator):
         stream = user.streams[user.active_stream]
         if len(stream.branches) < 1:
             return {"CANCELLED"}
-        else:
-            branch = stream.branches[int(stream.branch)]
-            if len(branch.commits) < 1:
-                return {"CANCELLED"}
-            else:
-                commit = branch.commits[int(branch.commit)]
+        branch = stream.branches[int(stream.branch)]
+        if len(branch.commits) < 1:
+            return {"CANCELLED"}
+        commit = branch.commits[int(branch.commit)]
 
-                deleted = client.commit.delete(stream_id=stream.id, commit_id=commit.id)
+        deleted = client.commit.delete(stream_id=stream.id, commit_id=commit.id)
 
-        return {"FINISHED"}
-
-        bpy.ops.speckle.load_user_streams()
-        context.view_layer.update()
-
-        if context.area:
-            context.area.tag_redraw()
         return {"FINISHED"}

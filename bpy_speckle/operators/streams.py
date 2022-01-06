@@ -10,6 +10,7 @@ from bpy.props import (
     StringProperty,
     BoolProperty,
 )
+from bpy_speckle.convert.to_native import convert_to_native
 from bpy_speckle.convert.to_speckle import (
     convert_to_speckle,
     ngons_to_speckle_polylines,
@@ -20,8 +21,6 @@ from bpy_speckle.functions import (
     _report,
 )
 from bpy_speckle.convert import get_speckle_subobjects
-
-from bpy_speckle.convert import from_speckle_object
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
 
@@ -128,7 +127,7 @@ def bases_to_native(context, collections, scale, stream_id, func=None):
 
 
 def base_to_native(context, base, scale, stream_id, col, existing, func=None):
-    new_objects = [from_speckle_object(base, scale)]
+    new_objects = [convert_to_native(base)]
 
     if hasattr(base, "properties") and base.properties is not None:
         new_objects.extend(get_speckle_subobjects(base.properties, scale, base.id))
