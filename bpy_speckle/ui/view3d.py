@@ -84,9 +84,8 @@ class VIEW3D_UL_SpeckleStreams(bpy.types.UIList):
     def draw_item(self, context, layout, data, stream, active_data, active_propname):
         if self.layout_type in {"DEFAULT", "COMPACT"}:
             if stream:
-                # layout.prop(user, "name", text=user.name, emboss=False, icon_value=0)
                 layout.label(
-                    text="{} ({})".format(stream.name, stream.id),
+                    text=f"{stream.name} ({stream.id})",
                     translate=False,
                     icon_value=0,
                 )
@@ -118,7 +117,6 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
         if len(speckle.users) < 1:
             col.label(text="No users found.")
         else:
-            # col.label(text="User")
             col.prop(speckle, "active_user", text="")
             user = speckle.users[int(speckle.active_user)]
             col.label(text="{} ({})".format(user.server_name, user.server_url))

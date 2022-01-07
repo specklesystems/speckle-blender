@@ -1,7 +1,6 @@
-from bpy_speckle.convert.to_native import CAN_CONVERT_TO_NATIVE, convert_to_native
 from mathutils import Matrix
+from bpy_speckle.convert.to_native import convert_to_native
 from bpy_speckle.functions import _report
-from specklepy.objects.geometry import *
 
 
 def set_transform(speckle_object, blender_object):
@@ -30,7 +29,7 @@ def get_speckle_subobjects(attr, scale, name):
         if isinstance(attr[key], dict):
             subtype = attr[key].get("type", None)
             if subtype:
-                name = "{}.{}".format(name, key)
+                name = f"{name}.{key}"
                 subobject = convert_to_native(attr[key], name)
 
                 subobjects.append(subobject)

@@ -567,7 +567,7 @@ class CreateStream(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Create new stream"
 
-    stream_name: StringProperty(name="Stream name", default="SpeckleStream")
+    stream_name: StringProperty(name="Stream name")
     stream_description: StringProperty(
         name="Stream description", default="This is a Blender stream."
     )

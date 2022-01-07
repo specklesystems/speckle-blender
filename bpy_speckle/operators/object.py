@@ -3,19 +3,11 @@ Object operators
 """
 
 import bpy
-from bpy.props import (
-    StringProperty,
-    BoolProperty,
-    FloatProperty,
-    CollectionProperty,
-    EnumProperty,
-)
-
+from bpy.props import BoolProperty, EnumProperty
 from bpy_speckle.convert.to_speckle import (
     convert_to_speckle,
     ngons_to_speckle_polylines,
 )
-
 from bpy_speckle.functions import get_scale_length, _report
 from bpy_speckle.clients import speckle_clients
 

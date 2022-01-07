@@ -16,7 +16,7 @@ def to_rgba(argb_int: int) -> Tuple[float]:
 
 def to_argb_int(diffuse_colour) -> int:
     """Converts an RGBA array to an ARGB integer"""
-    diffuse_colour = diffuse_colour[-1:] + diffuse_colour[0:3]
+    diffuse_colour = diffuse_colour[-1:] + diffuse_colour[:3]
     diffuse_colour = [int(val * 255) for val in diffuse_colour]
 
     return int.from_bytes(diffuse_colour, byteorder="big", signed=True)
@@ -164,7 +164,7 @@ def add_uv_coords(speckle_mesh, blender_mesh):
                 s_uvs = decoded.split()
                 uv = []
 
-                if int(len(s_uvs) / 2) == len(blender_mesh.verts):
+                if len(s_uvs) // 2 == len(blender_mesh.verts):
                     for i in range(0, len(s_uvs), 2):
                         uv.append((float(s_uvs[i]), float(s_uvs[i + 1])))
                 else:
@@ -240,45 +240,45 @@ def make_knots(nu):
     return knots
 
 
-def calc_knots(knots, pnts, order, flag):
-    pnts_order = pnts + order
+def calc_knots(knots, point_count, order, flag):
+    pts_order = point_count + order
     if flag == 1:
         k = 0.0
-        for a in range(1, pnts_order + 1):
+        for a in range(1, pts_order + 1):
             knots[a - 1] = k
-            if a >= order and a <= pnts:
+            if a >= order and a <= point_count:
                 k += 1.0
     elif flag == 2:
         if order == 4:
             k = 0.34
-            for a in range(pnts_order):
+            for a in range(pts_order):
                 knots[a] = math.floor(k)
                 k += 1.0 / 3.0
         elif order == 3:
             k = 0.6
-            for a in range(pnts_order):
-                if a >= order and a <= pnts:
+            for a in range(pts_order):
+                if a >= order and a <= point_count:
                     k += 0.5
                     knots[a] = math.floor(k)
     else:
-        for a in range(pnts_order):
+        for a in range(pts_order):
             knots[a] = a
 
 
-def makecyclicknots(knots, pnts, order):
+def makecyclicknots(knots, point_count, order):
     order2 = order - 1
 
     if order > 2:
-        b = pnts + order2
+        b = point_count + order2
         for a in range(1, order2):
             if knots[b] != knots[b - a]:
                 break
 
             if a == order2:
-                knots[pnts + order - 2] += 1.0
+                knots[point_count + order - 2] += 1.0
 
     b = order
-    c = pnts + order + order2
-    for a in range(pnts + order2, c):
+    c = point_count + order + order2
+    for a in range(point_count + order2, c):
         knots[a] = knots[a - 1] + (knots[b] - knots[b - 1])
         b -= 1

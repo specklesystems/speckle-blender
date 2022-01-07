@@ -1,9 +1,7 @@
 """
 Addon properties
 """
-
 import bpy
-from bpy.props import BoolProperty
 
 
 class SpeckleAddonPreferences(bpy.types.AddonPreferences):

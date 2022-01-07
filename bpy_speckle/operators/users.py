@@ -1,23 +1,11 @@
 """
 User account operators
 """
-
-from typing import cast
-import bpy, bmesh, os
-from bpy.props import (
-    StringProperty,
-    BoolProperty,
-    FloatProperty,
-    CollectionProperty,
-    EnumProperty,
-)
-from bpy_speckle.properties.scene import SpeckleUserObject
-
+import bpy
 from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
-
 from specklepy.api.client import SpeckleClient
-from specklepy.api.credentials import get_default_account, get_local_accounts
+from specklepy.api.credentials import get_local_accounts
 
 
 class LoadUsers(bpy.types.Operator):

@@ -2,14 +2,8 @@
 Commit operators
 """
 import bpy
-from bpy.props import (
-    BoolProperty,
-)
-
-from bpy_speckle.functions import (
-    _check_speckle_client_user_stream,
-)
-
+from bpy.props import BoolProperty
+from bpy_speckle.functions import _check_speckle_client_user_stream
 from bpy_speckle.clients import speckle_clients
 
 

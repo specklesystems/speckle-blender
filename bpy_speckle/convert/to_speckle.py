@@ -1,5 +1,5 @@
 import bpy
-from specklepy.objects.geometry import Mesh, Box, Curve, Interval, Box, Polyline
+from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Polyline
 from specklepy.objects.other import RenderMaterial, Transform
 
 from bpy_speckle.convert.util import (

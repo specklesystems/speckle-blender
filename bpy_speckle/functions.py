@@ -1,4 +1,3 @@
-from specklepy.api.client import SpeckleClient
 from bpy_speckle.clients import speckle_clients
 
 """
@@ -71,34 +70,3 @@ def _check_speckle_client_user_stream(scene):
         print("Account contains no streams.")
 
     return (user, stream)
-
-
-def _create_stream(user, stream_name, units="Millimeters"):
-    """
-    Create a new stream
-    """
-
-    # TODO: double-check, but this should not be accessible through the UI if
-    # there aren't any active users anyway
-    # user = context.scene.speckle.users[int(context.scene.speckle.active_user)]
-    client = speckle_clients[int(bpy.context.scene.speckle.active_user)]
-    return client.stream.create(
-        name=stream_name, description="This is a Blender stream.", is_public=True
-    )
-
-    # TODO: Update stream with properties such as units, etc.
-
-
-def _delete_stream(client, user, stream):
-    """
-    Delete the active stream
-    TODO: probably doesn't need to be a separate function and can be
-    folded into the operator
-    """
-
-    user = context.scene.speckle.users[int(context.scene.speckle.active_user)]
-    client = speckle_clients[int(context.scene.speckle.active_user)]
-
-    if stream:
-        res = client.streams.delete(stream.id)
-        _report(res["message"])
