@@ -87,9 +87,14 @@ def get_objects_collections_recursive(base, parent_col=None) -> List:
                     objects.append(item)
         if isinstance(value, Base):
             col = parent_col.children.get(name)
-            if not parent_col.children.get(name):
+            if not col:
                 col = create_collection(name)
-                parent_col.children.link(col)
+                try:
+                    parent_col.children.link(col)
+                except:
+                    _report(
+                        f"Problem linking collection {col.name} to parent {parent_col.name}; skipping"
+                    )
             objects.append({name: get_objects_collections_recursive(value, col)})
 
     return objects

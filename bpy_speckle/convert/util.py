@@ -1,6 +1,8 @@
 import base64
 from typing import Tuple
 import bpy, struct, idprop
+
+from specklepy.serialization.base_object_serializer import BaseObjectSerializer
 from bpy_speckle.functions import _report
 
 
@@ -26,14 +28,18 @@ def add_custom_properties(speckle_object, blender_object):
     if blender_object is None:
         return
 
+    serializer = BaseObjectSerializer()
     blender_object["_speckle_type"] = type(speckle_object).__name__
 
-    if hasattr(speckle_object, "applicationId"):
+    app_id = getattr(speckle_object, "applicationId", None)
+    if app_id:
         blender_object["applicationId"] = speckle_object.applicationId
 
     for key in speckle_object.get_dynamic_member_names():
-        if isinstance(speckle_object[key], (int, str, float, dict)):
+        if isinstance(speckle_object[key], (int, str, float)):
             blender_object[key] = speckle_object[key]
+        elif isinstance(speckle_object[key], (dict, list)):
+            blender_object[key] = serializer.traverse_value(speckle_object[key])
 
 
 def add_blender_material(speckle_object, blender_object) -> None:
