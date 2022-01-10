@@ -25,6 +25,19 @@ CAN_CONVERT_TO_NATIVE = (
 )
 
 
+def can_convert_to_native(speckle_object):
+    if type(speckle_object) in CAN_CONVERT_TO_NATIVE:
+        return True
+    display = getattr(
+        speckle_object, "displayMesh", getattr(speckle_object, "displayValue", None)
+    )
+    if display:
+        return True
+
+    _report(f"Could not convert unsupported Speckle object: {speckle_object}")
+    return False
+
+
 def convert_to_native(speckle_object, name=None):
     speckle_type = type(speckle_object)
     speckle_name = (
@@ -348,6 +361,7 @@ def block_def_to_native(definition: BlockDefinition, scale=1.0):
         return native_def
 
     native_def = bpy.data.collections.new(definition.name)
+    native_def["applicationId"] = definition.applicationId
     for geo in definition.geometry:
         b_obj = convert_to_native(geo)
         if b_obj:

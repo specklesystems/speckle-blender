@@ -1,6 +1,5 @@
 from mathutils import Matrix
 from bpy_speckle.convert.to_native import convert_to_native
-from bpy_speckle.functions import _report
 
 
 def set_transform(speckle_object, blender_object):

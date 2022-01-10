@@ -10,7 +10,7 @@ from bpy.props import (
     StringProperty,
     BoolProperty,
 )
-from bpy_speckle.convert.to_native import convert_to_native
+from bpy_speckle.convert.to_native import can_convert_to_native, convert_to_native
 from bpy_speckle.convert.to_speckle import (
     convert_to_speckle,
     ngons_to_speckle_polylines,
@@ -28,7 +28,6 @@ from specklepy.api import operations
 from specklepy.api.credentials import StreamWrapper
 from specklepy.api.resources.stream import Stream
 from specklepy.transports.server import ServerTransport
-from specklepy.objects import Base
 from specklepy.objects.geometry import *
 from specklepy.logging.exceptions import SpeckleException
 
@@ -68,12 +67,7 @@ def get_objects_nested_lists(items, parent_col=None) -> List:
 def get_objects_collections_recursive(base, parent_col=None) -> List:
     """Recursively create collections based on the dynamic members on nested `Base` objects within the root commit object"""
     # if it's a convertable (registered) class and not just a plain `Base`, return the object itself
-    object_type = Base.get_registered_type(base.speckle_type)
-    if (
-        (object_type and object_type != Base)
-        or hasattr(base, "displayMesh")
-        or hasattr(base, "displayValue")
-    ):
+    if can_convert_to_native(base):
         return [base]
 
     # if it's an unknown type, try to drill further down to find convertable objects
@@ -120,6 +114,7 @@ def bases_to_native(context, collections, scale, stream_id, func=None):
                             )
                 elif isinstance(obj, Base):
                     base_to_native(context, obj, scale, stream_id, col, existing, func)
+
                 else:
                     _report(
                         f"Something went wrong when receiving collection: {col_name}"
@@ -227,9 +222,9 @@ def create_nested_hierarchy(base, hierarchy, objects):
         child = child[name]
 
     # TODO: what do we call this attribute?
-    if not hasattr(child, "objects"):
-        child["objects"] = []
-    child["objects"].extend(objects)
+    if not hasattr(child, "@objects"):
+        child["@objects"] = []
+    child["@objects"].extend(objects)
 
     return base
 
