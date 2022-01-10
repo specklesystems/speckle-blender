@@ -174,9 +174,9 @@ def add_uv_coords(speckle_mesh, blender_mesh):
                     for i in range(0, len(s_uvs), 2):
                         uv.append((float(s_uvs[i]), float(s_uvs[i + 1])))
                 else:
-                    print(len(s_uvs) * 2)
-                    print(len(blender_mesh.verts))
-                    print("Failed to match UV coordinates to vert data.")
+                    _report(
+                        f"Failed to match UV coordinates to vert data. Blender mesh verts: {len(blender_mesh.verts)}, Speckle UVs * 2: {len(s_uvs) * 2}"
+                    )
 
                 # Make UVs
                 uv_layer = blender_mesh.loops.layers.uv.verify()
@@ -186,7 +186,7 @@ def add_uv_coords(speckle_mesh, blender_mesh):
                         luv = l[uv_layer]
                         luv.uv = uv[l.vert.index]
             except:
-                print("Failed to decode texture coordinates.")
+                _report("Failed to decode texture coordinates.")
                 raise
 
             del speckle_mesh.properties[texKey]

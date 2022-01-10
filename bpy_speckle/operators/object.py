@@ -92,8 +92,6 @@ class DeleteObject(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-
-        user = context.scene.speckle.users[int(context.scene.speckle.active_user)]
         client = speckle_clients[int(context.scene.speckle.active_user)]
         active = context.object
         if active.speckle.enabled:
@@ -105,13 +103,11 @@ class DeleteObject(bpy.types.Operator):
             ]
             if existing is None:
                 return {"CANCELLED"}
-            # print("Existing: %s" % SpeckleResource.to_json_pretty(existing))
             new_objects = [
                 x
                 for x in res["resource"]["objects"]
                 if x["_id"] != active.speckle.object_id
             ]
-            # print (SpeckleResource.to_json_pretty(new_objects))
 
             res = client.GetLayers(active.speckle.stream_id)
             new_layers = res["resource"]["layers"]
@@ -168,15 +164,11 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
             for polyline in sp:
 
                 res = client.objects.create([polyline])
-                print(res)
 
                 if res is None:
                     _report(client.me)
                     continue
                 placeholders.extend(res)
-
-                # polyline['_id'] = res['_id']
-                # placeholders.append({'type':'Placeholder', '_id':res['_id']})
 
             if not placeholders:
                 return {"CANCELLED"}
@@ -213,58 +205,6 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "clear_stream")
-
-
-class UploadObject(bpy.types.Operator):
-    """
-    DEPRECATED
-    Upload an individual object
-    """
-
-    bl_idname = "speckle.upload_object"
-    bl_label = "Upload Object"
-    bl_options = {"REGISTER", "UNDO"}
-
-    def execute(self, context):
-
-        active = context.active_object
-        if active is not None:
-            user = context.scene.speckle.users[int(context.scene.speckle.active_user)]
-            client = speckle_clients[int(context.scene.speckle.active_user)]
-            stream = user.streams[user.active_stream]
-
-            scale = context.scene.unit_settings.scale_length / get_scale_length(
-                stream.units
-            )
-
-            sm = to_speckle_object(active, scale)
-
-            placeholders = client.objects.create([sm])
-            if placeholders is None:
-                return {"CANCELLED"}
-
-            sstream = client.streams.get(stream.id)
-            sstream.objects.extend(placeholders)
-
-            N = sstream.layers[-1].objectCount
-            sstream.layers[-1].objectCount = N + 1
-            sstream.layers[-1].topology = "0-%s" % (N + 1)
-
-            _report("Updating stream %s" % stream.id)
-
-            res = client.streams.update(stream["id"], sstream)
-
-            _report(res)
-
-            active.speckle.enabled = True
-            active.speckle.object_id = sm.id
-            active.speckle.stream_id = stream.id
-            active.speckle.send_or_receive = "send"
-
-            context.view_layer.update()
-            _report("Done.")
-
-        return {"FINISHED"}
 
 
 def get_custom_speckle_props(self, context):

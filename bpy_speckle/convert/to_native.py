@@ -355,7 +355,6 @@ def transform_to_native(transform: Transform, scale=1.0):
 
 
 def block_def_to_native(definition: BlockDefinition, scale=1.0):
-    _report(f">>> creating block definition for {definition.name} ({definition.id})")
     native_def = bpy.data.collections.get(definition.name)
     if native_def:
         return native_def
@@ -378,8 +377,6 @@ def block_instance_to_native(instance: BlockInstance, scale=1.0):
     """
     Convert BlockInstance to native
     """
-    _report(f">>> converting block instance {instance.id}")
-
     name = f"{getattr(instance, 'name', None) or instance.blockDefinition.name} -- {instance.id}"
     native_def = block_def_to_native(instance.blockDefinition, scale)
 

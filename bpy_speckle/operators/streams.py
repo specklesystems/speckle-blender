@@ -262,7 +262,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
         bbranch = bstream.branches[int(bstream.branch)]
 
         if branch.commits.totalCount < 1:
-            print("No commits found. Probably an empty stream.")
+            _report("No commits found. Probably an empty stream.")
             return {"CANCELLED"}
 
         commit = branch.commits.items[int(bbranch.commit)]

@@ -137,7 +137,6 @@ def bezier_to_speckle(matrix, spline, scale, name=None):
 
 def nurbs_to_speckle(matrix, spline, scale, name=None):
     knots = make_knots(spline)
-    # print("knots: {}".format(knots))
     points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
     degree = spline.order_u - 1
 
