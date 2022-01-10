@@ -1,7 +1,7 @@
 import bpy
-from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Polyline
-from specklepy.objects.other import RenderMaterial, Transform
-
+from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Point, Polyline
+from specklepy.objects.other import *
+from bpy_speckle.functions import _report
 from bpy_speckle.convert.util import (
     get_blender_custom_properties,
     make_knots,
@@ -28,7 +28,7 @@ def convert_to_speckle(blender_object, scale, desgraph=None):
     elif blender_type == "CURVE":
         converted = icurve_to_speckle(blender_object, blender_object.data, scale)
     elif blender_type == "EMPTY":
-        converted = empty_to_speckle(blender_type, blender_object.data, scale)
+        converted = empty_to_speckle(blender_object, scale)
     if not converted:
         return None
 
@@ -36,7 +36,6 @@ def convert_to_speckle(blender_object, scale, desgraph=None):
         speckle_objects.extend([c for c in converted if c != None])
     else:
         speckle_objects.append(converted)
-
     for so in speckle_objects:
         so.properties = get_blender_custom_properties(blender_object)
         so.applicationId = so.properties.pop("applicationId", None)
@@ -45,10 +44,10 @@ def convert_to_speckle(blender_object, scale, desgraph=None):
             so["renderMaterial"] = speckle_material
 
         # Set object transform
-        so.properties["transform"] = Transform(
-            value=[y for x in blender_object.matrix_world for y in x],
-            units="m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft",
-        )
+        if blender_type != "EMPTY":
+            so.properties["transform"] = transform_to_speckle(
+                blender_object.matrix_world
+            )
 
     return speckle_objects
 
@@ -266,12 +265,49 @@ def material_to_speckle(blender_object) -> RenderMaterial:
     return speckle_mat
 
 
-def empty_to_speckle(blender_object, data, scale=1.0):
+def transform_to_speckle(blender_transform, scale=1.0):
+    units = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
+    value = [y for x in blender_transform for y in x]
+    # scale the translation
+    for i in (3, 7, 11):
+        value[i] *= scale
+
+    return Transform(value=value, units=units)
+
+
+def block_def_to_speckle(blender_definition, scale=1.0):
+    geometry = []
+    for geo in blender_definition.objects:
+        geometry.extend(convert_to_speckle(geo, scale))
+    block_def = BlockDefinition(
+        units=UNITS,
+        name=blender_definition.name,
+        geometry=geometry,
+        basePoint=Point(units=UNITS),
+    )
+    blender_props = get_blender_custom_properties(blender_definition)
+    block_def.applicationId = blender_props.pop("applicationId", None)
+    return block_def
+
+
+def block_instance_to_speckle(blender_instance, scale=1.0):
+    return BlockInstance(
+        blockDefinition=block_def_to_speckle(
+            blender_instance.instance_collection, scale
+        ),
+        transform=transform_to_speckle(blender_instance.matrix_world),
+        name=blender_instance.name,
+        units=UNITS,
+    )
+
+
+def empty_to_speckle(blender_object, scale=1.0):
     # probably an instance collection (block) so let's try it
     try:
         geo = blender_object.instance_collection.objects.items()
+        return block_instance_to_speckle(blender_object, scale)
     except AttributeError as err:
-        # no definition
+        _report(
+            f"No instance collection found in empty. Skipping object {blender_object.name}"
+        )
         return None
-    print(">>> FOUND INSTANCE COLLECTION OBJECTS", geo)
-    return None
