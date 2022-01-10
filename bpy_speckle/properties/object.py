@@ -1,9 +1,7 @@
 """
 Object properties
 """
-
 import bpy
-from bpy.props import StringProperty, BoolProperty, EnumProperty
 
 
 class SpeckleObjectSettings(bpy.types.PropertyGroup):

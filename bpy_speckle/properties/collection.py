@@ -1,9 +1,7 @@
 """
 Collection properties
 """
-
 import bpy
-from bpy.props import StringProperty, BoolProperty, EnumProperty
 
 
 class SpeckleCollectionSettings(bpy.types.PropertyGroup):

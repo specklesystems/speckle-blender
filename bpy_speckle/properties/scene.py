@@ -1,7 +1,6 @@
 """
 Scene properties
 """
-
 import bpy
 from bpy.props import (
     StringProperty,
@@ -12,7 +11,6 @@ from bpy.props import (
     IntProperty,
     PointerProperty,
 )
-from specklepy.api.client import SpeckleClient
 
 
 class SpeckleSceneObject(bpy.types.PropertyGroup):
@@ -82,9 +80,10 @@ class SpeckleUserObject(bpy.types.PropertyGroup):
 
 class SpeckleSceneSettings(bpy.types.PropertyGroup):
     def get_scripts(self, context):
-        seq = [("<none>", "<none>", "<none>")]
-        seq.extend([(t.name, t.name, t.name) for t in bpy.data.texts])
-        return seq
+        return [
+            ("<none>", "<none>", "<none>"),
+            *[(t.name, t.name, t.name) for t in bpy.data.texts],
+        ]
 
     streams: EnumProperty(
         name="Available streams",

@@ -3,26 +3,24 @@ Stream operators
 """
 from itertools import chain
 from typing import Dict
-import bpy, bmesh, os
+import bpy
 from specklepy.api.models import Commit
 import webbrowser
 from bpy.props import (
     StringProperty,
     BoolProperty,
-    FloatProperty,
-    CollectionProperty,
-    EnumProperty,
+)
+from bpy_speckle.convert.to_native import can_convert_to_native, convert_to_native
+from bpy_speckle.convert.to_speckle import (
+    convert_to_speckle,
+    ngons_to_speckle_polylines,
 )
 from bpy_speckle.functions import (
     _check_speckle_client_user_stream,
-    _create_stream,
     get_scale_length,
     _report,
 )
-from bpy_speckle.convert import to_speckle_object, get_speckle_subobjects
-from bpy_speckle.convert.to_speckle import export_ngons_as_polylines
-
-from bpy_speckle.convert import from_speckle_object
+from bpy_speckle.convert import get_speckle_subobjects
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
 
@@ -30,7 +28,6 @@ from specklepy.api import operations
 from specklepy.api.credentials import StreamWrapper
 from specklepy.api.resources.stream import Stream
 from specklepy.transports.server import ServerTransport
-from specklepy.objects import Base
 from specklepy.objects.geometry import *
 from specklepy.logging.exceptions import SpeckleException
 
@@ -70,12 +67,7 @@ def get_objects_nested_lists(items, parent_col=None) -> List:
 def get_objects_collections_recursive(base, parent_col=None) -> List:
     """Recursively create collections based on the dynamic members on nested `Base` objects within the root commit object"""
     # if it's a convertable (registered) class and not just a plain `Base`, return the object itself
-    object_type = Base.get_registered_type(base.speckle_type)
-    if (
-        (object_type and object_type != Base)
-        or hasattr(base, "displayMesh")
-        or hasattr(base, "displayValue")
-    ):
+    if can_convert_to_native(base):
         return [base]
 
     # if it's an unknown type, try to drill further down to find convertable objects
@@ -89,9 +81,14 @@ def get_objects_collections_recursive(base, parent_col=None) -> List:
                     objects.append(item)
         if isinstance(value, Base):
             col = parent_col.children.get(name)
-            if not parent_col.children.get(name):
+            if not col:
                 col = create_collection(name)
-                parent_col.children.link(col)
+                try:
+                    parent_col.children.link(col)
+                except:
+                    _report(
+                        f"Problem linking collection {col.name} to parent {parent_col.name}; skipping"
+                    )
             objects.append({name: get_objects_collections_recursive(value, col)})
 
     return objects
@@ -117,6 +114,7 @@ def bases_to_native(context, collections, scale, stream_id, func=None):
                             )
                 elif isinstance(obj, Base):
                     base_to_native(context, obj, scale, stream_id, col, existing, func)
+
                 else:
                     _report(
                         f"Something went wrong when receiving collection: {col_name}"
@@ -129,7 +127,7 @@ def bases_to_native(context, collections, scale, stream_id, func=None):
 
 
 def base_to_native(context, base, scale, stream_id, col, existing, func=None):
-    new_objects = [from_speckle_object(base, scale)]
+    new_objects = [convert_to_native(base)]
 
     if hasattr(base, "properties") and base.properties is not None:
         new_objects.extend(get_speckle_subobjects(base.properties, scale, base.id))
@@ -224,9 +222,9 @@ def create_nested_hierarchy(base, hierarchy, objects):
         child = child[name]
 
     # TODO: what do we call this attribute?
-    if not hasattr(child, "objects"):
-        child["objects"] = []
-    child["objects"].extend(objects)
+    if not hasattr(child, "@objects"):
+        child["@objects"] = []
+    child["@objects"].extend(objects)
 
     return base
 
@@ -264,7 +262,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
         bbranch = bstream.branches[int(bstream.branch)]
 
         if branch.commits.totalCount < 1:
-            print("No commits found. Probably an empty stream.")
+            _report("No commits found. Probably an empty stream.")
             return {"CANCELLED"}
 
         commit = branch.commits.items[int(bbranch.commit)]
@@ -415,9 +413,9 @@ class SendStreamObjects(bpy.types.Operator):
             ngons = obj.get("speckle_ngons_as_polylines", False)
 
             if ngons:
-                converted = export_ngons_as_polylines(obj, scale)
+                converted = ngons_to_speckle_polylines(obj, scale)
             else:
-                converted = to_speckle_object(
+                converted = convert_to_speckle(
                     obj,
                     scale,
                     bpy.context.evaluated_depsgraph_get()
@@ -569,7 +567,7 @@ class CreateStream(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Create new stream"
 
-    stream_name: StringProperty(name="Stream name", default="SpeckleStream")
+    stream_name: StringProperty(name="Stream name")
     stream_description: StringProperty(
         name="Stream description", default="This is a Blender stream."
     )
