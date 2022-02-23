@@ -36,11 +36,11 @@ jobs:
             choco upgrade python --version=3.9.7
             refreshenv
             py --version
-            $pyarr=(C:\Python39\python.exe --version).split(' ')[1].split('.')
+            $pyarr=(py --version).split(' ')[1].split('.')
             $pyver=($pyarr[0..1] -join '.')
             echo "using python version:" $pyver
             $specklepy=(python patch_version.py)
-            C:\Python39\python.exe -m pip install --target=./modules-$pyver specklepy==$specklepy
+            py -m pip install --target=./modules-$pyver specklepy==$specklepy
       - run:
           name: Patch
           shell: powershell.exe
