@@ -25,7 +25,7 @@ from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
 
 from specklepy.api import operations
-from specklepy.api.credentials import StreamWrapper
+from specklepy.api.wrapper import StreamWrapper
 from specklepy.api.resources.stream import Stream
 from specklepy.transports.server import ServerTransport
 from specklepy.objects.geometry import *
