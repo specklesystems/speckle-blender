@@ -127,7 +127,9 @@ def bases_to_native(context, collections, scale, stream_id, func=None):
 
 
 def base_to_native(context, base, scale, stream_id, col, existing, func=None):
-    new_objects = [convert_to_native(base)]
+    new_objects = convert_to_native(base)
+    if not isinstance(new_objects, list):
+        new_objects = [new_objects]
 
     if hasattr(base, "properties") and base.properties is not None:
         new_objects.extend(get_speckle_subobjects(base.properties, scale, base.id))

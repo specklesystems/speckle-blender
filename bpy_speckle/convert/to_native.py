@@ -28,10 +28,9 @@ CAN_CONVERT_TO_NATIVE = (
 def can_convert_to_native(speckle_object):
     if type(speckle_object) in CAN_CONVERT_TO_NATIVE:
         return True
-    display = getattr(
+    if getattr(
         speckle_object, "displayMesh", getattr(speckle_object, "displayValue", None)
-    )
-    if display:
+    ):
         return True
 
     _report(f"Could not convert unsupported Speckle object: {speckle_object}")
@@ -43,8 +42,9 @@ def convert_to_native(speckle_object, name=None):
     speckle_name = (
         name
         or getattr(speckle_object, "name", None)
-        or speckle_object.speckle_type + f" -- {speckle_object.id}"
+        or f"{speckle_object.speckle_type} -- {speckle_object.id}"
     )
+
     if speckle_type not in CAN_CONVERT_TO_NATIVE:
         display = getattr(
             speckle_object, "displayMesh", getattr(speckle_object, "displayValue", None)
@@ -55,9 +55,11 @@ def convert_to_native(speckle_object, name=None):
         # add parent type here so we can use it as a blender custom prop
         # not making it hidden, so it will get added on send as i think it might be helpful? can reconsider
         if isinstance(display, list):
+            converted = []
             for item in display:
                 item.parent_speckle_type = speckle_object.speckle_type
-                convert_to_native(item)
+                converted.append(convert_to_native(item))
+            return converted
         else:
             display.parent_speckle_type = speckle_object.speckle_type
             return convert_to_native(display, speckle_name)
