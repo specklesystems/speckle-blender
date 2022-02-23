@@ -33,12 +33,13 @@ jobs:
           name: Install python 3.9 and specklepy 
           shell: powershell.exe
           command: |
-            choco install python --version=3.9.2
-            $pyarr=(C:\Python39\python.exe --version).split(' ')[1].split('.')
+            choco upgrade python --version=3.9.7
+            refreshenv
+            $pyarr=(py --version).split(' ')[1].split('.')
             $pyver=($pyarr[0..1] -join '.')
             echo "using python version:" $pyver
             $specklepy=(python patch_version.py)
-            C:\Python39\python.exe -m pip install --target=./modules-$pyver specklepy==$specklepy
+            py -m pip install --target=./modules-$pyver specklepy==$specklepy
       - run:
           name: Patch
           shell: powershell.exe

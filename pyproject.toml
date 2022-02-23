@@ -6,7 +6,7 @@ authors = ["izzy lyseggen <izzy.lyseggen@gmail.com>"]
 license = "Apache-2.0"
 
 [tool.poetry.dependencies]
-python = ">=3.7,<3.8"
+python = ">=3.7,<3.10"
 specklepy = "^2.6.0"
 
 [tool.poetry.dev-dependencies]
