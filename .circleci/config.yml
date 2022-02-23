@@ -35,7 +35,6 @@ jobs:
           command: |
             choco upgrade python --version=3.9.7
             refreshenv
-            py --version
             $pyarr=(py --version).split(' ')[1].split('.')
             $pyver=($pyarr[0..1] -join '.')
             echo "using python version:" $pyver
