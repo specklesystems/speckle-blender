@@ -245,10 +245,15 @@ def material_to_speckle(blender_object) -> RenderMaterial:
         return
 
     blender_mat = blender_object.data.materials[0]
+    if not blender_mat:
+        return
+
     speckle_mat = RenderMaterial()
     speckle_mat.name = blender_mat.name
 
-    if blender_mat.use_nodes is True:
+    if blender_mat.use_nodes is True and blender_mat.node_tree.nodes.get(
+        "Principled BSDF"
+    ):
         inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
         speckle_mat.diffuse = to_argb_int(inputs["Base Color"].default_value)
         speckle_mat.emissive = to_argb_int(inputs["Emission"].default_value)
