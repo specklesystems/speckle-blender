@@ -17,7 +17,6 @@ SUPPORTED_CURVES = (Line, Polyline, Curve, Arc, Polycurve)
 
 CAN_CONVERT_TO_NATIVE = (
     Mesh,
-    Brep,
     *SUPPORTED_CURVES,
     Transform,
     BlockDefinition,
@@ -71,8 +70,6 @@ def convert_to_native(speckle_object, name=None):
     try:
         if speckle_type is Mesh:
             obj_data = mesh_to_native(speckle_object, name=speckle_name, scale=scale)
-        elif speckle_type is Brep:
-            obj_data = brep_to_native(speckle_object, name=speckle_name, scale=scale)
         elif speckle_type in SUPPORTED_CURVES:
             obj_data = icurve_to_native(speckle_object, name=speckle_name, scale=scale)
         elif speckle_type is Transform:
@@ -113,13 +110,6 @@ def convert_to_native(speckle_object, name=None):
     add_blender_material(speckle_object, blender_object)
 
     return blender_object
-
-
-def brep_to_native(speckle_brep, name, scale=1.0):
-    display = getattr(
-        speckle_brep, "displayMesh", getattr(speckle_brep, "displayValue", None)
-    )
-    return mesh_to_native(display, name, scale) if display else None
 
 
 def mesh_to_native(speckle_mesh, name, scale=1.0):
