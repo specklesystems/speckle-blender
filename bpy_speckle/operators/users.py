@@ -6,6 +6,7 @@ from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
 from specklepy.api.client import SpeckleClient
 from specklepy.api.credentials import get_local_accounts
+from datetime import datetime
 
 
 class LoadUsers(bpy.types.Operator):
@@ -81,7 +82,7 @@ def add_user_stream(user, stream):
             commit.message = c.message or ""
             commit.author_name = c.authorName
             commit.author_id = c.authorId
-            commit.created_at = c.createdAt
+            commit.created_at = datetime.strftime(c.createdAt, "%Y-%m-%d %H:%M:%S.%f%Z")
             commit.source_application = str(c.sourceApplication)
 
     if hasattr(s, "baseProperties"):

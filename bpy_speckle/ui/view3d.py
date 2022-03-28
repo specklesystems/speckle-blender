@@ -12,7 +12,7 @@ from bpy.props import (
     EnumProperty,
 )
 
-import datetime
+from datetime import datetime
 
 """
 Compatibility 
@@ -177,7 +177,7 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
                 stream = user.streams[user.active_stream]
                 # user.active_stream = min(user.active_stream, len(user.streams) - 1)
                 row = col.row()
-                row.label(text="{} ({})".format(stream.name, stream.id))
+                row.label(text=f"{stream.name} ({stream.id})")
                 row.operator("speckle.stream_copy_id", text="", icon="COPY_ID")
                 col.separator()
 
@@ -205,13 +205,11 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
                             row.label(text=line)
                         area.separator()
 
-                        dt = datetime.datetime.strptime(
-                            commit.created_at, "%Y-%m-%dT%H:%M:%S.%fZ"
+                        dt = datetime.strptime(
+                            commit.created_at, "%Y-%m-%d %H:%M:%S.%f%Z"
                         )
-                        col.label(text="{}".format(dt.ctime()))
-                        col.label(
-                            text="{} ({})".format(commit.author_name, commit.author_id)
-                        )
+                        col.label(text=f"{dt.ctime()}")
+                        col.label(text=f"{commit.author_name} ({commit.author_id})")
                         col.label(text=commit.source_application)
                 else:
                     col.label(text="No branches found!")
