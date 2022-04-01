@@ -5,6 +5,17 @@ import bpy, struct, idprop
 from specklepy.serialization.base_object_serializer import BaseObjectSerializer
 from bpy_speckle.functions import _report
 
+IGNORED_PROPERTY_KEYS = {
+    "id",
+    "displayValue",
+    "displayMesh",
+    "vertices",
+    "faces",
+    "colors",
+    "textureCoordinates",
+    "totalChildrenCount"
+}
+
 
 def to_rgba(argb_int: int) -> Tuple[float]:
     """Converts the int representation of a colour into a percent RGBA tuple"""
@@ -34,12 +45,15 @@ def add_custom_properties(speckle_object, blender_object):
     app_id = getattr(speckle_object, "applicationId", None)
     if app_id:
         blender_object["applicationId"] = speckle_object.applicationId
-
-    for key in speckle_object.get_dynamic_member_names():
-        if isinstance(speckle_object[key], (int, str, float)):
-            blender_object[key] = speckle_object[key]
-        elif isinstance(speckle_object[key], (dict, list)):
-            blender_object[key] = serializer.traverse_value(speckle_object[key])
+    keys = speckle_object.get_dynamic_member_names() if "Geometry" in speckle_object.speckle_type else (set(speckle_object.get_member_names()) - IGNORED_PROPERTY_KEYS)
+    for key in keys:
+        val = getattr(speckle_object, key, None)
+        if val is None or isinstance(val, bool):
+            continue
+        if isinstance(val, (int, str, float)):
+            blender_object[key] = val
+        elif isinstance(val, (dict, list)):
+            blender_object[key] = serializer.traverse_value(val)
 
 
 def add_blender_material(speckle_object, blender_object) -> None:

@@ -75,10 +75,10 @@ def get_objects_collections_recursive(base, parent_col=None) -> List:
 
     for name in base.get_dynamic_member_names():
         value = base[name]
+        if name == "parameters" and "Revit" in base.speckle_type:
+            continue
         if isinstance(value, list):
-            for item in value:
-                if isinstance(item, Base):
-                    objects.append(item)
+            objects.extend(item for item in value if isinstance(item, Base))
         if isinstance(value, Base):
             col = parent_col.children.get(name)
             if not col:
@@ -154,8 +154,7 @@ def base_to_native(context, base, scale, stream_id, col, existing, func=None):
         if (
             new_object is None
         ):  # Make sure that the injected function returned an object
-            new_obj = new_object
-            _report("Script '{}' returned None.".format(func.__module__))
+            _report(f"Script '{func.__module__}' returned None.")
             continue
 
         new_object.speckle.stream_id = stream_id
@@ -163,7 +162,7 @@ def base_to_native(context, base, scale, stream_id, col, existing, func=None):
 
         if new_object.speckle.object_id in existing.keys():
             name = existing[new_object.speckle.object_id].name
-            existing[new_object.speckle.object_id].name = name + "__deleted"
+            existing[new_object.speckle.object_id].name = f"{name}__deleted"
             new_object.name = name
             col.objects.unlink(existing[new_object.speckle.object_id])
 
@@ -252,7 +251,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         client = speckle_clients[int(context.scene.speckle.active_user)]
 
-        stream = client.stream.get(id=bstream.id)
+        stream = client.stream.get(id=bstream.id, branch_limit=20)
         if stream.branches.totalCount < 1:
             return {"CANCELLED"}
 
@@ -520,7 +519,7 @@ class AddStreamFromURL(bpy.types.Operator):
         user = speckle.users[user_index]
 
         client = speckle_clients[user_index]
-        stream = client.stream.get(wrapper.stream_id)
+        stream = client.stream.get(wrapper.stream_id, branch_limit=20)
         if not isinstance(stream, Stream):
             raise SpeckleException("Could not get the requested stream")
 
