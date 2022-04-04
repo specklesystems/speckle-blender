@@ -28,7 +28,7 @@ def can_convert_to_native(speckle_object):
     if type(speckle_object) in CAN_CONVERT_TO_NATIVE:
         return True
     if getattr(
-        speckle_object, "displayMesh", getattr(speckle_object, "displayValue", None)
+        speckle_object, "displayValue", getattr(speckle_object, "displayMesh", None)
     ):
         return True
 
@@ -45,23 +45,30 @@ def convert_to_native(speckle_object, name=None):
     )
 
     if speckle_type not in CAN_CONVERT_TO_NATIVE:
+        elements = getattr(speckle_object, "elements", []) or []
         display = getattr(
-            speckle_object, "displayMesh", getattr(speckle_object, "displayValue", None)
+            speckle_object, "displayValue", getattr(speckle_object, "displayMesh", None)
         )
-        if not display:
+        if not elements and not display:
             _report(f"Could not convert unsupported Speckle object: {speckle_object}")
             return
+        if isinstance(display, list):
+            elements.extend(display)
+        else:
+            elements.append(display)
+        # TODO: depreciate the parent type
         # add parent type here so we can use it as a blender custom prop
         # not making it hidden, so it will get added on send as i think it might be helpful? can reconsider
-        if isinstance(display, list):
-            converted = []
-            for item in display:
-                item.parent_speckle_type = speckle_object.speckle_type
-                converted.append(convert_to_native(item))
-            return converted
-        else:
-            display.parent_speckle_type = speckle_object.speckle_type
-            return convert_to_native(display, speckle_name)
+        converted = []
+        for item in elements:
+            item.parent_speckle_type = speckle_object.speckle_type
+            blender_object = convert_to_native(item)
+            if isinstance(blender_object, list):
+                converted.extend(blender_object)
+            else:
+                add_custom_properties(speckle_object, blender_object)
+                converted.append(blender_object)
+        return converted
 
     units = getattr(speckle_object, "units", None)
     if units:
@@ -373,6 +380,8 @@ def block_instance_to_native(instance: BlockInstance, scale=1.0):
     native_def = block_def_to_native(instance.blockDefinition, scale)
 
     native_instance = bpy.data.objects.new(name, None)
+    add_custom_properties(instance, native_instance)
+    native_instance["name"] = getattr(instance, 'name', None) or instance.blockDefinition.name
     # hide the instance axes so they don't clutter the viewport
     native_instance.empty_display_size = 0
     native_instance.instance_collection = native_def

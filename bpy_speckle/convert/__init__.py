@@ -3,7 +3,8 @@ from bpy_speckle.convert.to_native import convert_to_native
 
 def get_speckle_subobjects(attr, scale, name):
     subobjects = []
-    for key in attr.keys():
+    keys = attr.keys() if isinstance(attr, dict) else attr.get_dynamic_member_names()
+    for key in keys:
         if isinstance(attr[key], dict):
             subtype = attr[key].get("type", None)
             if subtype:

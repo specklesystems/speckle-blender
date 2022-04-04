@@ -111,7 +111,7 @@ class LoadUserStreams(bpy.types.Operator):
             try:
                 streams = client.stream.list(stream_limit=20)
             except Exception as e:
-                _report("Failed to retrieve streams: {}".format(e))
+                _report(f"Failed to retrieve streams: {e}")
                 return
             if not streams:
                 _report("Failed to retrieve streams.")
@@ -122,7 +122,7 @@ class LoadUserStreams(bpy.types.Operator):
             default_units = "Meters"
 
             for s in streams:
-                sstream = client.stream.get(id=s.id)
+                sstream = client.stream.get(id=s.id, branch_limit=20)
                 add_user_stream(user, sstream)
 
             bpy.context.view_layer.update()

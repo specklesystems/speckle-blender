@@ -1,9 +1,24 @@
-import base64
 from typing import Tuple
 import bpy, struct, idprop
 
+from specklepy.objects.base import Base
 from specklepy.serialization.base_object_serializer import BaseObjectSerializer
 from bpy_speckle.functions import _report
+
+IGNORED_PROPERTY_KEYS = {
+    "id",
+    "elements",
+    "displayMesh",
+    "displayValue",
+    "speckle_type",
+    "parameters",
+    "faces",
+    "colors",
+    "vertices",
+    "renderMaterial",
+    "textureCoordinates",
+    "totalChildrenCount"
+}
 
 
 def to_rgba(argb_int: int) -> Tuple[float]:
@@ -23,7 +38,6 @@ def to_argb_int(diffuse_colour) -> int:
 
     return int.from_bytes(diffuse_colour, byteorder="big", signed=True)
 
-
 def add_custom_properties(speckle_object, blender_object):
     if blender_object is None:
         return
@@ -34,12 +48,25 @@ def add_custom_properties(speckle_object, blender_object):
     app_id = getattr(speckle_object, "applicationId", None)
     if app_id:
         blender_object["applicationId"] = speckle_object.applicationId
+    keys = speckle_object.get_dynamic_member_names() if "Geometry" in speckle_object.speckle_type else (set(speckle_object.get_member_names()) - IGNORED_PROPERTY_KEYS)
+    for key in keys:
+        val = getattr(speckle_object, key, None)
+        if val is None:
+            continue
 
-    for key in speckle_object.get_dynamic_member_names():
-        if isinstance(speckle_object[key], (int, str, float)):
-            blender_object[key] = speckle_object[key]
-        elif isinstance(speckle_object[key], (dict, list)):
-            blender_object[key] = serializer.traverse_value(speckle_object[key])
+        if isinstance(val, (int, str, float)):
+            blender_object[key] = val
+        elif key == "properties" and isinstance(val, Base):
+            val["applicationId"] = None
+            add_custom_properties(val, blender_object)
+        elif isinstance(val, list):
+            items = [item for item in val if not isinstance(item, Base)]
+            if items:
+                blender_object[key] = items
+        elif isinstance(val,dict):
+            for (k,v) in val.items():
+                if not isinstance(v, Base):
+                    blender_object[k] = v            
 
 
 def add_blender_material(speckle_object, blender_object) -> None:
@@ -152,73 +179,65 @@ def add_colors(speckle_mesh, blender_mesh):
 
 
 def add_uv_coords(speckle_mesh, blender_mesh):
-    if not hasattr(speckle_mesh, "properties"):
+    s_uvs = speckle_mesh.textureCoordinates
+    if not s_uvs:
         return
+    try:
+        uv = []
 
-    sprops = speckle_mesh.properties
-    if sprops:
-        texKey = ""
-        if "texture_coordinates" in sprops.keys():
-            texKey = "texture_coordinates"
-        elif "TextureCoordinates" in sprops.keys():
-            texKey = "TextureCoordinates"
+        if len(s_uvs) // 2 == len(blender_mesh.verts):
+            uv.extend(
+                (float(s_uvs[i]), float(s_uvs[i + 1]))
+                for i in range(0, len(s_uvs), 2)
+            )
+        else:
+            _report(
+                f"Failed to match UV coordinates to vert data. Blender mesh verts: {len(blender_mesh.verts)}, Speckle UVs * 2: {len(s_uvs) * 2}"
+            )
+            return
 
-        if texKey != "":
+        # Make UVs
+        uv_layer = blender_mesh.loops.layers.uv.verify()
 
-            try:
-                decoded = base64.b64decode(sprops[texKey]).decode("utf-8")
-                s_uvs = decoded.split()
-                uv = []
-
-                if len(s_uvs) // 2 == len(blender_mesh.verts):
-                    for i in range(0, len(s_uvs), 2):
-                        uv.append((float(s_uvs[i]), float(s_uvs[i + 1])))
-                else:
-                    _report(
-                        f"Failed to match UV coordinates to vert data. Blender mesh verts: {len(blender_mesh.verts)}, Speckle UVs * 2: {len(s_uvs) * 2}"
-                    )
-
-                # Make UVs
-                uv_layer = blender_mesh.loops.layers.uv.verify()
-
-                for f in blender_mesh.faces:
-                    for l in f.loops:
-                        luv = l[uv_layer]
-                        luv.uv = uv[l.vert.index]
-            except:
-                _report("Failed to decode texture coordinates.")
-                raise
-
-            del speckle_mesh.properties[texKey]
+        for f in blender_mesh.faces:
+            for l in f.loops:
+                luv = l[uv_layer]
+                luv.uv = uv[l.vert.index]
+    except:
+        _report("Failed to decode texture coordinates.")
+        raise
 
 
-ignored_keys = (
+ignored_keys = {
+    "id",
     "speckle",
+    "speckle_type"
     "_speckle_type",
     "_speckle_name",
     "_speckle_transform",
     "_RNA_UI",
+    "elements",
     "transform",
     "_units",
     "_chunkable",
-)
-
+}
 
 def get_blender_custom_properties(obj, max_depth=1000):
     if max_depth < 0:
         return obj
 
     if hasattr(obj, "keys"):
+        keys = set(obj.keys()) - ignored_keys
         return {
             key: get_blender_custom_properties(obj[key], max_depth - 1)
-            for key in obj.keys()
-            if key not in ignored_keys and not key.startswith("_")
+            for key in keys
+            if not key.startswith("_")
         }
 
-    elif isinstance(obj, (list, tuple, idprop.types.IDPropertyArray)):
+    if isinstance(obj, (list, tuple, idprop.types.IDPropertyArray)):
         return [get_blender_custom_properties(o, max_depth - 1) for o in obj]
-    else:
-        return obj
+    
+    return obj
 
 
 """
