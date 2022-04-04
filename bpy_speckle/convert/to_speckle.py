@@ -103,9 +103,13 @@ def bezier_to_speckle(matrix, spline, scale, name=None):
             points.append(tuple(matrix @ bp.handle_right * scale))
 
     if closed:
-        points.append(tuple(matrix @ spline.bezier_points[-1].handle_right * scale))
-        points.append(tuple(matrix @ spline.bezier_points[0].handle_left * scale))
-        points.append(tuple(matrix @ spline.bezier_points[0].co * scale))
+        points.extend(
+            (
+                tuple(matrix @ spline.bezier_points[-1].handle_right * scale),
+                tuple(matrix @ spline.bezier_points[0].handle_left * scale),
+                tuple(matrix @ spline.bezier_points[0].co * scale),
+            )
+        )
 
     num_points = len(points)
 
@@ -168,7 +172,7 @@ def poly_to_speckle(matrix, spline, scale, name=None):
     domain = Interval(start=0, end=length, totalChildrenCount=0)
     return Polyline(
         name=name,
-        closed=spline.use_cyclic_u,
+        closed=bool(spline.use_cyclic_u),
         value=list(sum(points, ())),  # magic (flatten list of tuples)
         length=length,
         domain=domain,
