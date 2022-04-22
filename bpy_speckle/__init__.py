@@ -95,7 +95,7 @@ def register():
     for cls in speckle_classes:
         register_class(cls)
 
-    metrics.set_host_app("Blender")
+    metrics.set_host_app("blender", f"blender {bpy.app.version_string}")
 
     """
     Register all new properties
