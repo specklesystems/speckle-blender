@@ -64,9 +64,9 @@ jobs:
             if($tag -like "*-beta") { $channel = "beta" }
             # only create the yml if we have a tag
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $semver"
-            echo $version
+            echo $semver
             ls
-            python patch_version.py $version
+            python patch_version.py $semver
             speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss
       - persist_to_workspace:
           root: ./
