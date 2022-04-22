@@ -449,7 +449,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
 name = "specklepy"
-version = "2.6.5"
+version = "2.6.6"
 description = "The Python SDK for Speckle 2.0"
 category = "main"
 optional = false
@@ -551,7 +551,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7, <4.0.0"
-content-hash = "e9ee75ecb386041ce12a80ec65c447b025246cdcdc4436e041dfdc764f9136cc"
+content-hash = "84e57d0860978c674edcec2638eeee05002984fe3b7fd3a3773e1551e0e6c9f1"
 
 [metadata.files]
 aiohttp = [
@@ -981,8 +981,8 @@ six = [
     {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},
 ]
 specklepy = [
-    {file = "specklepy-2.6.5-py3-none-any.whl", hash = "sha256:dc7b036ac72e081830165c0586ac02fec0735b4f7d4c83000ec63db12db9e16d"},
-    {file = "specklepy-2.6.5.tar.gz", hash = "sha256:f4f56d29513c54f1e77d50775794950e407cdda6ecf8360753ea120d44e2b651"},
+    {file = "specklepy-2.6.6-py3-none-any.whl", hash = "sha256:be1ba5aae91b4622c4b7450fcffc6efa7beb6a0b5cf0aa301084fc6e11f91b96"},
+    {file = "specklepy-2.6.6.tar.gz", hash = "sha256:3eaa2f8c49ce94d05ed4f022cbfdd30c175b33582c2f6723fc64d84871defaa7"},
 ]
 tomli = [
     {file = "tomli-1.2.3-py3-none-any.whl", hash = "sha256:e3069e4be3ead9668e21cb9b074cd948f7b3113fd9c8bba083f48247aab8b11c"},
