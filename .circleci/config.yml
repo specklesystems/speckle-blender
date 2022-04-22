@@ -56,13 +56,14 @@ jobs:
           shell: powershell.exe
           command:
             | # If no tag, use 0.0.0.1 and don't make any YML (for testing only!)
-            $tag = if([string]::IsNullOrEmpty($env:CIRCLE_TAG)) { "0.0.1" } else { $env:CIRCLE_TAG }
-            $semver = $tag.replace("-beta","")
-            $version = "$($semver).$($env:CIRCLE_BUILD_NUM)"
+            $tag = if([string]::IsNullOrEmpty($env:CIRCLE_TAG)) { "0.0.0" } else { $env:CIRCLE_TAG }
+            $semver = if($tag.Contains('/')) {$tag.Split("/")[1] } else { $tag }
+            $ver = if($semver.Contains('-')) {$semver.Split("-")[0] } else { $semver }
+            $version = "$($ver).$($env:CIRCLE_BUILD_NUM)"
             $channel = "latest"
             if($tag -like "*-beta") { $channel = "beta" }
             # only create the yml if we have a tag
-            New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $version"
+            New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $semver"
             echo $version
             ls
             python patch_version.py $version
