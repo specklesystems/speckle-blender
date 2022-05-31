@@ -73,6 +73,73 @@ jobs:
           paths:
             - speckle-sharp-ci-tools/Installers
 
+  build-connector-mac:
+    macos:
+      xcode: 12.5.1
+    parameters:
+      build-config:
+        type: string
+        default: Release
+      slug:
+        type: string
+        default: "blender-mac"
+      installername:
+        type: string
+        default: "SpeckleBlenderInstall"
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install mono
+          command: |
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install mono
+      - run:
+          name: Build
+          command: |
+            TAG=$(if [ "${CIRCLE_TAG}" ]; then echo $CIRCLE_TAG; else echo "0.0.0"; fi;)
+            SEMVER=$(echo "$TAG" | sed -e 's/[a-zA-Z-]*\///')
+            VER=$(echo "$SEMVER" | sed -e 's/-beta//')
+            VERSION=$(echo $VER.$CIRCLE_BUILD_NUM)
+            CHANNEL=$(if [[ "$VERSION" == *"-"* ]]; then echo $(cut -d "-" -f2 \<\<\< $VERSION); else echo latest; fi)
+            mkdir -p speckle-sharp-ci-tools/Installers/<< parameters.slug >>
+            if [ "${CIRCLE_TAG}" ]; then echo "version: $SEMVER" > "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$CHANNEL.yml"; fi
+      # Compress build files
+      - run:
+          name: Install dotnet
+          command: curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin
+      - run:
+          name: Zip Connector files
+          command: |
+            zip -r << parameters.slug >>.zip bpy_speckle/
+      # Create installer
+      - run:
+          name: Copy files to installer
+          command: |
+            mkdir -p speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/
+            cp << parameters.slug >>.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles
+            python3 patch_version.py > speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/specklepy_ver.yml
+      - run:
+          name: Build Mac installer
+          command: ~/.dotnet/dotnet publish speckle-sharp-ci-tools/Mac/<<parameters.installername>>/<<parameters.installername>>.sln -r osx-x64 -c Release
+      - run:
+          name: Zip installer
+          command: |
+            cd speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/netcoreapp3.1/osx-x64/
+            zip -r << parameters.slug >>.zip ./
+      - store_artifacts:
+          path: speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/netcoreapp3.1/osx-x64/<< parameters.slug >>.zip
+      - run:
+          name: Copy to installer location
+          command: |
+            TAG=$(if [ "${CIRCLE_TAG}" ]; then echo $CIRCLE_TAG; else echo "0.0.0"; fi;)
+            SEMVER=$(echo "$TAG" | sed -e 's/[a-zA-Z-]*\///')
+            cp speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/netcoreapp3.1/osx-x64/<< parameters.slug >>.zip speckle-sharp-ci-tools/Installers/<< parameters.slug >>/<< parameters.slug >>-$SEMVER.zip
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - speckle-sharp-ci-tools/Installers
+
   install-specklepy: # due to ujson dep, we need to match the py version to the install
     docker:
       - image: "cimg/python:<<parameters.tag>>"
@@ -144,10 +211,22 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
+      - build-connector-mac:
+          slug: blender-mac
+          requires:
+            - get-ci-tools
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only:
+                - main
+                - /ci\/.*/
       - deploy:
           requires:
             - get-ci-tools
             - build-connector
+            - build-connector-mac
           filters:
             tags:
               only: /[0-9]+(\.[0-9]+)*/
