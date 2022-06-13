@@ -116,7 +116,7 @@ jobs:
           name: install python 3.10
           command: |
             brew install python@3.10
-            brew link --force python@3.10
+            brew link --overwrite python@3.10
       - run:
           name: package specklepy dependencies for blender 3.1
           command: |
