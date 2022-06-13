@@ -115,7 +115,7 @@ jobs:
       - run:
           name: install python 3.10
           command: |
-            HOMEBREW_NO_AUTO_UPDATE=1 brew install python@3.10
+            brew install python@3.10
             brew link --force python@3.10
       - run:
           name: package specklepy dependencies for blender 3.1
