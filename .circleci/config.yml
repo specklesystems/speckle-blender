@@ -60,13 +60,11 @@ jobs:
             $semver = if($tag.Contains('/')) {$tag.Split("/")[1] } else { $tag }
             $ver = if($semver.Contains('-')) {$semver.Split("-")[0] } else { $semver }
             $version = "$($ver).$($env:CIRCLE_BUILD_NUM)"
-            $channel = "latest"
-            if($tag -like "*-beta") { $channel = "beta" }
-            # only create the yml if we have a tag
+            $channel = if($semver.Contains('-')) {$semver.Split("-")[1] } else { "latest" }
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $semver"
             echo $semver
-            ls
-            python patch_version.py $semver
+            echo $version
+            python patch_version.py $version
             speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss
       - persist_to_workspace:
           root: ./
@@ -94,8 +92,17 @@ jobs:
           name: Install mono
           command: |
             HOMEBREW_NO_AUTO_UPDATE=1 brew install mono
+      # Compress build files
       - run:
-          name: Build
+          name: Install dotnet
+          command: curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin
+      - run:
+          name: Install python 3.10
+          command: |
+            brew install python@3.10
+            brew link --overwrite python@3.10
+      - run:
+          name: Build & Patch Version
           command: |
             TAG=$(if [ "${CIRCLE_TAG}" ]; then echo $CIRCLE_TAG; else echo "0.0.0"; fi;)
             SEMVER=$(echo "$TAG" | sed -e 's/[a-zA-Z-]*\///')
@@ -104,33 +111,24 @@ jobs:
             CHANNEL=$(if [[ "$VERSION" == *"-"* ]]; then echo $(cut -d "-" -f2 \<\<\< $VERSION); else echo latest; fi)
             mkdir -p speckle-sharp-ci-tools/Installers/<< parameters.slug >>
             if [ "${CIRCLE_TAG}" ]; then echo "version: $SEMVER" > "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$CHANNEL.yml"; fi
-      # Compress build files
-      - run:
-          name: Install dotnet
-          command: curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin
+            python patch_version.py $VERSION
       - run:
           name: Zip Connector files
           command: |
             zip -r << parameters.slug >>.zip bpy_speckle/
       - run:
-          name: install python 3.10
+          name: Copy connector files to installer
           command: |
-            brew install python@3.10
-            brew link --overwrite python@3.10
+            mkdir -p speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/
+            cp << parameters.slug >>.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles
+            python3 patch_version.py > speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/specklepy_ver.yml
       - run:
-          name: package specklepy dependencies for blender 3.1
+          name: Package specklepy dependencies for blender 3.1
           command: |
             python3 --version
             python3 -m pip install --target=./modules-intel-3.10 specklepy==$(python3 -m patch_version)
             zip -r modules-intel-3.10.zip modules-intel-3.10/
             cp modules-intel-3.10.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/blender-3.1
-      # Create installer
-      - run:
-          name: Copy files to installer
-          command: |
-            mkdir -p speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/
-            cp << parameters.slug >>.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles
-            python3 patch_version.py > speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/specklepy_ver.yml
       - run:
           name: Build Mac installer
           command: ~/.dotnet/dotnet publish speckle-sharp-ci-tools/Mac/<<parameters.installername>>/<<parameters.installername>>.sln -r osx-x64 -c Release
