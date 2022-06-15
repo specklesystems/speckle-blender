@@ -54,7 +54,7 @@ def main():
         return
 
     tag = sys.argv[1]
-    if not re.match(r"([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$", tag):
+    if not re.match(r"([0-9]+)\.([0-9]+)\.([0-9]+)", tag):
         raise ValueError(f"Invalid tag provided: {tag}")
     tag = tag.split("-")[0]
 
