@@ -5,6 +5,7 @@ import sys
 def patch_connector(tag):
     """Patches the connector version within the connector init file"""
     bpy_file = "bpy_speckle/__init__.py"
+    tag = tag.split("-")[0]
     tag = tag.split(".")
 
     with open(bpy_file, "r") as file:
@@ -54,7 +55,7 @@ def main():
         return
 
     tag = sys.argv[1]
-    if not re.match(r"[0-9]+(\.[0-9]+)*$", tag):
+    if not re.match(r"([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$", tag):
         raise ValueError(f"Invalid tag provided: {tag}")
 
     print(f"Patching version: {tag}")
