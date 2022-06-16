@@ -84,6 +84,9 @@ jobs:
       installername:
         type: string
         default: "SpeckleBlenderInstall"
+      runtime:
+        type: string
+        default: "osx-x64"
     steps:
       - checkout
       - attach_workspace:
@@ -131,20 +134,20 @@ jobs:
             cp modules-intel-3.10.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/blender-3.1
       - run:
           name: Build Mac installer
-          command: ~/.dotnet/dotnet publish speckle-sharp-ci-tools/Mac/<<parameters.installername>>/<<parameters.installername>>.sln -r osx-x64 -c Release
+          command: ~/.dotnet/dotnet publish speckle-sharp-ci-tools/Mac/<<parameters.installername>>/<<parameters.installername>>.sln -r <<parameters.runtime>> -c Release
       - run:
           name: Zip installer
           command: |
-            cd speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/osx-x64/
+            cd speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/<<parameters.runtime>>/
             zip -r << parameters.slug >>.zip ./
       - store_artifacts:
-          path: speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/osx-x64/<< parameters.slug >>.zip
+          path: speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/<<parameters.runtime>>/<< parameters.slug >>.zip
       - run:
           name: Copy to installer location
           command: |
             TAG=$(if [ "${CIRCLE_TAG}" ]; then echo $CIRCLE_TAG; else echo "0.0.0"; fi;)
             SEMVER=$(echo "$TAG" | sed -e 's/[a-zA-Z-]*\///')
-            cp speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/osx-x64/<< parameters.slug >>.zip speckle-sharp-ci-tools/Installers/<< parameters.slug >>/<< parameters.slug >>-$SEMVER.zip
+            cp speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/<<parameters.runtime>>/<< parameters.slug >>.zip speckle-sharp-ci-tools/Installers/<< parameters.slug >>/<< parameters.slug >>-$SEMVER.zip
       - persist_to_workspace:
           root: ./
           paths:
@@ -223,6 +226,7 @@ workflows:
                 - /ci\/.*/
       - build-connector-mac:
           slug: blender-mac
+          runtime: osx.12-arm64
           requires:
             - get-ci-tools
           filters:
