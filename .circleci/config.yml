@@ -120,21 +120,21 @@ jobs:
           command: |
             zip -r << parameters.slug >>.zip bpy_speckle/
       - run:
-          name: Build Mac installer
-          command: ~/.dotnet/dotnet publish speckle-sharp-ci-tools/Mac/<<parameters.installername>>/<<parameters.installername>>.sln -r <<parameters.runtime>> -c Release
-      - run:
           name: Copy connector files to installer
           command: |
-            mkdir -p speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/<<parameters.runtime>>/.installationFiles/
+            mkdir -p speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/
             cp << parameters.slug >>.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles
-            python3 patch_version.py > speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/<<parameters.runtime>>/.installationFiles/specklepy_ver.yml
+            python3 patch_version.py > speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/specklepy_ver.yml
       - run:
           name: Package specklepy dependencies for blender 3.1
           command: |
             python3 --version
             python3 -m pip install --target=./modules-intel-3.10 specklepy==$(python3 -m patch_version)
             zip -r modules-intel-3.10.zip modules-intel-3.10/
-            cp modules-intel-3.10.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/<<parameters.runtime>>/.installationFiles/blender-3.1
+            cp modules-intel-3.10.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/blender-3.1
+      - run:
+          name: Build Mac installer
+          command: ~/.dotnet/dotnet publish speckle-sharp-ci-tools/Mac/<<parameters.installername>>/<<parameters.installername>>.sln -r <<parameters.runtime>> -c Release
       - run:
           name: Zip installer
           command: |
