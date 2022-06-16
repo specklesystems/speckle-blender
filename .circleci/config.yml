@@ -60,11 +60,11 @@ jobs:
             $semver = if($tag.Contains('/')) {$tag.Split("/")[1] } else { $tag }
             $ver = if($semver.Contains('-')) {$semver.Split("-")[0] } else { $semver }
             $version = "$($ver).$($env:CIRCLE_BUILD_NUM)"
-            $channel = if($semver.Contains('-')) {$semver.Split("-")[1] } else { "latest" }
+            $channel = if($semver.Contains('-')) { "prerelease" } else { "latest" }
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $semver"
             echo $semver
             echo $version
-            python patch_version.py $version
+            python patch_version.py $ver
             speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss
       - persist_to_workspace:
           root: ./
@@ -111,30 +111,30 @@ jobs:
             SEMVER=$(echo "$TAG" | sed -e 's/[a-zA-Z-]*\///')
             VER=$(echo "$SEMVER" | sed -e 's/-beta//')
             VERSION=$(echo $VER.$CIRCLE_BUILD_NUM)
-            CHANNEL=$(if [[ "$VERSION" == *"-"* ]]; then echo $(cut -d "-" -f2 \<\<\< $VERSION); else echo latest; fi)
+            CHANNEL=$(if [[ "$VERSION" == *"-"* ]]; then echo prerelease; else echo latest; fi)
             mkdir -p speckle-sharp-ci-tools/Installers/<< parameters.slug >>
             if [ "${CIRCLE_TAG}" ]; then echo "version: $SEMVER" > "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$CHANNEL.yml"; fi
-            python3 patch_version.py $VERSION
+            python3 patch_version.py $VER
       - run:
           name: Zip Connector files
           command: |
             zip -r << parameters.slug >>.zip bpy_speckle/
       - run:
+          name: Build Mac installer
+          command: ~/.dotnet/dotnet publish speckle-sharp-ci-tools/Mac/<<parameters.installername>>/<<parameters.installername>>.sln -r <<parameters.runtime>> -c Release
+      - run:
           name: Copy connector files to installer
           command: |
-            mkdir -p speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/
+            mkdir -p speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/<<parameters.runtime>>/.installationFiles/
             cp << parameters.slug >>.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles
-            python3 patch_version.py > speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/specklepy_ver.yml
+            python3 patch_version.py > speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/<<parameters.runtime>>/.installationFiles/specklepy_ver.yml
       - run:
           name: Package specklepy dependencies for blender 3.1
           command: |
             python3 --version
             python3 -m pip install --target=./modules-intel-3.10 specklepy==$(python3 -m patch_version)
             zip -r modules-intel-3.10.zip modules-intel-3.10/
-            cp modules-intel-3.10.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/blender-3.1
-      - run:
-          name: Build Mac installer
-          command: ~/.dotnet/dotnet publish speckle-sharp-ci-tools/Mac/<<parameters.installername>>/<<parameters.installername>>.sln -r <<parameters.runtime>> -c Release
+            cp modules-intel-3.10.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/<<parameters.runtime>>/.installationFiles/blender-3.1
       - run:
           name: Zip installer
           command: |
