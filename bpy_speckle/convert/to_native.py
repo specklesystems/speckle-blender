@@ -17,6 +17,7 @@ SUPPORTED_CURVES = (Line, Polyline, Curve, Arc, Polycurve)
 
 CAN_CONVERT_TO_NATIVE = (
     Mesh,
+    Brep,
     *SUPPORTED_CURVES,
     Transform,
     BlockDefinition,
@@ -43,7 +44,7 @@ def convert_to_native(speckle_object, name=None):
         or getattr(speckle_object, "name", None)
         or f"{speckle_object.speckle_type} -- {speckle_object.id}"
     )
-
+    # convert unsupported types with display values
     if speckle_type not in CAN_CONVERT_TO_NATIVE:
         elements = getattr(speckle_object, "elements", []) or []
         display = getattr(
@@ -69,12 +70,22 @@ def convert_to_native(speckle_object, name=None):
                 add_custom_properties(speckle_object, blender_object)
                 converted.append(blender_object)
         return converted
-
-    units = getattr(speckle_object, "units", None)
-    if units:
-        scale = get_scale_length(units) / bpy.context.scene.unit_settings.scale_length
-
+        
     try:
+        # convert breps
+        if speckle_type is Brep:
+            meshes = getattr(
+                speckle_object, "displayValue", getattr(speckle_object, "displayMesh", None)
+            )
+            if material := getattr(speckle_object, "renderMaterial", getattr(speckle_object, "@renderMaterial", None),):
+                for mesh in meshes:
+                    mesh["renderMaterial"] = material
+
+            return [convert_to_native(mesh) for mesh in meshes]
+
+        if units := getattr(speckle_object, "units", None):
+            scale = get_scale_length(units) / bpy.context.scene.unit_settings.scale_length
+        # convert supported geometry
         if speckle_type is Mesh:
             obj_data = mesh_to_native(speckle_object, name=speckle_name, scale=scale)
         elif speckle_type in SUPPORTED_CURVES:
@@ -119,7 +130,7 @@ def convert_to_native(speckle_object, name=None):
     return blender_object
 
 
-def mesh_to_native(speckle_mesh, name, scale=1.0):
+def mesh_to_native(speckle_mesh: Mesh, name, scale=1.0):
 
     if name in bpy.data.meshes.keys():
         blender_mesh = bpy.data.meshes[name]
@@ -138,7 +149,6 @@ def mesh_to_native(speckle_mesh, name, scale=1.0):
     bm.free()
 
     return blender_mesh
-
 
 def line_to_native(speckle_curve, blender_curve, scale):
     line = blender_curve.splines.new("POLY")
@@ -164,11 +174,7 @@ def line_to_native(speckle_curve, blender_curve, scale):
 
 
 def polyline_to_native(scurve, bcurve, scale):
-
-    # value = find_key_case_insensitive(scurve, "value")
-    value = scurve.value
-
-    if value:
+    if value := scurve.value:
         N = len(value) // 3
 
         polyline = bcurve.splines.new("POLY")
@@ -192,11 +198,7 @@ def polyline_to_native(scurve, bcurve, scale):
 
 
 def nurbs_to_native(scurve, bcurve, scale):
-
-    # points = find_key_case_insensitive(scurve, "points")
-    points = scurve.points
-
-    if points:
+    if points := scurve.points:
         N = len(points) // 3
 
         nurbs = bcurve.splines.new("NURBS")
@@ -361,8 +363,7 @@ def block_def_to_native(definition: BlockDefinition, scale=1.0):
     native_def = bpy.data.collections.new(definition.name)
     native_def["applicationId"] = definition.applicationId
     for geo in definition.geometry:
-        b_obj = convert_to_native(geo)
-        if b_obj:
+        if b_obj := convert_to_native(geo):
             native_def.objects.link(
                 b_obj
                 if isinstance(b_obj, bpy_types.Object)
