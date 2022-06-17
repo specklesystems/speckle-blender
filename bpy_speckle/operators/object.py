@@ -151,9 +151,10 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
             client = speckle_clients[int(context.scene.speckle.active_user)]
             stream = user.streams[user.active_stream]
 
-            scale = context.scene.unit_settings.scale_length / get_scale_length(
-                stream.units
-            )
+            # scale = context.scene.unit_settings.scale_length / get_scale_length(
+            #     stream.units
+            # )
+            scale = 1.0
 
             sp = ngons_to_speckle_polylines(active, scale)
 

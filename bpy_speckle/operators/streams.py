@@ -374,9 +374,14 @@ class SendStreamObjects(bpy.types.Operator):
 
         client = speckle_clients[int(context.scene.speckle.active_user)]
 
-        scale = context.scene.unit_settings.scale_length / get_scale_length(
-            stream.units.lower()
-        )
+        # scale = context.scene.unit_settings.scale_length / get_scale_length(
+        #     stream.units.lower()
+        # )
+        
+
+        scale = 1.0
+
+        units = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
 
         """
         Get script from text editor for injection
@@ -411,18 +416,19 @@ class SendStreamObjects(bpy.types.Operator):
 
             _report("Converting {}".format(obj.name))
 
-            ngons = obj.get("speckle_ngons_as_polylines", False)
+            # ngons = obj.get("speckle_ngons_as_polylines", False)
 
-            if ngons:
-                converted = ngons_to_speckle_polylines(obj, scale)
-            else:
-                converted = convert_to_speckle(
-                    obj,
-                    scale,
-                    bpy.context.evaluated_depsgraph_get()
-                    if self.apply_modifiers
-                    else None,
-                )
+            # if ngons:
+            #     converted = ngons_to_speckle_polylines(obj, scale)
+            # else:
+            converted = convert_to_speckle(
+                obj,
+                scale,
+                units,
+                bpy.context.evaluated_depsgraph_get()
+                if self.apply_modifiers
+                else None,
+            )
 
             if not converted:
                 continue
