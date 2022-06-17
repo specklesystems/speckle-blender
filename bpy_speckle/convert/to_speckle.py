@@ -13,7 +13,9 @@ UNITS = "m"
 CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY")
 
 
-def convert_to_speckle(blender_object, scale, desgraph=None):
+def convert_to_speckle(blender_object, scale, units, desgraph=None):
+    global UNITS
+    UNITS = units
     blender_type = blender_object.type
     if blender_type not in CAN_CONVERT_TO_SPECKLE:
         return
@@ -69,7 +71,7 @@ def mesh_to_speckle(blender_object, data, scale=1.0):
         faces=[],
         colors=[],
         textureCoordinates=[],
-        units="m" if unit_system == "METRIC" else "ft",
+        units=UNITS,
         bbox=Box(area=0.0, volume=0.0),
     )
 
@@ -274,19 +276,18 @@ def material_to_speckle(blender_object) -> RenderMaterial:
 
 
 def transform_to_speckle(blender_transform, scale=1.0):
-    units = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
     value = [y for x in blender_transform for y in x]
     # scale the translation
     for i in (3, 7, 11):
         value[i] *= scale
 
-    return Transform(value=value, units=units)
+    return Transform(value=value, units=UNITS)
 
 
 def block_def_to_speckle(blender_definition, scale=1.0):
     geometry = []
     for geo in blender_definition.objects:
-        geometry.extend(convert_to_speckle(geo, scale))
+        geometry.extend(convert_to_speckle(geo, scale, UNITS))
     block_def = BlockDefinition(
         units=UNITS,
         name=blender_definition.name,

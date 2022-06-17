@@ -230,9 +230,6 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
 
                 row = col.row(align=True)
                 subcol = row.column()
-                subcol.label(text="Units:")
-                subcol = row.column()
-                subcol.label(text=stream.units)
 
                 col.label(text="Description:")
                 area = col.box()
