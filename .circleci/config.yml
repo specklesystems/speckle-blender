@@ -63,8 +63,7 @@ jobs:
             $channel = if($semver.Contains('-')) {$semver.Split("-")[1] } else { "latest" }
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $semver"
             echo $semver
-            echo $version
-            python patch_version.py $version
+            python patch_version.py $semver
             speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss
       - persist_to_workspace:
           root: ./
@@ -111,7 +110,7 @@ jobs:
             CHANNEL=$(if [[ "$VERSION" == *"-"* ]]; then echo $(cut -d "-" -f2 \<\<\< $VERSION); else echo latest; fi)
             mkdir -p speckle-sharp-ci-tools/Installers/<< parameters.slug >>
             if [ "${CIRCLE_TAG}" ]; then echo "version: $SEMVER" > "speckle-sharp-ci-tools/Installers/<< parameters.slug >>/$CHANNEL.yml"; fi
-            python3 patch_version.py $VERSION
+            python3 patch_version.py $SEMVER
       - run:
           name: Zip Connector files
           command: |

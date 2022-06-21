@@ -28,7 +28,8 @@ def patch_installer(tag):
     with open(iss_file, "r") as file:
         lines = file.readlines()
         lines.insert(11, f'#define SpecklepyVersion "{py_tag}"\n')
-        lines.insert(11, f'#define AppVersion "{tag}"\n')
+        lines.insert(12, f'#define AppVersion "{tag.split("-")[0]}"\n')
+        lines.insert(13, f'#define AppInfoVersion "{tag}"\n')
 
         with open(iss_file, "w") as file:
             file.writelines(lines)
@@ -56,10 +57,9 @@ def main():
     tag = sys.argv[1]
     if not re.match(r"([0-9]+)\.([0-9]+)\.([0-9]+)", tag):
         raise ValueError(f"Invalid tag provided: {tag}")
-    tag = tag.split("-")[0]
 
     print(f"Patching version: {tag}")
-    patch_connector(tag)
+    patch_connector(tag.split("-")[0])
     patch_installer(tag)
 
 
