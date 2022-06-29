@@ -7,21 +7,25 @@ orbs:
   # Upload artifacts to s3
   aws-s3: circleci/aws-s3@2.0.0
 
-jobs:
-  build-connector: # Reusable job for basic connectors
-    executor:
-      name: win/default # comes with python 3.7.3
-      shell: cmd.exe
+commands:
+  install-specklepy-windows: # Reusable job for installing `specklepy` for windows machines
     parameters:
-      slug:
+      python-version:
         type: string
-        default: ""
+        default: "" # leave blank for blender v2.93
     steps:
-      - checkout
-      - attach_workspace:
-          at: ./
+      - when:
+          condition: << parameters.python-version >>
+          steps:
+            - run:
+                name: Upgrade python version << parameters.python-version >>
+                shell: powershell.exe
+                command: |
+                  choco upgrade python --version=<< parameters.python-version >>
+                  refreshenv
+                  python --version
       - run:
-          name: Install specklepy with python 3.7 for Blender v2.93
+          name: Install specklepy into modules directory
           shell: powershell.exe
           command: |
             $pyarr=(python --version).split(' ')[1].split('.')
@@ -29,28 +33,28 @@ jobs:
             echo "using python version:" $pyver
             $specklepy=(python patch_version.py)
             python -m pip install --target=./modules-$pyver specklepy==$specklepy
-      - run:
-          name: Install python 3.9 and specklepy for Blender v3.0
-          shell: powershell.exe
-          command: |
-            choco upgrade python --version=3.9.7
-            refreshenv
-            $pyarr=(py --version).split(' ')[1].split('.')
-            $pyver=($pyarr[0..1] -join '.')
-            echo "using python version:" $pyver
-            $specklepy=(python patch_version.py)
-            py -m pip install --target=./modules-$pyver specklepy==$specklepy
-      - run:
-          name: Install python 3.10 and specklepy for Blender v3.1
-          shell: powershell.exe
-          command: |
-            choco upgrade python --version=3.10.2
-            refreshenv
-            $pyarr=(py --version).split(' ')[1].split('.')
-            $pyver=($pyarr[0..1] -join '.')
-            echo "using python version:" $pyver
-            $specklepy=(python patch_version.py)
-            py -m pip install --target=./modules-$pyver specklepy==$specklepy
+
+jobs:
+  build-connector-win: # Reusable job for basic connectors
+    executor:
+      name: win/default # comes with python 3.7.3
+      shell: cmd.exe
+    parameters:
+      slug:
+        type: string
+        default: ""
+      installer:
+        type: boolean
+        default: false
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - install-specklepy-windows
+      - install-specklepy-windows:
+          python-version: "3.9.10"
+      - install-specklepy-windows:
+          python-version: "3.10.2"
       - run:
           name: Patch
           shell: powershell.exe
@@ -60,15 +64,18 @@ jobs:
             $semver = if($tag.Contains('/')) {$tag.Split("/")[1] } else { $tag }
             $ver = if($semver.Contains('-')) {$semver.Split("-")[0] } else { $semver }
             $version = "$($ver).$($env:CIRCLE_BUILD_NUM)"
-            $channel = if($semver.Contains('-')) {$semver.Split("-")[1] } else { "latest" }
+            $channel = if($semver.Contains('-')) { "prerelease" } else { "latest" }
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $semver"
             echo $semver
             python patch_version.py $semver
             speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - speckle-sharp-ci-tools/Installers
+      - when:
+          condition: << parameters.installer >>
+          steps:
+            - persist_to_workspace:
+                root: ./
+                paths:
+                  - speckle-sharp-ci-tools/Installers
 
   build-connector-mac:
     macos:
@@ -83,6 +90,9 @@ jobs:
       installername:
         type: string
         default: "SpeckleBlenderInstall"
+      installer:
+        type: boolean
+        default: false
     steps:
       - checkout
       - attach_workspace:
@@ -144,30 +154,13 @@ jobs:
             TAG=$(if [ "${CIRCLE_TAG}" ]; then echo $CIRCLE_TAG; else echo "0.0.0"; fi;)
             SEMVER=$(echo "$TAG" | sed -e 's/[a-zA-Z-]*\///')
             cp speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/osx-x64/<< parameters.slug >>.zip speckle-sharp-ci-tools/Installers/<< parameters.slug >>/<< parameters.slug >>-$SEMVER.zip
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - speckle-sharp-ci-tools/Installers
-
-  install-specklepy: # due to ujson dep, we need to match the py version to the install
-    docker:
-      - image: "cimg/python:<<parameters.tag>>"
-    parameters:
-      tag:
-        default: "3.9"
-        type: string
-    steps:
-      - checkout
-      - run:
-          name: upgrade pip and install specklepy
-          command: |
-            specklepyver=$(python patch_version.py)
-            echo installing specklepy $specklepyver
-            python -m pip install --target=./modules-<<parameters.tag>> specklepy==$specklepyver
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - modules-*
+      - when:
+          condition: << parameters.installer >>
+          steps:
+            - persist_to_workspace:
+                root: ./
+                paths:
+                  - speckle-sharp-ci-tools/Installers
 
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
@@ -199,45 +192,75 @@ jobs:
           to: s3://speckle-releases/installers/
 
 workflows:
-  main:
+  build: # build the installers, but don't persist to workspace for deployment
+    jobs:
+      - get-ci-tools:
+          filters:
+            branches:
+              only:
+                - main
+                - /ci\/.*/
+
+      - build-connector-win:
+          slug: blender
+          requires:
+            - get-ci-tools
+          filters:
+            branches:
+              only:
+                - main
+                - /ci\/.*/
+
+      - build-connector-mac:
+          slug: blender-mac
+          requires:
+            - get-ci-tools
+          filters:
+            branches:
+              only:
+                - main
+                - /ci\/.*/
+
+  deploy: # build installers and deploy
     jobs:
       - get-ci-tools:
           filters:
             tags:
               only: /.*/
             branches:
-              only:
-                - main
-                - /ci\/.*/
-      - build-connector:
+              ignore: /.*/
+
+      - build-connector-win:
+          name: build-deploy-connector-win
           slug: blender
+          installer: true
           requires:
             - get-ci-tools
           filters:
             tags:
-              only: /.*/
+              only: /^(all|win)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
             branches:
-              only:
-                - main
-                - /ci\/.*/
+              ignore: /.*/
+
       - build-connector-mac:
+          name: build-deploy-connector-mac
           slug: blender-mac
+          installer: true
           requires:
             - get-ci-tools
           filters:
             tags:
-              only: /.*/
+              only: /^(all|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
             branches:
-              only:
-                - main
-                - /ci\/.*/
+              ignore: /.*/
+
       - deploy:
           requires:
             - get-ci-tools
-            - build-connector
+            - build-connector-win
             - build-connector-mac
           filters:
             tags:
-              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+              only: /^(all|win|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
             branches:
-              ignore: /.*/ # For testing only! /ci\/.*/
+              ignore: /.*/
