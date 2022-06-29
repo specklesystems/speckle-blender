@@ -8,6 +8,42 @@ orbs:
   aws-s3: circleci/aws-s3@2.0.0
 
 jobs:
+  install-specklepy-windows: # Reusable job for installing `specklepy` for windows machines
+    executor:
+      name: win/default # comes with python 3.7.3
+      shell: powershell.exe
+    parameters:
+      python-version:
+        type: string
+        default: "" # leave blank for blender v2.93
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - when:
+          condition: << parameters.python-version >>
+          steps:
+            - run:
+                name: "Upgrade python version"
+                command: |
+                  echo "upgrading to python version:" << parameters.python-version >>
+                  choco upgrade python --version=<< parameters.python-version >>
+                  refreshenv
+                  python --version
+      - run:
+          name: Install specklepy into modules directory
+          shell: powershell.exe
+          command: |
+            $pyarr=(python --version).split(' ')[1].split('.')
+            $pyver=($pyarr[0..1] -join '.')
+            echo "using python version:" $pyver
+            $specklepy=(python patch_version.py)
+            python -m pip install --target=./win/modules-$pyver specklepy==$specklepy
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - modules-*
+
   build-connector: # Reusable job for basic connectors
     executor:
       name: win/default # comes with python 3.7.3
@@ -21,37 +57,6 @@ jobs:
       - attach_workspace:
           at: ./
       - run:
-          name: Install specklepy with python 3.7 for Blender v2.93
-          shell: powershell.exe
-          command: |
-            $pyarr=(python --version).split(' ')[1].split('.')
-            $pyver=($pyarr[0..1] -join '.')
-            echo "using python version:" $pyver
-            $specklepy=(python patch_version.py)
-            python -m pip install --target=./modules-$pyver specklepy==$specklepy
-      - run:
-          name: Install python 3.9 and specklepy for Blender v3.0
-          shell: powershell.exe
-          command: |
-            choco upgrade python --version=3.9.7
-            refreshenv
-            $pyarr=(py --version).split(' ')[1].split('.')
-            $pyver=($pyarr[0..1] -join '.')
-            echo "using python version:" $pyver
-            $specklepy=(python patch_version.py)
-            py -m pip install --target=./modules-$pyver specklepy==$specklepy
-      - run:
-          name: Install python 3.10 and specklepy for Blender v3.1
-          shell: powershell.exe
-          command: |
-            choco upgrade python --version=3.10.2
-            refreshenv
-            $pyarr=(py --version).split(' ')[1].split('.')
-            $pyver=($pyarr[0..1] -join '.')
-            echo "using python version:" $pyver
-            $specklepy=(python patch_version.py)
-            py -m pip install --target=./modules-$pyver specklepy==$specklepy
-      - run:
           name: Patch
           shell: powershell.exe
           command:
@@ -60,7 +65,7 @@ jobs:
             $semver = if($tag.Contains('/')) {$tag.Split("/")[1] } else { $tag }
             $ver = if($semver.Contains('-')) {$semver.Split("-")[0] } else { $semver }
             $version = "$($ver).$($env:CIRCLE_BUILD_NUM)"
-            $channel = if($semver.Contains('-')) {$semver.Split("-")[1] } else { "latest" }
+            $channel = if($semver.Contains('-')) { "prerelease" } else { "latest" }
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $semver"
             echo $semver
             python patch_version.py $semver
@@ -149,26 +154,6 @@ jobs:
           paths:
             - speckle-sharp-ci-tools/Installers
 
-  install-specklepy: # due to ujson dep, we need to match the py version to the install
-    docker:
-      - image: "cimg/python:<<parameters.tag>>"
-    parameters:
-      tag:
-        default: "3.9"
-        type: string
-    steps:
-      - checkout
-      - run:
-          name: upgrade pip and install specklepy
-          command: |
-            specklepyver=$(python patch_version.py)
-            echo installing specklepy $specklepyver
-            python -m pip install --target=./modules-<<parameters.tag>> specklepy==$specklepyver
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - modules-*
-
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
       - image: cimg/base:2021.01
@@ -209,10 +194,23 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
+
+      - install-specklepy-windows:
+          name: install-specklepy-windows-3.7
+      - install-specklepy-windows:
+          name: install-specklepy-windows-3.9
+          python-version: "3.9.7"
+      - install-specklepy-windows:
+          name: install-specklepy-windows-3.10
+          python-version: "3.10.2"
+
       - build-connector:
           slug: blender
           requires:
             - get-ci-tools
+            - install-specklepy-windows-3.7
+            - install-specklepy-windows-3.9
+            - install-specklepy-windows-3.10
           filters:
             tags:
               only: /.*/
@@ -231,6 +229,7 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
+
       - deploy:
           requires:
             - get-ci-tools
