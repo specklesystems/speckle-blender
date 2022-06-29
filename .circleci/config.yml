@@ -231,6 +231,7 @@ workflows:
               ignore: /.*/
 
       - build-connector-win:
+          name: build-deploy-connector-win
           slug: blender
           installer: true
           requires:
@@ -242,6 +243,7 @@ workflows:
               ignore: /.*/
 
       - build-connector-mac:
+          name: build-deploy-connector-mac
           slug: blender-mac
           installer: true
           requires:
