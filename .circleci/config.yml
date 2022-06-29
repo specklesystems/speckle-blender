@@ -38,7 +38,7 @@ jobs:
             $pyver=($pyarr[0..1] -join '.')
             echo "using python version:" $pyver
             $specklepy=(python patch_version.py)
-            python -m pip install --target=./win/modules-$pyver specklepy==$specklepy
+            python -m pip install --target=./modules-$pyver specklepy==$specklepy
       - persist_to_workspace:
           root: ./
           paths:
