@@ -42,7 +42,7 @@ jobs:
     parameters:
       slug:
         type: string
-        default: ""
+        default: "blender"
       installer:
         type: boolean
         default: false
@@ -208,9 +208,7 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-
       - build-connector-win:
-          slug: blender
           requires:
             - get-ci-tools
           filters:
@@ -218,9 +216,7 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-
       - build-connector-mac:
-          slug: blender-mac
           requires:
             - get-ci-tools
           filters:
