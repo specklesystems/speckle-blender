@@ -118,9 +118,10 @@ jobs:
             python3 patch_version.py $SEMVER
       # update python and package dependencies
       - when:
-          and:
-            - << parameters.installer >>
-            - equal: [osx-x64, << parameters.runtime >>]
+          condition:
+            and:
+              - << parameters.installer >>
+              - equal: [osx-x64, << parameters.runtime >>]
           steps:
             - run:
                 name: Install python 3.10
