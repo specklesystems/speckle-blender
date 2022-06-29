@@ -18,10 +18,9 @@ commands:
           condition: << parameters.python-version >>
           steps:
             - run:
-                name: "Upgrade python version"
+                name: Upgrade python version << parameters.python-version >>
                 shell: powershell.exe
                 command: |
-                  echo "upgrading to python version:" << parameters.python-version >>
                   choco upgrade python --version=<< parameters.python-version >>
                   refreshenv
                   python --version
@@ -36,7 +35,7 @@ commands:
             python -m pip install --target=./modules-$pyver specklepy==$specklepy
 
 jobs:
-  build-connector: # Reusable job for basic connectors
+  build-connector-win: # Reusable job for basic connectors
     executor:
       name: win/default # comes with python 3.7.3
       shell: cmd.exe
@@ -50,7 +49,7 @@ jobs:
           at: ./
       - install-specklepy-windows
       - install-specklepy-windows:
-          python-version: "3.9.7"
+          python-version: "3.9"
       - install-specklepy-windows:
           python-version: "3.10.2"
       - run:
@@ -192,7 +191,7 @@ workflows:
                 - main
                 - /ci\/.*/
 
-      - build-connector:
+      - build-connector-win:
           slug: blender
           requires:
             - get-ci-tools
@@ -218,7 +217,7 @@ workflows:
       - deploy:
           requires:
             - get-ci-tools
-            - build-connector
+            - build-connector-win
             - build-connector-mac
           filters:
             tags:
