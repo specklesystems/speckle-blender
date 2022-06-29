@@ -7,7 +7,7 @@ orbs:
   # Upload artifacts to s3
   aws-s3: circleci/aws-s3@2.0.0
 
-jobs:
+commands:
   install-specklepy-windows: # Reusable job for installing `specklepy` for windows machines
     executor:
       name: win/default # comes with python 3.7.3
@@ -17,9 +17,6 @@ jobs:
         type: string
         default: "" # leave blank for blender v2.93
     steps:
-      - checkout
-      - attach_workspace:
-          at: ./
       - when:
           condition: << parameters.python-version >>
           steps:
@@ -39,11 +36,8 @@ jobs:
             echo "using python version:" $pyver
             $specklepy=(python patch_version.py)
             python -m pip install --target=./modules-$pyver specklepy==$specklepy
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - modules-*
 
+jobs:
   build-connector: # Reusable job for basic connectors
     executor:
       name: win/default # comes with python 3.7.3
@@ -56,6 +50,11 @@ jobs:
       - checkout
       - attach_workspace:
           at: ./
+      - install-specklepy-windows
+      - install-specklepy-windows:
+          python-version: "3.9.7"
+      - install-specklepy-windows:
+          python-version: "3.10.2"
       - run:
           name: Patch
           shell: powershell.exe
@@ -195,22 +194,10 @@ workflows:
                 - main
                 - /ci\/.*/
 
-      - install-specklepy-windows:
-          name: install-specklepy-windows-3.7
-      - install-specklepy-windows:
-          name: install-specklepy-windows-3.9
-          python-version: "3.9.7"
-      - install-specklepy-windows:
-          name: install-specklepy-windows-3.10
-          python-version: "3.10.2"
-
       - build-connector:
           slug: blender
           requires:
             - get-ci-tools
-            - install-specklepy-windows-3.7
-            - install-specklepy-windows-3.9
-            - install-specklepy-windows-3.10
           filters:
             tags:
               only: /.*/
