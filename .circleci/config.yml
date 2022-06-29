@@ -49,7 +49,7 @@ jobs:
           at: ./
       - install-specklepy-windows
       - install-specklepy-windows:
-          python-version: "3.9"
+          python-version: "3.9.10"
       - install-specklepy-windows:
           python-version: "3.10.2"
       - run:
