@@ -257,8 +257,8 @@ workflows:
       - deploy:
           requires:
             - get-ci-tools
-            - build-connector-win
-            - build-connector-mac
+            - build-deploy-connector-win
+            - build-deploy-connector-mac
           filters:
             tags:
               only: /^(all|win|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
