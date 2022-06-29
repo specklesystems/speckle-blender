@@ -9,9 +9,6 @@ orbs:
 
 commands:
   install-specklepy-windows: # Reusable job for installing `specklepy` for windows machines
-    executor:
-      name: win/default # comes with python 3.7.3
-      shell: powershell.exe
     parameters:
       python-version:
         type: string
@@ -22,6 +19,7 @@ commands:
           steps:
             - run:
                 name: "Upgrade python version"
+                shell: powershell.exe
                 command: |
                   echo "upgrading to python version:" << parameters.python-version >>
                   choco upgrade python --version=<< parameters.python-version >>
