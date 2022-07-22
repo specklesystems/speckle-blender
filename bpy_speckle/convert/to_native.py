@@ -364,11 +364,14 @@ def block_def_to_native(definition: BlockDefinition, scale=1.0):
     native_def["applicationId"] = definition.applicationId
     for geo in definition.geometry:
         if b_obj := convert_to_native(geo):
-            native_def.objects.link(
-                b_obj
-                if isinstance(b_obj, bpy_types.Object)
-                else bpy.data.objects.new(b_obj.name, b_obj)
-            )
+            try:
+                native_def.objects.link(
+                    b_obj
+                    if isinstance(b_obj, bpy_types.Object)
+                    else bpy.data.objects.new(b_obj.name, b_obj)
+                )
+            except RuntimeError as ex:
+                _report(f"Error adding {geo} to block definition {definition}. Most likely this is a duplicated geometry within this definition.\n{ex}")
 
     return native_def
 
