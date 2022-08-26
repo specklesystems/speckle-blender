@@ -266,45 +266,43 @@ workflows:
             - get-ci-tools
           filters:
             tags:
-              only: /^(all|win)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+              only: /^([0-9]+)\\.([0-9]+)\\.([0-9]+)(?:-\\w+)?(\\/all)?$/
             branches:
               ignore: /.*/
 
-      - build-connector-mac:
-          name: build-deploy-connector-mac-arm
-          slug: blender-mac-arm
-          runtime: osx-arm64
-          installer: true
-          requires:
-            - get-ci-tools
-          filters:
-            tags:
-              only: /^(all|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
-            branches:
-              ignore: /.*/
+      # - build-connector-mac:
+      #     name: build-deploy-connector-mac-arm
+      #     slug: blender-mac-arm
+      #     runtime: osx-arm64
+      #     installer: true
+      #     requires:
+      #       - get-ci-tools
+      #     filters:
+      #       tags:
+      #         only: /^(all|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+      #       branches:
+      #         ignore: /.*/
 
-      - build-connector-mac:
-          name: build-deploy-connector-mac-intel
-          slug: blender-mac-intel
-          runtime: osx-x64
-          installer: true
-          requires:
-            - get-ci-tools
-          filters:
-            tags:
-              only: /^(all|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
-            branches:
-              ignore: /.*/
+      # - build-connector-mac:
+      #     name: build-deploy-connector-mac-intel
+      #     slug: blender-mac-intel
+      #     runtime: osx-x64
+      #     installer: true
+      #     requires:
+      #       - get-ci-tools
+      #     filters:
+      #       tags:
+      #         only: /^(all|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+      #       branches:
+      #         ignore: /.*/
 
       - deploy:
           requires:
             - get-ci-tools
             - build-deploy-connector-win
-            - build-deploy-connector-mac-arm
-            - build-deploy-connector-mac-intel
           filters:
             tags:
-              only: /^(all|win|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+              only: /^([0-9]+)\\.([0-9]+)\\.([0-9]+)(?:-\\w+)?(\\/all)?$/
             branches:
               ignore: /.*/
 
@@ -314,9 +312,9 @@ workflows:
           extension: exe
           requires:
             - get-ci-tools
-            - build-deploy-connector-win
+            - deploy
           filters:
             tags:
-              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+              only: /^([0-9]+)\\.([0-9]+)\\.([0-9]+)(?:-\\w+)?(\\/all)?$/
             branches:
               ignore: /.*/ # For testing only! /ci\/.*/
