@@ -199,6 +199,30 @@ jobs:
           from: '"speckle-sharp-ci-tools/Installers/"'
           to: s3://speckle-releases/installers/
 
+  deploy-manager2:
+    docker:
+      - image: mcr.microsoft.com/dotnet/sdk:6.0
+    parameters:
+      slug:
+        type: string
+      os:
+        type: string
+      extension:
+        type: string
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install Manager Feed CLI
+          command: dotnet tool install --global Speckle.Manager.Feed
+      - run:
+          name: Upload new version
+          command: |
+            TAG=$(if [ "${CIRCLE_TAG}" ]; then echo $CIRCLE_TAG; else echo "0.0.0"; fi;)
+            SEMVER=$(echo "$TAG" | sed -e 's/\/[a-zA-Z-]*//')
+            /root/.dotnet/tools/Speckle.Manager.Feed deploy -s << parameters.slug >> -v ${SEMVER} -u https://releases.speckle.dev/installers/<< parameters.slug >>/<< parameters.slug >>-${SEMVER}.<< parameters.extension >> -o << parameters.os >> -f speckle-sharp-ci-tools/Installers/<< parameters.slug >>/<< parameters.slug >>-${SEMVER}.<< parameters.extension >>
+
 workflows:
   build: # build the installers, but don't persist to workspace for deployment
     jobs:
@@ -283,3 +307,16 @@ workflows:
               only: /^(all|win|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
             branches:
               ignore: /.*/
+
+      - deploy-manager2:
+          slug: blender
+          os: Win
+          extension: exe
+          requires:
+            - get-ci-tools
+            - build-deploy-connector-win
+          filters:
+            tags:
+              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+            branches:
+              ignore: /.*/ # For testing only! /ci\/.*/
