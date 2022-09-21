@@ -2,7 +2,7 @@
 Stream operators
 """
 from itertools import chain
-from typing import Dict
+from typing import Callable, Dict, Iterable
 import bpy
 from specklepy.api.models import Commit
 import webbrowser
@@ -10,6 +10,7 @@ from bpy.props import (
     StringProperty,
     BoolProperty,
 )
+from bpy.types import Object
 from bpy_speckle.convert.to_native import can_convert_to_native, convert_to_native
 from bpy_speckle.convert.to_speckle import (
     convert_to_speckle,
@@ -32,7 +33,7 @@ from specklepy.objects.geometry import *
 from specklepy.logging.exceptions import SpeckleException
 
 
-def get_objects_collections(base) -> Dict:
+def get_objects_collections(base: Base) -> Dict[str, list]:
     """Create collections based on the dynamic members on a root commit object"""
     collections = {}
     for name in base.get_dynamic_member_names():
@@ -47,7 +48,7 @@ def get_objects_collections(base) -> Dict:
     return collections
 
 
-def get_objects_nested_lists(items, parent_col=None) -> List:
+def get_objects_nested_lists(items: list, parent_col: bpy.types.Collection = None) -> List:
     """For handling the weird nested lists that come from Grasshopper"""
     objects = []
 
@@ -64,7 +65,7 @@ def get_objects_nested_lists(items, parent_col=None) -> List:
     return objects
 
 
-def get_objects_collections_recursive(base, parent_col=None) -> List:
+def get_objects_collections_recursive(base: Base, parent_col: bpy.types.Collection = None) -> List:
     """Recursively create collections based on the dynamic members on nested `Base` objects within the root commit object"""
     # if it's a convertable (registered) class and not just a plain `Base`, return the object itself
     if can_convert_to_native(base):
@@ -94,7 +95,7 @@ def get_objects_collections_recursive(base, parent_col=None) -> List:
     return objects
 
 
-def bases_to_native(context, collections, scale, stream_id, func=None):
+def bases_to_native(context: bpy.types.Context, collections: Dict[str, Object], scale: float, stream_id: str, func: Callable = None):
     for col_name, objects in collections.items():
         col = bpy.data.collections[col_name]
         existing = get_existing_collection_objs(col)
@@ -126,7 +127,8 @@ def bases_to_native(context, collections, scale, stream_id, func=None):
                 context.area.tag_redraw()
 
 
-def base_to_native(context, base, scale, stream_id, col, existing, func=None):
+
+def base_to_native(context: bpy.types.Context, base: Base, scale: float, stream_id: str, col: bpy.types.Collection, existing: Dict[str, Object], func: Callable = None):
     new_objects = convert_to_native(base)
     if not isinstance(new_objects, list):
         new_objects = [new_objects]
@@ -170,7 +172,7 @@ def base_to_native(context, base, scale, stream_id, col, existing, func=None):
             col.objects.link(new_object)
 
 
-def create_collection(name, clear_collection=True):
+def create_collection(name: str, clear_collection=True) -> bpy.types.Collection:
     if name in bpy.data.collections:
         col = bpy.data.collections[name]
         if clear_collection:
@@ -182,13 +184,13 @@ def create_collection(name, clear_collection=True):
     return col
 
 
-def create_child_collections(parent_col, children_names):
+def create_child_collections(parent_col: bpy.types.Collection, children_names: Iterable[str]):
     for name in children_names:
         col = create_collection(name)
         parent_col.children.link(col)
 
 
-def get_existing_collection_objs(col):
+def get_existing_collection_objs(col: bpy.types.Collection) -> Dict[str, bpy.types.Object]:
     return {
         obj.speckle.object_id: obj for obj in col.objects if obj.speckle.object_id != ""
     }

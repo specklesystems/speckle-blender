@@ -5,6 +5,7 @@ import bpy
 from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
 from specklepy.api.client import SpeckleClient
+from specklepy.api.models import Stream, User
 from specklepy.api.credentials import get_local_accounts
 from datetime import datetime
 
@@ -59,7 +60,7 @@ class LoadUsers(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def add_user_stream(user, stream):
+def add_user_stream(user: User, stream: Stream):
     s = user.streams.add()
     s.name = stream.name
     s.id = stream.id

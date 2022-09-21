@@ -1,9 +1,13 @@
+import math
 from typing import Tuple
+from bmesh.types import BMesh
 import bpy, struct, idprop
 
 from specklepy.objects.base import Base
+from specklepy.objects.geometry import Mesh
 from specklepy.serialization.base_object_serializer import BaseObjectSerializer
 from bpy_speckle.functions import _report
+from bpy.types import Object
 
 IGNORED_PROPERTY_KEYS = {
     "id",
@@ -38,7 +42,7 @@ def to_argb_int(diffuse_colour) -> int:
 
     return int.from_bytes(diffuse_colour, byteorder="big", signed=True)
 
-def add_custom_properties(speckle_object, blender_object):
+def add_custom_properties(speckle_object: Base, blender_object: Object):
     if blender_object is None:
         return
 
@@ -69,7 +73,7 @@ def add_custom_properties(speckle_object, blender_object):
                     blender_object[k] = v            
 
 
-def add_blender_material(speckle_object, blender_object) -> None:
+def add_blender_material(speckle_object: Base, blender_object: Object) -> None:
     """Add material to a blender object if the corresponding speckle object has a render material"""
     if blender_object.data is None:
         return
@@ -107,7 +111,7 @@ def add_blender_material(speckle_object, blender_object) -> None:
     blender_object.data.materials.append(blender_mat)
 
 
-def add_vertices(speckle_mesh, blender_mesh, scale=1.0):
+def add_vertices(speckle_mesh: Mesh, blender_mesh: BMesh, scale=1.0):
     sverts = speckle_mesh.vertices
 
     if sverts and len(sverts) > 0:
@@ -123,7 +127,7 @@ def add_vertices(speckle_mesh, blender_mesh, scale=1.0):
     blender_mesh.verts.ensure_lookup_table()
 
 
-def add_faces(speckle_mesh, blender_mesh, smooth=False):
+def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, smooth=False):
     sfaces = speckle_mesh.faces
 
     if sfaces and len(sfaces) > 0:
@@ -147,7 +151,7 @@ def add_faces(speckle_mesh, blender_mesh, smooth=False):
         blender_mesh.verts.index_update()
 
 
-def add_colors(speckle_mesh, blender_mesh):
+def add_colors(speckle_mesh: Mesh, blender_mesh: BMesh):
 
     scolors = speckle_mesh.colors
 
@@ -178,7 +182,7 @@ def add_colors(speckle_mesh, blender_mesh):
                     loop[color_layer] = colors[loop.vert.index]
 
 
-def add_uv_coords(speckle_mesh, blender_mesh):
+def add_uv_coords(speckle_mesh: Mesh, blender_mesh: BMesh):
     s_uvs = speckle_mesh.textureCoordinates
     if not s_uvs:
         return

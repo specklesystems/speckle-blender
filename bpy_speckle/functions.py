@@ -33,7 +33,7 @@ def _report(msg):
     print("SpeckleBlender: {}".format(msg))
 
 
-def get_scale_length(units):
+def get_scale_length(units: str) -> float:
     if units.lower() in unit_scale.keys():
         return unit_scale[units]
     _report("Units <{}> are not supported.".format(units))

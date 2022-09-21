@@ -1,4 +1,5 @@
 import bpy
+from bpy.types import MeshVertColor, MeshVertex, Object
 from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Point, Polyline
 from specklepy.objects.other import *
 from bpy_speckle.functions import _report
@@ -13,12 +14,12 @@ UNITS = "m"
 CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY")
 
 
-def convert_to_speckle(blender_object, scale, units, desgraph=None):
+def convert_to_speckle(blender_object: Object, scale: float, units: str, desgraph=None) -> list | None:
     global UNITS
     UNITS = units
     blender_type = blender_object.type
     if blender_type not in CAN_CONVERT_TO_SPECKLE:
-        return
+        return None
 
     speckle_objects = []
     speckle_material = material_to_speckle(blender_object)
@@ -54,9 +55,10 @@ def convert_to_speckle(blender_object, scale, units, desgraph=None):
     return speckle_objects
 
 
-def mesh_to_speckle(blender_object, data, scale=1.0):
+def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh, scale=1.0) -> List[Mesh]:
     if data.loop_triangles is None or len(data.loop_triangles) < 1:
         data.calc_loop_triangles()
+
 
     mat = blender_object.matrix_world
 
@@ -89,10 +91,16 @@ def mesh_to_speckle(blender_object, data, scale=1.0):
             sm.faces.append(n)
         sm.faces.extend(f)
 
+    # TODO: figure out how to align vertex colors and vertices consistantly in receiving applications
+    # we are seeing the same issue as with texture coordinate alignment
+    #if data.color_attributes.active_color:
+    #    sm.colors = [to_argb_int(x.color) for x in data.color_attributes.active_color.data]
+            
+
     return [sm]
 
 
-def bezier_to_speckle(matrix, spline, scale, name=None):
+def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name:str = None) -> Curve:
     degree = 3
     closed = spline.use_cyclic_u
 
@@ -141,7 +149,7 @@ def bezier_to_speckle(matrix, spline, scale, name=None):
     )
 
 
-def nurbs_to_speckle(matrix, spline, scale, name=None):
+def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name:str = None) -> Curve:
     knots = make_knots(spline)
     points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
     degree = spline.order_u - 1
@@ -167,7 +175,7 @@ def nurbs_to_speckle(matrix, spline, scale, name=None):
     )
 
 
-def poly_to_speckle(matrix, spline, scale, name=None):
+def poly_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: str = None) -> Polyline:
     points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
 
     length = spline.calc_length()
@@ -184,7 +192,7 @@ def poly_to_speckle(matrix, spline, scale, name=None):
     )
 
 
-def icurve_to_speckle(blender_object, data, scale=1.0):
+def icurve_to_speckle(blender_object: Object, data: bpy.types.Curve, scale=1.0) -> List[Base] | None:
     UNITS = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
 
     if blender_object.type != "CURVE":
@@ -213,7 +221,7 @@ def icurve_to_speckle(blender_object, data, scale=1.0):
     return curves
 
 
-def ngons_to_speckle_polylines(blender_object, data, scale=1.0):
+def ngons_to_speckle_polylines(blender_object: Object, data: bpy.types.Mesh, scale=1.0) -> List[Polyline] | None:
     UNITS = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
 
     if blender_object.type != "MESH":
@@ -245,14 +253,14 @@ def ngons_to_speckle_polylines(blender_object, data, scale=1.0):
     return polylines
 
 
-def material_to_speckle(blender_object) -> RenderMaterial:
+def material_to_speckle(blender_object: Object) -> RenderMaterial | None:
     """Create and return a render material from a blender object"""
     if not getattr(blender_object.data, "materials", None):
-        return
+        return None
 
-    blender_mat = blender_object.data.materials[0]
+    blender_mat: bpy.types.Material = blender_object.data.materials[0]
     if not blender_mat:
-        return
+        return None
 
     speckle_mat = RenderMaterial()
     speckle_mat.name = blender_mat.name
@@ -275,7 +283,7 @@ def material_to_speckle(blender_object) -> RenderMaterial:
     return speckle_mat
 
 
-def transform_to_speckle(blender_transform, scale=1.0):
+def transform_to_speckle(blender_transform: List[float], scale=1.0) -> Transform:
     value = [y for x in blender_transform for y in x]
     # scale the translation
     for i in (3, 7, 11):
@@ -284,7 +292,7 @@ def transform_to_speckle(blender_transform, scale=1.0):
     return Transform(value=value, units=UNITS)
 
 
-def block_def_to_speckle(blender_definition, scale=1.0):
+def block_def_to_speckle(blender_definition: bpy.types.Collection, scale=1.0) -> BlockDefinition:
     geometry = []
     for geo in blender_definition.objects:
         geometry.extend(convert_to_speckle(geo, scale, UNITS))
@@ -299,7 +307,7 @@ def block_def_to_speckle(blender_definition, scale=1.0):
     return block_def
 
 
-def block_instance_to_speckle(blender_instance, scale=1.0):
+def block_instance_to_speckle(blender_instance: Object, scale=1.0):
     return BlockInstance(
         blockDefinition=block_def_to_speckle(
             blender_instance.instance_collection, scale
@@ -310,7 +318,7 @@ def block_instance_to_speckle(blender_instance, scale=1.0):
     )
 
 
-def empty_to_speckle(blender_object, scale=1.0):
+def empty_to_speckle(blender_object: Object, scale=1.0) -> BlockInstance | None:
     # probably an instance collection (block) so let's try it
     try:
         geo = blender_object.instance_collection.objects.items()
