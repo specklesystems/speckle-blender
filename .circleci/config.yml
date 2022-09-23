@@ -227,12 +227,14 @@ workflows:
   build: # build the installers, but don't persist to workspace for deployment
     jobs:
       - get-ci-tools:
+          name: Get CI Tools
           filters:
             branches:
               only:
                 - main
                 - /ci\/.*/
       - build-connector-win:
+          name: Windows Build
           requires:
             - get-ci-tools
           filters:
@@ -241,13 +243,13 @@ workflows:
                 - main
                 - /ci\/.*/
       - build-connector-mac:
-          name: build-deploy-connector-mac-arm
+          name: Mac ARM Build
           slug: blender-mac-arm
           runtime: osx-arm64
           requires:
             - get-ci-tools
       - build-connector-mac:
-          name: build-deploy-connector-mac-intel
+          name: Mac Intel Build
           slug: blender-mac-intel
           runtime: osx-x64
           requires:
@@ -255,6 +257,7 @@ workflows:
   deploy: # build installers and deploy
     jobs:
       - get-ci-tools:
+          name: Get CI Tools
           filters:
             tags:
               only: /.*/
@@ -262,7 +265,7 @@ workflows:
               ignore: /.*/
 
       - build-connector-win:
-          name: build-deploy-connector-win
+          name: Windows Build&Deploy
           slug: blender
           installer: true
           requires:
@@ -273,36 +276,38 @@ workflows:
             branches:
               ignore: /.*/
 
-      # - build-connector-mac:
-      #     name: build-deploy-connector-mac-arm
-      #     slug: blender-mac-arm
-      #     runtime: osx-arm64
-      #     installer: true
-      #     requires:
-      #       - get-ci-tools
-      #     filters:
-      #       tags:
-      #         only: /^(all|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
-      #       branches:
-      #         ignore: /.*/
+      - build-connector-mac:
+          name: Mac ARM Build&Deploy
+          slug: blender-mac-arm
+          runtime: osx-arm64
+          installer: true
+          requires:
+            - get-ci-tools
+          filters:
+            tags:
+              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+            branches:
+              ignore: /.*/
 
-      # - build-connector-mac:
-      #     name: build-deploy-connector-mac-intel
-      #     slug: blender-mac-intel
-      #     runtime: osx-x64
-      #     installer: true
-      #     requires:
-      #       - get-ci-tools
-      #     filters:
-      #       tags:
-      #         only: /^(all|mac)\/([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
-      #       branches:
-      #         ignore: /.*/
+      - build-connector-mac:
+          name: Mac Intel Build&Deploy
+          slug: blender-mac-intel
+          runtime: osx-x64
+          installer: true
+          requires:
+            - get-ci-tools
+          filters:
+            tags:
+              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+            branches:
+              ignore: /.*/
 
       - deploy:
           requires:
             - get-ci-tools
-            - build-deploy-connector-win
+            - Windows Build&Deploy
+            - Mac ARM Build&Deploy
+            - Mac Intel Build&Deploy
           filters:
             tags:
               only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
@@ -314,7 +319,6 @@ workflows:
           os: Win
           extension: exe
           requires:
-            - get-ci-tools
             - deploy
           filters:
             tags:
