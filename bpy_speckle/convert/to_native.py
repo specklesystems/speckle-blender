@@ -4,6 +4,7 @@ import mathutils
 import bpy, bmesh, bpy_types
 from specklepy.objects.other import *
 from specklepy.objects.geometry import *
+from bpy.types import Object
 from .util import (
     add_blender_material,
     add_custom_properties,
@@ -37,7 +38,7 @@ def can_convert_to_native(speckle_object: Base) -> bool:
     return False
 
 
-def convert_to_native(speckle_object: Base, name: str = None):
+def convert_to_native(speckle_object: Base, name: str = None) -> list | Object:
     speckle_type = type(speckle_object)
     speckle_name = (
         name

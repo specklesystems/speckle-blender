@@ -2,6 +2,7 @@
 Stream operators
 """
 from itertools import chain
+from math import radians
 from typing import Callable, Dict, Iterable
 import bpy
 from specklepy.api.models import Commit
@@ -95,7 +96,7 @@ def get_objects_collections_recursive(base: Base, parent_col: bpy.types.Collecti
     return objects
 
 
-def bases_to_native(context: bpy.types.Context, collections: Dict[str, Object], scale: float, stream_id: str, func: Callable = None):
+def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], scale: float, stream_id: str, func: Callable = None):
     for col_name, objects in collections.items():
         col = bpy.data.collections[col_name]
         existing = get_existing_collection_objs(col)
@@ -242,6 +243,49 @@ class ReceiveStreamObjects(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Receive objects from active stream"
 
+    
+    clean_meshes: BoolProperty(name="Clean Meshes", default=False)
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+        col.prop(self, "clean_meshes")
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    @staticmethod
+    def clean_converted_meshes(context: bpy.types.Context, convertedObjects: dict[str, Object]):
+        
+        bpy.ops.object.select_all(action='DESELECT')
+
+        active = None
+        for obj in convertedObjects.values():
+            if obj.type != 'MESH':
+                continue
+
+            # This seems to be required inorder to select the object here
+            if obj.name not in context.scene.collection.objects:
+                context.scene.collection.objects.link(obj)
+
+            obj.select_set(True, view_layer=context.scene.view_layers[0])
+            active = obj
+        
+
+        if active == None:
+            return
+        context.view_layer.objects.active = active
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.remove_doubles()
+        bpy.ops.mesh.dissolve_limited(angle_limit=radians(0.1))
+
+        # Reset state to previous (not quite sure if this is 100% necessary)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.context.view_layer.objects.active = None
+
     def execute(self, context):
         bpy.context.view_layer.objects.active = None
 
@@ -279,6 +323,9 @@ class ReceiveStreamObjects(bpy.types.Operator):
             message="received commit from Speckle Blender",
         )
 
+        context.window_manager.progress_begin(0, stream_data.totalChildrenCount)
+
+
         """
         Create or get Collection for stream objects
         """
@@ -311,18 +358,43 @@ class ReceiveStreamObjects(bpy.types.Operator):
         """
         Get script from text editor for injection
         """
-        func = None
+        userFunc = None
         if context.scene.speckle.receive_script in bpy.data.texts:
             mod = bpy.data.texts[context.scene.speckle.receive_script].as_module()
             if hasattr(mod, "execute"):
-                func = mod.execute
+                userFunc = mod.execute
+
+        createdObjects:Dict[str, Object] = {}
+
+        progress = 0
+        def func(scene, obj: Object):
+            nonlocal progress
+            nonlocal context
+            nonlocal createdObjects   
+                 
+            progress += 1 #TODO: Progress bar neverreaches 100 because func is only called for convertable objects
+            context.window_manager.progress_update(progress)
+            createdObjects[obj.name] = obj
+
+            if userFunc:
+                return userFunc(scene, obj)
+            else:
+                return obj
+        
 
         """
         Iterate through retrieved resources
         """
         bases_to_native(context, collections, scale, stream.id, func)
+        context.window_manager.progress_end()
+
+
+        if self.clean_meshes:
+            self.clean_converted_meshes(context, createdObjects)
+
 
         return {"FINISHED"}
+
 
 
 class SendStreamObjects(bpy.types.Operator):
