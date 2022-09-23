@@ -120,7 +120,7 @@ jobs:
       - when:
           condition:
             and:
-              - << parameters.installer >>
+              # - << parameters.installer >>
               - equal: [osx-x64, << parameters.runtime >>]
           steps:
             - run:
@@ -132,13 +132,13 @@ jobs:
                 name: Package specklepy dependencies for blender 3.1 & 3.2
                 command: |
                   python3 --version
-                  python3 -m pip install --target=./modules-intel-3.10 specklepy==$(python3 -m patch_version)
-                  zip -r modules-intel-3.10.zip modules-intel-3.10/
-                  cp modules-intel-3.10.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles
+                  python3 -m pip install --target=./modules-3.10 specklepy==$(python3 -m patch_version)
+                  zip -r modules-3.10.zip modules-3.10/
+                  cp modules-3.10.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles
       - run:
           name: Zip Connector files
           command: |
-            zip -r << parameters.slug >>.zip bpy_speckle/
+            zip -r blender-mac.zip bpy_speckle/
       - run:
           name: Copy connector files to installer
           command: |
@@ -162,6 +162,8 @@ jobs:
             TAG=$(if [ "${CIRCLE_TAG}" ]; then echo $CIRCLE_TAG; else echo "0.0.0"; fi;)
             SEMVER=$(echo "$TAG" | sed -e 's/[a-zA-Z-]*\///')
             cp speckle-sharp-ci-tools/Mac/<<parameters.installername>>/bin/Release/net6.0/<< parameters.runtime >>/<< parameters.slug >>.zip speckle-sharp-ci-tools/Installers/<< parameters.slug >>/<< parameters.slug >>-$SEMVER.zip
+      - store_artifacts:
+          path: speckle-sharp-ci-tools/Installers
       - when:
           condition: << parameters.installer >>
           steps:
@@ -240,7 +242,19 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-      - build-connector-mac:
+      - build-connector-mac-arm:
+          slug: blender-mac-arm
+          runtime: osx-arm64
+          requires:
+            - get-ci-tools
+          filters:
+            branches:
+              only:
+                - main
+                - /ci\/.*/
+      - build-connector-mac-intel:
+          slug: blender-mac-intel
+          runtime: osx-x64
           requires:
             - get-ci-tools
           filters:
