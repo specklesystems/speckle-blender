@@ -143,7 +143,7 @@ jobs:
           name: Copy connector files to installer
           command: |
             mkdir -p speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/
-            cp << parameters.slug >>.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles
+            cp blender-mac.zip speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles
             python3 patch_version.py > speckle-sharp-ci-tools/Mac/<<parameters.installername>>/.installationFiles/specklepy_ver.yml
 
       - run:
