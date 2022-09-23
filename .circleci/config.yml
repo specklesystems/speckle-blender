@@ -120,7 +120,7 @@ jobs:
       - when:
           condition:
             and:
-              - << parameters.installer >>
+              # - << parameters.installer >>
               - equal: [osx-x64, << parameters.runtime >>]
           steps:
             - run:
@@ -241,14 +241,17 @@ workflows:
                 - main
                 - /ci\/.*/
       - build-connector-mac:
+          name: build-deploy-connector-mac-arm
+          slug: blender-mac-arm
+          runtime: osx-arm64
           requires:
             - get-ci-tools
-          filters:
-            branches:
-              only:
-                - main
-                - /ci\/.*/
-
+      - build-connector-mac:
+          name: build-deploy-connector-mac-intel
+          slug: blender-mac-intel
+          runtime: osx-x64
+          requires:
+            - get-ci-tools
   deploy: # build installers and deploy
     jobs:
       - get-ci-tools:
