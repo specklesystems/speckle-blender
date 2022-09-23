@@ -227,7 +227,6 @@ workflows:
   build: # build the installers, but don't persist to workspace for deployment
     jobs:
       - get-ci-tools:
-          name: Get CI Tools
           filters:
             branches:
               only:
@@ -257,7 +256,6 @@ workflows:
   deploy: # build installers and deploy
     jobs:
       - get-ci-tools:
-          name: Get CI Tools
           filters:
             tags:
               only: /.*/
