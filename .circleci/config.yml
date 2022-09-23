@@ -242,7 +242,8 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-      - build-connector-mac-arm:
+      - build-connector-mac:
+          name: "Build ARM Mac"
           slug: blender-mac-arm
           runtime: osx-arm64
           requires:
@@ -252,7 +253,8 @@ workflows:
               only:
                 - main
                 - /ci\/.*/
-      - build-connector-mac-intel:
+      - build-connector-mac:
+          name: "Build Intel Mac"
           slug: blender-mac-intel
           runtime: osx-x64
           requires:
