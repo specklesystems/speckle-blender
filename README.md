@@ -3,7 +3,7 @@
   Speckle | Blender
 </h1>
 <h3 align="center">
-    Connector for Blender 2.92 & 2.93
+    Connector for Blender
 </h3>
 <p align="center"><b>Speckle</b> is the data infrastructure for the AEC industry.</p><br/>
 
