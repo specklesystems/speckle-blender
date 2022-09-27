@@ -57,7 +57,7 @@ jobs:
           python-version: "3.10.2"
       - run:
           name: Patch
-          shell: powershell.exe
+          shell: cmd.exe #does not work in powershell
           command:
             | # If no tag, use 0.0.0.1 and don't make any YML (for testing only!)
             $tag = if([string]::IsNullOrEmpty($env:CIRCLE_TAG)) { "0.0.0" } else { $env:CIRCLE_TAG }
