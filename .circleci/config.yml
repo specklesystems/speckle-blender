@@ -57,7 +57,7 @@ jobs:
           python-version: "3.10.2"
       - run:
           name: Patch
-          shell: cmd.exe #does not work in powershell
+          shell: powershell.exe
           command:
             | # If no tag, use 0.0.0.1 and don't make any YML (for testing only!)
             $tag = if([string]::IsNullOrEmpty($env:CIRCLE_TAG)) { "0.0.0" } else { $env:CIRCLE_TAG }
@@ -68,7 +68,10 @@ jobs:
             New-Item -Force "speckle-sharp-ci-tools/Installers/blender/$channel.yml" -ItemType File -Value "version: $semver"
             echo $semver
             python patch_version.py $semver
-            speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /Sbyparam=$p
+      - run:
+          name: Installer
+          shell: cmd.exe #does not work in powershell
+          command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /Sbyparam=$p
       - when:
           condition: << parameters.installer >>
           steps:
