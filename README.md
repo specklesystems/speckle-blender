@@ -52,11 +52,11 @@ This code is WIP and as such should be used with extreme caution on non-sensitiv
 
 ## Installation
 
-1. Place `bpy_speckle` folder in your `addons` folder. On Windows this is typically `%APPDATA%/Blender Foundation/Blender/2.80/scripts/addons`.
+1. Place `bpy_speckle` folder in your `addons` folder. On Windows, this is typically `%APPDATA%/Blender Foundation/Blender/2.80/scripts/addons`.
 2. Go to `Edit->Preferences` (Ctrl + Alt + U)
-3. Go to the `Add-ons` tab
+3. Go to the `Add-Ons` tab.
 4. Find and enable `SpeckleBlender 2.0` in the `Scene` category. <!-- **If enabling for the first time, expect the UI to freeze for bit while it silently installs all the dependencies.** -->
-5. The Speckle UI can be found in the 3d viewport toolbar (N), under the `Speckle` tab.
+5. The Speckle UI can be found in the 3D viewport toolbar (N), under the `Speckle` tab.
 
 ## Usage
 - Available user accounts are automatically detected and made available. To add user accounts use **Speckle Manager**.
