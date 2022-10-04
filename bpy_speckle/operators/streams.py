@@ -3,7 +3,7 @@ Stream operators
 """
 from itertools import chain
 from math import radians
-from typing import Callable, Dict, Iterable
+from typing import Callable, Dict, Iterable, TypeAlias
 import bpy
 from specklepy.api.models import Commit
 import webbrowser
@@ -11,7 +11,7 @@ from bpy.props import (
     StringProperty,
     BoolProperty,
 )
-from bpy.types import Object
+from bpy.types import Context, Object
 from bpy_speckle.convert.to_native import can_convert_to_native, convert_to_native
 from bpy_speckle.convert.to_speckle import (
     convert_to_speckle,
@@ -96,7 +96,47 @@ def get_objects_collections_recursive(base: Base, parent_col: bpy.types.Collecti
     return objects
 
 
-def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], scale: float, stream_id: str, func: Callable = None):
+ObjectCallback = Callable[[bpy.types.Scene, Object, Base], Object] | None
+ReceiveCompleteCallback = Callable[[bpy.types.Context, Dict[str, Object]], None] | None
+
+def get_receive_funcs(context: Context, created_objects: Dict[str, Object]) -> tuple[ObjectCallback, ReceiveCompleteCallback]:
+        """
+        Fetches the injected callback functions from user specified "Receive Script"
+        """
+
+        objectCallback = None
+        receiveCompleteCallback = None
+        if context.scene.speckle.receive_script in bpy.data.texts:
+            mod = bpy.data.texts[context.scene.speckle.receive_script].as_module()
+            if hasattr(mod, "execute_for_each"):
+                objectCallback = mod.execute_for_each
+            elif hasattr(mod, "execute"):
+                objectCallback = lambda s, o, _ : mod.execute(s, o)
+
+            if hasattr(mod, "execute_for_all"):
+                receiveCompleteCallback = mod.execute_for_all
+
+
+        progress = 0
+        
+        def for_each_object(scene: bpy.types.Scene, obj: Object, base: Base) -> Object:
+            nonlocal progress
+            nonlocal context
+            nonlocal created_objects   
+            nonlocal objectCallback   
+                 
+            progress += 1 #TODO: Progress bar never reaches 100 because func is only called for convertible objects
+            context.window_manager.progress_update(progress)
+            created_objects[obj.name] = obj
+
+            if objectCallback:
+                return objectCallback(scene, obj, base)
+            else:
+                return obj
+
+        return (for_each_object, receiveCompleteCallback)
+
+def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], scale: float, stream_id: str, func: ObjectCallback | None = None):
     for col_name, objects in collections.items():
         col = bpy.data.collections[col_name]
         existing = get_existing_collection_objs(col)
@@ -129,7 +169,14 @@ def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], sc
 
 
 
-def base_to_native(context: bpy.types.Context, base: Base, scale: float, stream_id: str, col: bpy.types.Collection, existing: Dict[str, Object], func: Callable = None):
+def base_to_native(context: bpy.types.Context,
+    base: Base,
+    scale: float,
+    stream_id: str,
+    col: bpy.types.Collection,
+    existing: Dict[str, Object],
+    func: ObjectCallback | None = None
+    ):
     new_objects = convert_to_native(base)
     if not isinstance(new_objects, list):
         new_objects = [new_objects]
@@ -152,7 +199,7 @@ def base_to_native(context: bpy.types.Context, base: Base, scale: float, stream_
         Run injected function
         """
         if func:
-            new_object = func(context.scene, new_object)
+            new_object = func(context.scene, new_object, base)
 
         if (
             new_object is None
@@ -231,7 +278,6 @@ def create_nested_hierarchy(base, hierarchy, objects):
     child["@objects"].extend(objects)
 
     return base
-
 
 class ReceiveStreamObjects(bpy.types.Operator):
     """
@@ -358,28 +404,8 @@ class ReceiveStreamObjects(bpy.types.Operator):
         """
         Get script from text editor for injection
         """
-        userFunc = None
-        if context.scene.speckle.receive_script in bpy.data.texts:
-            mod = bpy.data.texts[context.scene.speckle.receive_script].as_module()
-            if hasattr(mod, "execute"):
-                userFunc = mod.execute
-
-        createdObjects:Dict[str, Object] = {}
-
-        progress = 0
-        def func(scene, obj: Object):
-            nonlocal progress
-            nonlocal context
-            nonlocal createdObjects   
-                 
-            progress += 1 #TODO: Progress bar neverreaches 100 because func is only called for convertable objects
-            context.window_manager.progress_update(progress)
-            createdObjects[obj.name] = obj
-
-            if userFunc:
-                return userFunc(scene, obj)
-            else:
-                return obj
+        created_objects = {}
+        (func, on_complete) = get_receive_funcs(context, created_objects)
         
 
         """
@@ -390,10 +416,14 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
 
         if self.clean_meshes:
-            self.clean_converted_meshes(context, createdObjects)
+            self.clean_converted_meshes(context, created_objects)
+
+        if on_complete:
+            on_complete(context, created_objects)
 
 
         return {"FINISHED"}
+    
 
 
 

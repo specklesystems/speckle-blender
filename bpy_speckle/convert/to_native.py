@@ -38,7 +38,7 @@ def can_convert_to_native(speckle_object: Base) -> bool:
     return False
 
 
-def convert_to_native(speckle_object: Base, name: str = None) -> list | Object:
+def convert_to_native(speckle_object: Base, name: str = None) -> list | Object | None:
     speckle_type = type(speckle_object)
     speckle_name = (
         name
@@ -63,6 +63,8 @@ def convert_to_native(speckle_object: Base, name: str = None) -> list | Object:
         # not making it hidden, so it will get added on send as i think it might be helpful? can reconsider
         converted = []
         for item in elements:
+            if(item is None):
+                continue
             item.parent_speckle_type = speckle_object.speckle_type
             blender_object = convert_to_native(item)
             if isinstance(blender_object, list):
@@ -76,7 +78,7 @@ def convert_to_native(speckle_object: Base, name: str = None) -> list | Object:
         # convert breps
         if speckle_type is Brep:
             meshes = getattr(
-                speckle_object, "displayValue", getattr(speckle_object, "displayMesh", None)
+                speckle_object, "displayValue", getattr(speckle_object, "displayMesh", iter([]))
             )
             if material := getattr(speckle_object, "renderMaterial", getattr(speckle_object, "@renderMaterial", None),):
                 for mesh in meshes:
@@ -84,18 +86,19 @@ def convert_to_native(speckle_object: Base, name: str = None) -> list | Object:
 
             return [convert_to_native(mesh) for mesh in meshes]
 
+        scale = 1.0
         if units := getattr(speckle_object, "units", None):
             scale = get_scale_length(units) / bpy.context.scene.unit_settings.scale_length
         # convert supported geometry
-        if speckle_type is Mesh:
+        if isinstance(speckle_object, Mesh):
             obj_data = mesh_to_native(speckle_object, name=speckle_name, scale=scale)
         elif speckle_type in SUPPORTED_CURVES:
             obj_data = icurve_to_native(speckle_object, name=speckle_name, scale=scale)
-        elif speckle_type is Transform:
+        elif isinstance(speckle_object, Transform):
             obj_data = transform_to_native(speckle_object, scale=scale)
-        elif speckle_type is BlockDefinition:
+        elif isinstance(speckle_object, BlockDefinition):
             obj_data = block_def_to_native(speckle_object, scale=scale)
-        elif speckle_type is BlockInstance:
+        elif isinstance(speckle_object, BlockInstance): # speckle_type is BlockInstance:
             obj_data = block_instance_to_native(speckle_object, scale=scale)
         else:
             _report(f"Unsupported type {speckle_type}")
