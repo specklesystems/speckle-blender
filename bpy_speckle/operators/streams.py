@@ -3,7 +3,7 @@ Stream operators
 """
 from itertools import chain
 from math import radians
-from typing import Callable, Dict, Iterable, TypeAlias
+from typing import Callable, Dict, Iterable
 import bpy
 from specklepy.api.models import Commit
 import webbrowser
@@ -96,7 +96,7 @@ def get_objects_collections_recursive(base: Base, parent_col: bpy.types.Collecti
     return objects
 
 
-ObjectCallback = Callable[[bpy.types.Scene, Object, Base], Object] | None
+ObjectCallback = Callable[[bpy.types.Context, Object, Base], Object] | None
 ReceiveCompleteCallback = Callable[[bpy.types.Context, Dict[str, Object]], None] | None
 
 def get_receive_funcs(context: Context, created_objects: Dict[str, Object]) -> tuple[ObjectCallback, ReceiveCompleteCallback]:
@@ -104,14 +104,15 @@ def get_receive_funcs(context: Context, created_objects: Dict[str, Object]) -> t
         Fetches the injected callback functions from user specified "Receive Script"
         """
 
-        objectCallback = None
-        receiveCompleteCallback = None
+        objectCallback: ObjectCallback = None
+        receiveCompleteCallback: ReceiveCompleteCallback = None
+        
         if context.scene.speckle.receive_script in bpy.data.texts:
             mod = bpy.data.texts[context.scene.speckle.receive_script].as_module()
             if hasattr(mod, "execute_for_each"):
                 objectCallback = mod.execute_for_each
             elif hasattr(mod, "execute"):
-                objectCallback = lambda s, o, _ : mod.execute(s, o)
+                objectCallback = lambda c, o, _ : mod.execute(c.scene, o)
 
             if hasattr(mod, "execute_for_all"):
                 receiveCompleteCallback = mod.execute_for_all
@@ -119,9 +120,8 @@ def get_receive_funcs(context: Context, created_objects: Dict[str, Object]) -> t
 
         progress = 0
         
-        def for_each_object(scene: bpy.types.Scene, obj: Object, base: Base) -> Object:
+        def for_each_object(context: bpy.types.Context, obj: Object, base: Base) -> Object:
             nonlocal progress
-            nonlocal context
             nonlocal created_objects   
             nonlocal objectCallback   
                  
@@ -130,13 +130,13 @@ def get_receive_funcs(context: Context, created_objects: Dict[str, Object]) -> t
             created_objects[obj.name] = obj
 
             if objectCallback:
-                return objectCallback(scene, obj, base)
+                return objectCallback(context, obj, base)
             else:
                 return obj
 
         return (for_each_object, receiveCompleteCallback)
 
-def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], scale: float, stream_id: str, func: ObjectCallback | None = None):
+def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], scale: float, stream_id: str, func: ObjectCallback = None):
     for col_name, objects in collections.items():
         col = bpy.data.collections[col_name]
         existing = get_existing_collection_objs(col)
@@ -175,7 +175,7 @@ def base_to_native(context: bpy.types.Context,
     stream_id: str,
     col: bpy.types.Collection,
     existing: Dict[str, Object],
-    func: ObjectCallback | None = None
+    func: ObjectCallback = None
     ):
     new_objects = convert_to_native(base)
     if not isinstance(new_objects, list):
@@ -199,7 +199,7 @@ def base_to_native(context: bpy.types.Context,
         Run injected function
         """
         if func:
-            new_object = func(context.scene, new_object, base)
+            new_object = func(context, new_object, base) #this base object isn't the right one for hosted elements!
 
         if (
             new_object is None
