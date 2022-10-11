@@ -392,8 +392,8 @@ class ReceiveStreamObjects(bpy.types.Operator):
         name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id)
         col = create_collection(name)
         col.speckle.stream_id = stream.id
-        col.speckle.name = stream.name
-        col.speckle.units = stream_data.units
+        col.speckle.units = stream_data.units or "m"
+            
         if col.name not in bpy.context.scene.collection.children:
             bpy.context.scene.collection.children.link(col)
 
@@ -406,7 +406,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
         Set conversion scale from stream units
         """
         scale = (
-            get_scale_length(stream_data.units)
+            get_scale_length(col.speckle.units)
             / context.scene.unit_settings.scale_length
         )
 
