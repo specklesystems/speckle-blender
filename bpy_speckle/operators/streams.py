@@ -15,7 +15,6 @@ from bpy.types import Context, Object
 from bpy_speckle.convert.to_native import can_convert_to_native, convert_to_native
 from bpy_speckle.convert.to_speckle import (
     convert_to_speckle,
-    ngons_to_speckle_polylines,
 )
 from bpy_speckle.functions import (
     _check_speckle_client_user_stream,
@@ -26,12 +25,13 @@ from bpy_speckle.convert import get_speckle_subobjects
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
 
-from specklepy.api import operations
+from specklepy.api import operations, host_applications
 from specklepy.api.wrapper import StreamWrapper
 from specklepy.api.resources.stream import Stream
 from specklepy.transports.server import ServerTransport
 from specklepy.objects.geometry import *
 from specklepy.logging.exceptions import SpeckleException
+from specklepy.logging import metrics
 
 
 def get_objects_collections(base: Base) -> Dict[str, list]:
@@ -358,10 +358,19 @@ class ReceiveStreamObjects(bpy.types.Operator):
             _report("No commits found. Probably an empty stream.")
             return {"CANCELLED"}
 
-        commit = branch.commits.items[int(bbranch.commit)]
+        commit: Commit = branch.commits.items[int(bbranch.commit)]
 
         transport = ServerTransport(stream.id, client)
-        stream_data = operations.receive(commit.referencedObject, transport)
+
+        metrics.track(
+            metrics.RECEIVE,
+            getattr(transport, "account", None), 
+            custom_props={
+                "sourceHostApp": host_applications.get_host_app_from_string(commit.sourceApplication).slug,
+                "sourceHostAppVersion": commit.sourceApplication 
+            },
+        )
+        stream_data = operations._untracked_receive(commit.referencedObject, transport)
         client.commit.received(
             bstream.id,
             commit.id,
