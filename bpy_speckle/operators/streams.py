@@ -2,7 +2,8 @@
 Stream operators
 """
 from itertools import chain
-from typing import Dict
+from math import radians
+from typing import Callable, Dict, Iterable
 import bpy
 from specklepy.api.models import Commit
 import webbrowser
@@ -10,6 +11,7 @@ from bpy.props import (
     StringProperty,
     BoolProperty,
 )
+from bpy.types import Context, Object
 from bpy_speckle.convert.to_native import can_convert_to_native, convert_to_native
 from bpy_speckle.convert.to_speckle import (
     convert_to_speckle,
@@ -32,7 +34,7 @@ from specklepy.objects.geometry import *
 from specklepy.logging.exceptions import SpeckleException
 
 
-def get_objects_collections(base) -> Dict:
+def get_objects_collections(base: Base) -> Dict[str, list]:
     """Create collections based on the dynamic members on a root commit object"""
     collections = {}
     for name in base.get_dynamic_member_names():
@@ -47,7 +49,7 @@ def get_objects_collections(base) -> Dict:
     return collections
 
 
-def get_objects_nested_lists(items, parent_col=None) -> List:
+def get_objects_nested_lists(items: list, parent_col: bpy.types.Collection = None) -> List:
     """For handling the weird nested lists that come from Grasshopper"""
     objects = []
 
@@ -64,7 +66,7 @@ def get_objects_nested_lists(items, parent_col=None) -> List:
     return objects
 
 
-def get_objects_collections_recursive(base, parent_col=None) -> List:
+def get_objects_collections_recursive(base: Base, parent_col: bpy.types.Collection = None) -> List:
     """Recursively create collections based on the dynamic members on nested `Base` objects within the root commit object"""
     # if it's a convertable (registered) class and not just a plain `Base`, return the object itself
     if can_convert_to_native(base):
@@ -94,7 +96,47 @@ def get_objects_collections_recursive(base, parent_col=None) -> List:
     return objects
 
 
-def bases_to_native(context, collections, scale, stream_id, func=None):
+ObjectCallback = Callable[[bpy.types.Context, Object, Base], Object] | None
+ReceiveCompleteCallback = Callable[[bpy.types.Context, Dict[str, Object]], None] | None
+
+def get_receive_funcs(context: Context, created_objects: Dict[str, Object]) -> tuple[ObjectCallback, ReceiveCompleteCallback]:
+        """
+        Fetches the injected callback functions from user specified "Receive Script"
+        """
+
+        objectCallback: ObjectCallback = None
+        receiveCompleteCallback: ReceiveCompleteCallback = None
+        
+        if context.scene.speckle.receive_script in bpy.data.texts:
+            mod = bpy.data.texts[context.scene.speckle.receive_script].as_module()
+            if hasattr(mod, "execute_for_each"):
+                objectCallback = mod.execute_for_each
+            elif hasattr(mod, "execute"):
+                objectCallback = lambda c, o, _ : mod.execute(c.scene, o)
+
+            if hasattr(mod, "execute_for_all"):
+                receiveCompleteCallback = mod.execute_for_all
+
+
+        progress = 0
+        
+        def for_each_object(context: bpy.types.Context, obj: Object, base: Base) -> Object:
+            nonlocal progress
+            nonlocal created_objects   
+            nonlocal objectCallback   
+                 
+            progress += 1 #TODO: Progress bar never reaches 100 because func is only called for convertible objects
+            context.window_manager.progress_update(progress)
+            created_objects[obj.name] = obj
+
+            if objectCallback:
+                return objectCallback(context, obj, base)
+            else:
+                return obj
+
+        return (for_each_object, receiveCompleteCallback)
+
+def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], scale: float, stream_id: str, func: ObjectCallback = None):
     for col_name, objects in collections.items():
         col = bpy.data.collections[col_name]
         existing = get_existing_collection_objs(col)
@@ -126,7 +168,15 @@ def bases_to_native(context, collections, scale, stream_id, func=None):
                 context.area.tag_redraw()
 
 
-def base_to_native(context, base, scale, stream_id, col, existing, func=None):
+
+def base_to_native(context: bpy.types.Context,
+    base: Base,
+    scale: float,
+    stream_id: str,
+    col: bpy.types.Collection,
+    existing: Dict[str, Object],
+    func: ObjectCallback = None
+    ):
     new_objects = convert_to_native(base)
     if not isinstance(new_objects, list):
         new_objects = [new_objects]
@@ -149,7 +199,7 @@ def base_to_native(context, base, scale, stream_id, col, existing, func=None):
         Run injected function
         """
         if func:
-            new_object = func(context.scene, new_object)
+            new_object = func(context, new_object, base) #this base object isn't the right one for hosted elements!
 
         if (
             new_object is None
@@ -170,7 +220,7 @@ def base_to_native(context, base, scale, stream_id, col, existing, func=None):
             col.objects.link(new_object)
 
 
-def create_collection(name, clear_collection=True):
+def create_collection(name: str, clear_collection=True) -> bpy.types.Collection:
     if name in bpy.data.collections:
         col = bpy.data.collections[name]
         if clear_collection:
@@ -182,13 +232,13 @@ def create_collection(name, clear_collection=True):
     return col
 
 
-def create_child_collections(parent_col, children_names):
+def create_child_collections(parent_col: bpy.types.Collection, children_names: Iterable[str]):
     for name in children_names:
         col = create_collection(name)
         parent_col.children.link(col)
 
 
-def get_existing_collection_objs(col):
+def get_existing_collection_objs(col: bpy.types.Collection) -> Dict[str, bpy.types.Object]:
     return {
         obj.speckle.object_id: obj for obj in col.objects if obj.speckle.object_id != ""
     }
@@ -229,7 +279,6 @@ def create_nested_hierarchy(base, hierarchy, objects):
 
     return base
 
-
 class ReceiveStreamObjects(bpy.types.Operator):
     """
     Receive stream objects
@@ -239,6 +288,49 @@ class ReceiveStreamObjects(bpy.types.Operator):
     bl_label = "Download Stream Objects"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Receive objects from active stream"
+
+    
+    clean_meshes: BoolProperty(name="Clean Meshes", default=False)
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+        col.prop(self, "clean_meshes")
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    @staticmethod
+    def clean_converted_meshes(context: bpy.types.Context, convertedObjects: dict[str, Object]):
+        
+        bpy.ops.object.select_all(action='DESELECT')
+
+        active = None
+        for obj in convertedObjects.values():
+            if obj.type != 'MESH':
+                continue
+
+            # This seems to be required inorder to select the object here
+            if obj.name not in context.scene.collection.objects:
+                context.scene.collection.objects.link(obj)
+
+            obj.select_set(True, view_layer=context.scene.view_layers[0])
+            active = obj
+        
+
+        if active == None:
+            return
+        context.view_layer.objects.active = active
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.remove_doubles()
+        bpy.ops.mesh.dissolve_limited(angle_limit=radians(0.1))
+
+        # Reset state to previous (not quite sure if this is 100% necessary)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.context.view_layer.objects.active = None
 
     def execute(self, context):
         bpy.context.view_layer.objects.active = None
@@ -277,6 +369,9 @@ class ReceiveStreamObjects(bpy.types.Operator):
             message="received commit from Speckle Blender",
         )
 
+        context.window_manager.progress_begin(0, stream_data.totalChildrenCount)
+
+
         """
         Create or get Collection for stream objects
         """
@@ -309,18 +404,27 @@ class ReceiveStreamObjects(bpy.types.Operator):
         """
         Get script from text editor for injection
         """
-        func = None
-        if context.scene.speckle.receive_script in bpy.data.texts:
-            mod = bpy.data.texts[context.scene.speckle.receive_script].as_module()
-            if hasattr(mod, "execute"):
-                func = mod.execute
+        created_objects = {}
+        (func, on_complete) = get_receive_funcs(context, created_objects)
+        
 
         """
         Iterate through retrieved resources
         """
         bases_to_native(context, collections, scale, stream.id, func)
+        context.window_manager.progress_end()
+
+
+        if self.clean_meshes:
+            self.clean_converted_meshes(context, created_objects)
+
+        if on_complete:
+            on_complete(context, created_objects)
+
 
         return {"FINISHED"}
+    
+
 
 
 class SendStreamObjects(bpy.types.Operator):
