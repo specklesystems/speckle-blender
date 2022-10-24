@@ -192,6 +192,8 @@ jobs:
     parameters:
       slug:
         type: string
+      file_slug:
+        type: string
       os:
         type: string
       extension:
@@ -211,7 +213,13 @@ jobs:
           command: |
             TAG=$(if [ "${CIRCLE_TAG}" ]; then echo $CIRCLE_TAG; else echo "0.0.0"; fi;)
             SEMVER=$(echo "$TAG" | sed -e 's/\/[a-zA-Z-]*//')
-            /root/.dotnet/tools/Speckle.Manager.Feed deploy -s << parameters.slug >> -v ${SEMVER} -u https://releases.speckle.dev/installers/<< parameters.slug >>/<< parameters.slug >>-${SEMVER}.<< parameters.extension >> -o << parameters.os >> -a << parameters.arch >> -f speckle-sharp-ci-tools/Installers/<< parameters.slug >>/<< parameters.slug >>-${SEMVER}.<< parameters.extension >>
+            /root/.dotnet/tools/Speckle.Manager.Feed deploy \
+                -s << parameters.slug >> \
+                -v ${SEMVER} \
+                -u https://releases.speckle.dev/installers/<< parameters.file_slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >> \
+                -o << parameters.os >> \
+                -a << parameters.arch >> \
+                -f speckle-sharp-ci-tools/Installers/<< parameters.file_slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >>
 
 workflows:
   build: # build the installers, but don't persist to workspace for deployment
@@ -253,7 +261,7 @@ workflows:
               ignore: /.*/
 
       - build-connector-win:
-          name: Windows Build&Deploy
+          name: Windows Build
           slug: blender
           installer: true
           requires:
@@ -265,7 +273,7 @@ workflows:
               ignore: /.*/
 
       - build-connector-mac:
-          name: Mac ARM Build&Deploy
+          name: Mac ARM Build
           slug: blender-mac-arm
           runtime: osx-arm64
           installer: true
@@ -278,7 +286,7 @@ workflows:
               ignore: /.*/
 
       - build-connector-mac:
-          name: Mac Intel Build&Deploy
+          name: Mac Intel Build
           slug: blender-mac-intel
           runtime: osx-x64
           installer: true
@@ -293,13 +301,14 @@ workflows:
       - deploy-connector-new:
           name: deploy-win
           slug: blender
+          file_slug: blender
           os: Win
           extension: exe
           arch: Any
           requires:
-            - Windows Build&Deploy
-            - Mac ARM Build&Deploy
-            - Mac Intel Build&Deploy
+            - Windows Build
+            - Mac ARM Build
+            - Mac Intel Build
           filters:
             tags:
               only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
@@ -308,14 +317,15 @@ workflows:
 
       - deploy-connector-new:
           name: deploy-mac-intel
-          slug: blender-mac-intel
+          slug: blender
+          file_slug: blender-mac-intel
           os: OSX
-          extension: zip
           arch: Intel
+          extension: zip
           requires:
-            - Windows Build&Deploy
-            - Mac ARM Build&Deploy
-            - Mac Intel Build&Deploy
+            - Windows Build
+            - Mac ARM Build
+            - Mac Intel Build
           filters:
             tags:
               only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
@@ -324,14 +334,15 @@ workflows:
               
       - deploy-connector-new:
           name: deploy-mac-arm
-          slug: blender-mac-arm
+          slug: blender
+          file_slug: blender-mac-arm
           os: OSX
-          extension: zip
           arch: Arm
+          extension: zip
           requires:
-            - Windows Build&Deploy
-            - Mac ARM Build&Deploy
-            - Mac Intel Build&Deploy
+            - Windows Build
+            - Mac ARM Build
+            - Mac Intel Build
           filters:
             tags:
               only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
