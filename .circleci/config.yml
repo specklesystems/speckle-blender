@@ -185,33 +185,22 @@ jobs:
           paths:
             - speckle-sharp-ci-tools
 
-  deploy: # Uploads all installers found to S3
-    docker:
-      - image: cimg/base:2021.01
-    steps:
-      - attach_workspace:
-          at: ./
-      - run:
-          name: List contents
-          command: ls -R speckle-sharp-ci-tools/Installers
-      - aws-s3/copy:
-          arguments: "--recursive --endpoint=https://$SPACES_REGION.digitaloceanspaces.com --acl public-read"
-          aws-access-key-id: SPACES_KEY
-          aws-region: SPACES_REGION
-          aws-secret-access-key: SPACES_SECRET
-          from: '"speckle-sharp-ci-tools/Installers/"'
-          to: s3://speckle-releases/installers/
 
-  deploy-manager2:
+  deploy-connector-new:
     docker:
       - image: mcr.microsoft.com/dotnet/sdk:6.0
     parameters:
       slug:
         type: string
+      file_slug:
+        type: string
       os:
         type: string
       extension:
         type: string
+      arch:
+        type: string
+        default: Any
     steps:
       - checkout
       - attach_workspace:
@@ -224,7 +213,13 @@ jobs:
           command: |
             TAG=$(if [ "${CIRCLE_TAG}" ]; then echo $CIRCLE_TAG; else echo "0.0.0"; fi;)
             SEMVER=$(echo "$TAG" | sed -e 's/\/[a-zA-Z-]*//')
-            /root/.dotnet/tools/Speckle.Manager.Feed deploy -s << parameters.slug >> -v ${SEMVER} -u https://releases.speckle.dev/installers/<< parameters.slug >>/<< parameters.slug >>-${SEMVER}.<< parameters.extension >> -o << parameters.os >> -f speckle-sharp-ci-tools/Installers/<< parameters.slug >>/<< parameters.slug >>-${SEMVER}.<< parameters.extension >>
+            /root/.dotnet/tools/Speckle.Manager.Feed deploy \
+                -s << parameters.slug >> \
+                -v ${SEMVER} \
+                -u https://releases.speckle.dev/installers/<< parameters.file_slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >> \
+                -o << parameters.os >> \
+                -a << parameters.arch >> \
+                -f speckle-sharp-ci-tools/Installers/<< parameters.file_slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >>
 
 workflows:
   build: # build the installers, but don't persist to workspace for deployment
@@ -266,7 +261,7 @@ workflows:
               ignore: /.*/
 
       - build-connector-win:
-          name: Windows Build&Deploy
+          name: Windows Build
           slug: blender
           installer: true
           requires:
@@ -278,7 +273,7 @@ workflows:
               ignore: /.*/
 
       - build-connector-mac:
-          name: Mac ARM Build&Deploy
+          name: Mac ARM Build
           slug: blender-mac-arm
           runtime: osx-arm64
           installer: true
@@ -291,7 +286,7 @@ workflows:
               ignore: /.*/
 
       - build-connector-mac:
-          name: Mac Intel Build&Deploy
+          name: Mac Intel Build
           slug: blender-mac-intel
           runtime: osx-x64
           installer: true
@@ -303,24 +298,51 @@ workflows:
             branches:
               ignore: /.*/
 
-      - deploy:
+      - deploy-connector-new:
+          name: deploy-win
+          slug: blender
+          file_slug: blender
+          os: Win
+          extension: exe
+          arch: Any
           requires:
-            - get-ci-tools
-            - Windows Build&Deploy
-            - Mac ARM Build&Deploy
-            - Mac Intel Build&Deploy
+            - Windows Build
+            - Mac ARM Build
+            - Mac Intel Build
           filters:
             tags:
               only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
             branches:
-              ignore: /.*/
+              ignore: /.*/ # For testing only! /ci\/.*/
 
-      - deploy-manager2:
+      - deploy-connector-new:
+          name: deploy-mac-intel
           slug: blender
-          os: Win
-          extension: exe
+          file_slug: blender-mac-intel
+          os: OSX
+          arch: Intel
+          extension: zip
           requires:
-            - deploy
+            - Windows Build
+            - Mac ARM Build
+            - Mac Intel Build
+          filters:
+            tags:
+              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+            branches:
+              ignore: /.*/ # For testing only! /ci\/.*/
+              
+      - deploy-connector-new:
+          name: deploy-mac-arm
+          slug: blender
+          file_slug: blender-mac-arm
+          os: OSX
+          arch: Arm
+          extension: zip
+          requires:
+            - Windows Build
+            - Mac ARM Build
+            - Mac Intel Build
           filters:
             tags:
               only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
