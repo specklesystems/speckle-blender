@@ -1,4 +1,5 @@
 import math
+from typing import Union
 from bpy_speckle.functions import get_scale_length, _report
 import mathutils
 import bpy, bmesh, bpy_types
@@ -38,7 +39,7 @@ def can_convert_to_native(speckle_object: Base) -> bool:
     return False
 
 
-def convert_to_native(speckle_object: Base, name: str = None) -> list | Object | None:
+def convert_to_native(speckle_object: Base, name: Optional[str] = None) -> Optional[Union[list, Object]]:
     speckle_type = type(speckle_object)
     speckle_name = (
         name
@@ -63,7 +64,7 @@ def convert_to_native(speckle_object: Base, name: str = None) -> list | Object |
         # not making it hidden, so it will get added on send as i think it might be helpful? can reconsider
         converted = []
         for item in elements:
-            if(item is None):
+            if not isinstance(item, Base):
                 continue
             item.parent_speckle_type = speckle_object.speckle_type
             blender_object = convert_to_native(item)
@@ -154,7 +155,7 @@ def mesh_to_native(speckle_mesh: Mesh, name: str, scale=1.0) -> bpy.types.Mesh:
 
     return blender_mesh
 
-def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: float) -> bpy.types.Spline | None:
+def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: float) -> Optional[bpy.types.Spline]:
     line = blender_curve.splines.new("POLY")
     line.points.add(1)
 
@@ -177,7 +178,7 @@ def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: f
         return line
 
 
-def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) -> bpy.types.Spline | None:
+def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) -> Optional[bpy.types.Spline]:
     if value := scurve.value:
         N = len(value) // 3
 
@@ -201,7 +202,7 @@ def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) 
         return polyline
 
 
-def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> bpy.types.Spline | None:
+def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> Optional[bpy.types.Spline]:
     if points := scurve.points:
         N = len(points) // 3
 
@@ -230,7 +231,7 @@ def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> bpy
         return nurbs
 
 
-def arc_to_native(rcurve: Arc, bcurve: bpy.types.Curve, scale: float) -> bpy.types.Spline | None:
+def arc_to_native(rcurve: Arc, bcurve: bpy.types.Curve, scale: float) -> Optional[bpy.types.Spline]:
     # TODO: improve Blender representation of arc
 
     plane = rcurve.plane
@@ -325,7 +326,7 @@ def icurve_to_native_spline(speckle_curve: Base, blender_curve: bpy.types.Curve,
         return arc_to_native(speckle_curve, blender_curve, scale)
 
 
-def icurve_to_native(speckle_curve: Base, name=None, scale=1.0) -> Curve | None:
+def icurve_to_native(speckle_curve: Base, name=None, scale=1.0) -> Optional[Curve]:
     curve_type = type(speckle_curve)
     if curve_type not in SUPPORTED_CURVES:
         _report(f"Unsupported curve type: {curve_type}")

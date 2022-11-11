@@ -1,5 +1,6 @@
+from typing import Optional
 import bpy
-from bpy.types import MeshVertColor, MeshVertex, Object
+from bpy.types import Depsgraph, MeshVertColor, MeshVertex, Object
 from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Point, Polyline
 from specklepy.objects.other import *
 from bpy_speckle.functions import _report
@@ -14,7 +15,7 @@ UNITS = "m"
 CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY")
 
 
-def convert_to_speckle(blender_object: Object, scale: float, units: str, desgraph=None) -> list | None:
+def convert_to_speckle(blender_object: Object, scale: float, units: str, desgraph: Optional[Depsgraph]) -> Optional[list]:
     global UNITS
     UNITS = units
     blender_type = blender_object.type
@@ -100,7 +101,7 @@ def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh, scale=1.0) -> 
     return [sm]
 
 
-def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name:str = None) -> Curve:
+def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
     degree = 3
     closed = spline.use_cyclic_u
 
@@ -149,7 +150,7 @@ def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: floa
     )
 
 
-def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name:str = None) -> Curve:
+def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
     knots = make_knots(spline)
     points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
     degree = spline.order_u - 1
@@ -175,7 +176,7 @@ def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float
     )
 
 
-def poly_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: str = None) -> Polyline:
+def poly_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Polyline:
     points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
 
     length = spline.calc_length()
@@ -192,7 +193,7 @@ def poly_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float,
     )
 
 
-def icurve_to_speckle(blender_object: Object, data: bpy.types.Curve, scale=1.0) -> List[Base] | None:
+def icurve_to_speckle(blender_object: Object, data: bpy.types.Curve, scale=1.0) -> Optional[List[Base]]:
     UNITS = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
 
     if blender_object.type != "CURVE":
@@ -221,7 +222,7 @@ def icurve_to_speckle(blender_object: Object, data: bpy.types.Curve, scale=1.0) 
     return curves
 
 
-def ngons_to_speckle_polylines(blender_object: Object, data: bpy.types.Mesh, scale=1.0) -> List[Polyline] | None:
+def ngons_to_speckle_polylines(blender_object: Object, data: bpy.types.Mesh, scale=1.0) -> Optional[List[Polyline]]:
     UNITS = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
 
     if blender_object.type != "MESH":
@@ -253,7 +254,7 @@ def ngons_to_speckle_polylines(blender_object: Object, data: bpy.types.Mesh, sca
     return polylines
 
 
-def material_to_speckle(blender_object: Object) -> RenderMaterial | None:
+def material_to_speckle(blender_object: Object) -> Optional[RenderMaterial]:
     """Create and return a render material from a blender object"""
     if not getattr(blender_object.data, "materials", None):
         return None
@@ -318,7 +319,7 @@ def block_instance_to_speckle(blender_instance: Object, scale=1.0):
     )
 
 
-def empty_to_speckle(blender_object: Object, scale=1.0) -> BlockInstance | None:
+def empty_to_speckle(blender_object: Object, scale=1.0) -> Optional[BlockInstance]:
     # probably an instance collection (block) so let's try it
     try:
         geo = blender_object.instance_collection.objects.items()

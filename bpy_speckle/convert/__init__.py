@@ -1,7 +1,8 @@
+from typing import Union
 from bpy_speckle.convert.to_native import convert_to_native
 from specklepy.objects.base import Base
 
-def get_speckle_subobjects(attr: dict | Base, scale: float, name: str) -> list:
+def get_speckle_subobjects(attr: Union[dict, Base], scale: float, name: str) -> list:
     subobjects = []
     keys = attr.keys() if isinstance(attr, dict) else attr.get_dynamic_member_names()
     for key in keys:

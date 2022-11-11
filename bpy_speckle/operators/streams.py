@@ -96,8 +96,8 @@ def get_objects_collections_recursive(base: Base, parent_col: bpy.types.Collecti
     return objects
 
 
-ObjectCallback = Callable[[bpy.types.Context, Object, Base], Object] | None
-ReceiveCompleteCallback = Callable[[bpy.types.Context, Dict[str, Object]], None] | None
+ObjectCallback = Optional[Callable[[bpy.types.Context, Object, Base], Object]]
+ReceiveCompleteCallback = Optional[Callable[[bpy.types.Context, Dict[str, Object]], None]]
 
 def get_receive_funcs(context: Context, created_objects: Dict[str, Object]) -> tuple[ObjectCallback, ReceiveCompleteCallback]:
         """
