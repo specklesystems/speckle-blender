@@ -310,10 +310,6 @@ class ReceiveStreamObjects(bpy.types.Operator):
             if obj.type != 'MESH':
                 continue
 
-            # This seems to be required inorder to select the object here
-            if obj.name not in context.scene.collection.objects:
-                context.scene.collection.objects.link(obj)
-
             obj.select_set(True, view_layer=context.scene.view_layers[0])
             active = obj
         

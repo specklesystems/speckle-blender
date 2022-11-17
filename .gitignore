@@ -12,3 +12,4 @@ __pycache__/
 Installers/
 modules/
 .tool-versions
+requirements.txt
