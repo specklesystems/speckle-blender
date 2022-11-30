@@ -65,12 +65,15 @@ def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh, scale=1.0) -> 
 
     verts = [tuple(mat @ x.co * scale) for x in data.vertices]
 
+    flattend_verts = []
+    for row in verts: flattend_verts.extend(row)
+
     faces = [p.vertices for p in data.polygons]
     unit_system = bpy.context.scene.unit_settings.system
 
     sm = Mesh(
         name=blender_object.name,
-        vertices=list(sum(verts, ())),
+        vertices=flattend_verts,
         faces=[],
         colors=[],
         textureCoordinates=[],
@@ -121,8 +124,11 @@ def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: floa
                 tuple(matrix @ spline.bezier_points[0].co * scale),
             )
         )
-
+    
     num_points = len(points)
+
+    flattend_points = []
+    for row in points: flattend_points.extend(row)
 
     knot_count = num_points + degree - 1
     knots = [0] * knot_count
@@ -137,7 +143,7 @@ def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: floa
         degree=degree,
         closed=spline.use_cyclic_u,
         periodic=spline.use_cyclic_u,
-        points=list(sum(points, ())),  # magic (flatten list of tuples)
+        points=flattend_points,
         weights=[1] * num_points,
         knots=knots,
         rational=False,
@@ -158,12 +164,15 @@ def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float
     length = spline.calc_length()
     domain = Interval(start=0, end=length, totalChildrenCount=0)
 
+    flattend_points = []
+    for row in points: flattend_points.extend(row)
+
     return Curve(
         name=name,
         degree=degree,
         closed=spline.use_cyclic_u,
         periodic=spline.use_cyclic_u,
-        points=list(sum(points, ())),  # magic (flatten list of tuples)
+        points=flattend_points,
         weights=[pt.weight for pt in spline.points],
         knots=knots,
         rational=False,
@@ -179,12 +188,15 @@ def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float
 def poly_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Polyline:
     points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
 
+    flattend_points = []
+    for row in points: flattend_points.extend(row)
+
     length = spline.calc_length()
     domain = Interval(start=0, end=length, totalChildrenCount=0)
     return Polyline(
         name=name,
         closed=bool(spline.use_cyclic_u),
-        value=list(sum(points, ())),  # magic (flatten list of tuples)
+        value=list(flattend_points),
         length=length,
         domain=domain,
         bbox=Box(area=0.0, volume=0.0),
@@ -296,7 +308,7 @@ def transform_to_speckle(blender_transform: List[float], scale=1.0) -> Transform
 def block_def_to_speckle(blender_definition: bpy.types.Collection, scale=1.0) -> BlockDefinition:
     geometry = []
     for geo in blender_definition.objects:
-        geometry.extend(convert_to_speckle(geo, scale, UNITS))
+        geometry.extend(convert_to_speckle(geo, scale, UNITS, None))
     block_def = BlockDefinition(
         units=UNITS,
         name=blender_definition.name,
@@ -308,7 +320,7 @@ def block_def_to_speckle(blender_definition: bpy.types.Collection, scale=1.0) ->
     return block_def
 
 
-def block_instance_to_speckle(blender_instance: Object, scale=1.0):
+def block_instance_to_speckle(blender_instance: Object, scale=1.0) -> BlockInstance:
     return BlockInstance(
         blockDefinition=block_def_to_speckle(
             blender_instance.instance_collection, scale
