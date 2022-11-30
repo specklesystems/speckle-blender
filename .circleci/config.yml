@@ -216,7 +216,7 @@ jobs:
             /root/.dotnet/tools/Speckle.Manager.Feed deploy \
                 -s << parameters.slug >> \
                 -v ${SEMVER} \
-                -u https://releases.speckle.dev/installers/<< parameters.file_slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >> \
+                -u https://releases.speckle.dev/installers/<< parameters.slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >> \
                 -o << parameters.os >> \
                 -a << parameters.arch >> \
                 -f speckle-sharp-ci-tools/Installers/<< parameters.file_slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >>

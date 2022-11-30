@@ -49,7 +49,7 @@ def get_objects_collections(base: Base) -> Dict[str, list]:
     return collections
 
 
-def get_objects_nested_lists(items: list, parent_col: bpy.types.Collection = None) -> List:
+def get_objects_nested_lists(items: list, parent_col: Optional[bpy.types.Collection] = None) -> List:
     """For handling the weird nested lists that come from Grasshopper"""
     objects = []
 
@@ -66,7 +66,7 @@ def get_objects_nested_lists(items: list, parent_col: bpy.types.Collection = Non
     return objects
 
 
-def get_objects_collections_recursive(base: Base, parent_col: bpy.types.Collection = None) -> List:
+def get_objects_collections_recursive(base: Base, parent_col: Optional[bpy.types.Collection] = None) -> List:
     """Recursively create collections based on the dynamic members on nested `Base` objects within the root commit object"""
     # if it's a convertable (registered) class and not just a plain `Base`, return the object itself
     if can_convert_to_native(base):
