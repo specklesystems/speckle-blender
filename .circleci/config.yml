@@ -41,6 +41,9 @@ jobs:
     steps:
       - checkout
       - run:
+          name: install dependencies
+          command: poetry install --only main
+      - run:
           name: export package dependencies
           command: ./export_dependencies.sh
       - run:
