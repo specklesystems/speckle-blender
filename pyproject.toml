@@ -13,7 +13,6 @@ specklepy = "^2.9.1"
 specklepy = {path = "../specklepy", develop = true}
 
 [tool.poetry.group.dev.dependencies]
-nox = "^2022.11.21"
 numpy = "^1.23.5"
 fake-bpy-module-latest = "^20221006"
 black = "^22.10.0"

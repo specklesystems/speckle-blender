@@ -35,6 +35,21 @@ commands:
             python -m pip install --target=./modules-$pyver specklepy==$specklepy
 
 jobs:
+  package-connector:
+    docker:
+      - image: cimg/python:3.11.0
+    steps:
+      - checkout
+      - run:
+          name: export package dependencies
+          command: ./export_dependencies.sh
+      - run:
+          name: Package to Zip
+          command: zip -r bpy_speckle.zip bpy_speckle
+      - store_artifacts:
+          path: bpy_speckle.zip
+
+
   build-connector-win: # Reusable job for basic connectors
     executor:
       name: win/default # comes with python 3.7.3
@@ -224,6 +239,13 @@ jobs:
 workflows:
   build: # build the installers, but don't persist to workspace for deployment
     jobs:
+      - package-connector:
+          name: Package Addon Zip
+          filters:
+            branches:
+              only:
+                - gergo/newInstaller
+
       - get-ci-tools:
           filters:
             branches:
