@@ -321,19 +321,14 @@ version = "2.9.1"
 description = "The Python SDK for Speckle 2.0"
 category = "main"
 optional = false
-python-versions = ">=3.7.2, <4.0"
-develop = true
+python-versions = ">=3.7.2,<4.0"
 
 [package.dependencies]
-appdirs = "^1.4.4"
-Deprecated = "^1.2.13"
-gql = {version = "^3.3.0", extras = ["requests", "websockets"]}
-pydantic = "^1.8.2"
-ujson = "^5.3.0"
-
-[package.source]
-type = "directory"
-url = "../specklepy"
+appdirs = ">=1.4.4,<2.0.0"
+Deprecated = ">=1.2.13,<2.0.0"
+gql = {version = ">=3.3.0,<4.0.0", extras = ["requests", "websockets"]}
+pydantic = ">=1.8.2,<2.0.0"
+ujson = ">=5.3.0,<6.0.0"
 
 [[package]]
 name = "tomli"
@@ -704,7 +699,10 @@ ruff = [
     {file = "ruff-0.0.166-py3-none-win_amd64.whl", hash = "sha256:d18b8d450b2e7dcc699e61dfee16da461ed6d37ff80dc6b8401fc236198e2156"},
     {file = "ruff-0.0.166.tar.gz", hash = "sha256:804fa54aa04e0253b2f39a0ce7089359ea6ba2f037f299f5d8606605e5e37bfa"},
 ]
-specklepy = []
+specklepy = [
+    {file = "specklepy-2.9.1-py3-none-any.whl", hash = "sha256:026ab67f2a5f2edcc0d6e063703a014c74093607bcfe133d6856a7bc3230ef41"},
+    {file = "specklepy-2.9.1.tar.gz", hash = "sha256:45cb2bcd9e5a92487c559fb2866d8e481175bbf68863406e260a57f24d96eb6a"},
+]
 tomli = [
     {file = "tomli-2.0.1-py3-none-any.whl", hash = "sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"},
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
