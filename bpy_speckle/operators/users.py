@@ -4,6 +4,7 @@ User account operators
 import bpy
 from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
+from bpy_speckle.properties.scene import SpeckleSceneSettings
 from specklepy.api.client import SpeckleClient
 from specklepy.api.models import Stream, User
 from specklepy.api.credentials import get_local_accounts
@@ -23,12 +24,14 @@ class LoadUsers(bpy.types.Operator):
 
         _report("Loading users...")
 
-        users = context.scene.speckle.users
+        speckle : SpeckleSceneSettings = context.scene.speckle
+        users = speckle.users
 
-        context.scene.speckle.users.clear()
+        speckle.users.clear()
         speckle_clients.clear()
 
         profiles = get_local_accounts()
+        active_user_index = 0
 
         for profile in profiles:
             user = users.add()
@@ -49,10 +52,10 @@ class LoadUsers(bpy.types.Operator):
                 _report(ex)
                 users.remove(len(users) - 1)
             if profile.isDefault:
-                context.scene.speckle.active_user = str(len(users) - 1)
+                active_user_index = len(users) - 1
 
-        context.scene.speckle.active_user_index = int(context.scene.speckle.active_user)
-        bpy.ops.speckle.load_user_streams()
+        speckle.active_user_index = int(speckle.active_user) #TODO: what is this?
+        speckle.active_user = str(active_user_index)
         bpy.context.view_layer.update()
 
         if context.area:

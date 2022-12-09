@@ -121,7 +121,8 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
             user = speckle.users[int(speckle.active_user)]
             col.label(text="{} ({})".format(user.server_name, user.server_url))
             col.label(text="{} ({})".format(user.name, user.email))
-
+            
+        col.operator("speckle.users_load", text="", icon="FILE_REFRESH")
 
 class VIEW3D_PT_SpeckleStreams(bpy.types.Panel):
     """
