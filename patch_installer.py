@@ -5,7 +5,7 @@ from pathlib import Path
 def patch_installer(tag: str):
     """Patches the installer with the correct connector version and specklepy version"""
     tag = tag.replace("\n", "")
-    iss_file = "../speckle-sharp-ci-tools/blender.iss"
+    iss_file = "speckle-sharp-ci-tools/blender.iss"
     iss_path =  Path(iss_file)
     lines = iss_path.read_text().split("\n")
     lines.insert(12, f'#define AppVersion "{tag.split("-")[0]}"')
