@@ -158,6 +158,8 @@ workflows:
                 - gergo/newInstaller
       
       - build-connector-zip:
+          requires:
+            - package-connector
           filters: &build_filters
             tags:
               only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
