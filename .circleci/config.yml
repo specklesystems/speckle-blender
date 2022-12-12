@@ -39,9 +39,11 @@ jobs:
           command: SEMVER=$(cat SEMVER)
       - run:
           name: Package to Zip
-          command: zip -r bpy_speckle_${SEMVER}.zip bpy_speckle
-      - store_artifacts:
-          path: bpy_speckle_${SEMVER}.zip
+          command: zip -r bpy_speckle.zip bpy_speckle
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - bpy_speckle
   
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
@@ -94,7 +96,7 @@ jobs:
           name: Copy connector files to installer
           command: |
             mkdir -p << parameters.installer_path >>/.installationFiles
-            cp bpy_speckle_${SEMVER}.zip << parameters.installer_path >>/.installationFiles
+            cp bpy_speckle.zip << parameters.installer_path >>/.installationFiles
       - run:
           name: Build installer
           command: dotnet publish <<parameters.installer_path>>/SpeckleBlenderInstall.sln -r << parameters.runtime >> -c Release
@@ -108,6 +110,9 @@ jobs:
           root: ./
           paths:
             - << parameters.installer_path >>
+      
+      - store_artifacts:
+          path: << parameters.installer_path >>
 
   deploy-connector-new:
     docker:
@@ -147,7 +152,6 @@ workflows:
   build: # build the installers, but don't persist to workspace for deployment
     jobs:
       - package-connector:
-          name: Package Addon Zip
           filters:
             branches:
               only:
@@ -155,21 +159,23 @@ workflows:
       
       - build-connector-zip:
           name: Build Manual installer Zip
-          filters: &deploy_filters
+          filters: &build_filters
             branches:
-              ignore: /.*/
+              only:
+                - main
             tags:
               only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
 
+
       - get-ci-tools:
-          filters: *deploy_filters
+          filters: *build_filters
 
       - build-installer-win:
           name: Windows Installer Build
           requires:
             - package-connector
             - get-ci-tools
-          filters: *deploy_filters
+          filters: *build_filters
 
       - deploy-connector-new:
           name: deploy-windows
@@ -180,7 +186,11 @@ workflows:
           extension: exe
           requires:
             - Windows Installer Build
-          filters: *deploy_filters
+          filters: &deploy_filters
+            branches:
+              ignore: /.*/
+            tags:
+              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
 
       - build-dotnet-installer:
           name: Mac ARM Build
