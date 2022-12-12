@@ -43,7 +43,7 @@ jobs:
       - persist_to_workspace:
           root: ./
           paths:
-            - bpy_speckle
+            - bpy_speckle.zip
   
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
