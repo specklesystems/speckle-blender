@@ -158,7 +158,6 @@ workflows:
                 - gergo/newInstaller
       
       - build-connector-zip:
-          name: Build Manual installer Zip
           filters: &build_filters
             branches:
               only:
