@@ -108,7 +108,7 @@ jobs:
       - run:
           name: Zip installer
           command: |
-            cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/
+            cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/
             zip -r << parameters.slug >>.zip ./
 
       - persist_to_workspace:
