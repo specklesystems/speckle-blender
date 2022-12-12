@@ -114,10 +114,10 @@ jobs:
       - persist_to_workspace:
           root: ./
           paths:
-            - << parameters.installer_path >>
+            - << parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/<< parameters.slug >>.zip
       
       - store_artifacts:
-          path: << parameters.installer_path >>
+          path: << parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/<< parameters.slug >>.zip
 
   deploy-connector-new:
     docker:
