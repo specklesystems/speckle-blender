@@ -82,7 +82,6 @@ jobs:
   build-dotnet-installer:
     docker:
       - image: mcr.microsoft.com/dotnet/sdk:6.0
-      - image: cimg/python:3.11.0
     parameters:
       runtime:
         type: string
@@ -95,6 +94,9 @@ jobs:
       - attach_workspace:
           at: ./
       - run: *restore_semver
+      - run:
+          name: ensure zip
+          command: apt update && apt install -y zip
       - run:
           name: Copy connector files to installer
           command: |
