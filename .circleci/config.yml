@@ -156,17 +156,14 @@ workflows:
   build: # build the installers, but don't persist to workspace for deployment
     jobs:
       - package-connector:
-          filters:
-            branches:
-              only:
-                - gergo/newInstaller
+          filters: &build_filters
+            tags:
+              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
       
       - build-connector-zip:
           requires:
             - package-connector
-          filters: &build_filters
-            tags:
-              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+          filters: *build_filters
 
 
       - get-ci-tools:
