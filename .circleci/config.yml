@@ -113,7 +113,8 @@ jobs:
             mkdir -p speckle-sharp-ci-tools/Installers/blender
             cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/
             zip -r << parameters.slug >>-${SEMVER}.zip ./
-            cp << parameters.slug >>-${SEMVER}.zip ${CIRCLE_WORKING_DIRECTORY}/speckle-sharp-ci-tools/Installers/blender/
+            cd ${CIRCLE_WORKING_DIRECTORY}
+            cp <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/<< parameters.slug >>-${SEMVER}.zip speckle-sharp-ci-tools/Installers/blender/
 
       - persist_to_workspace:
           root: ./
