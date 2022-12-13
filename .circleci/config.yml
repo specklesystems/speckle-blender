@@ -111,7 +111,7 @@ jobs:
             SEMVER=$(cat ./SEMVER)
             echo $SEMVER
             cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/
-            zip -r << parameters.slug >>-${SEMVER}.zip ${CIRCLE_WORKING_DIRECTORY}/speckle-sharp-ci-tools/Installers/blender/
+            zip -r ${CIRCLE_WORKING_DIRECTORY}/speckle-sharp-ci-tools/Installers/blender/<< parameters.slug >>-${SEMVER}.zip ./
 
       - persist_to_workspace:
           root: ./
