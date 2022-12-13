@@ -121,6 +121,52 @@ jobs:
           root: ./
           paths:
             - speckle-sharp-ci-tools/Installers/blender/<< parameters.slug >>*.zip
+    
+  build-installer-mac:
+    macos:
+      xcode: 12.5.1
+    parameters:
+      slug:
+        type: string
+      runtime:
+        type: string
+      installer_path:
+        type: string
+        default: speckle-sharp-ci-tools/Mac/SpeckleBlenderInstall
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install mono
+          command: |
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install mono
+      # Compress build files
+      - run:
+          name: Install dotnet
+          command: curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin
+      - run: *restore_semver
+      - run:
+          name: Copy connector files to installer
+          command: |
+            mkdir -p <<parameters.installer_path >>/.installationFiles/
+            cp bpy_speckle.zip << parameters.installer_path >>/.installationFiles
+      - run:
+          name: Build Mac installer
+          command: ~/.dotnet/dotnet publish << parameters.installer_path >>/SpeckleBlenderInstall.sln -r << parameters.runtime >> -c Release
+      - run:
+          name: Zip installer
+          command: |
+            SEMVER=$(cat ./SEMVER)
+            echo $SEMVER
+            mkdir -p speckle-sharp-ci-tools/Installers/blender
+            (cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/ && zip -r - ./) > << parameters.slug >>-${SEMVER}.zip
+            cp << parameters.slug >>-${SEMVER}.zip speckle-sharp-ci-tools/Installers/blender/
+
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - speckle-sharp-ci-tools/Installers/blender/<< parameters.slug >>*.zip
 
   deploy-connector:
     docker:
@@ -197,7 +243,7 @@ workflows:
             tags:
               only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
 
-      - build-dotnet-installer:
+      - build-installer-mac:
           name: Mac ARM Build
           slug: blender-mac-arm
           runtime: osx.13-arm64
