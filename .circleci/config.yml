@@ -112,19 +112,17 @@ jobs:
             zip -r << parameters.slug >>.zip ./
 
       - persist_to_workspace:
-          root: ./
+          root: ./<< parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/
           paths:
-            - << parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/<< parameters.slug >>.zip
+            - << parameters.slug >>.zip
       
       - store_artifacts:
           path: << parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/<< parameters.slug >>.zip
 
-  deploy-connector-new:
+  deploy-connector:
     docker:
       - image: mcr.microsoft.com/dotnet/sdk:6.0
     parameters:
-      slug:
-        type: string
       file_slug:
         type: string
       os:
@@ -144,14 +142,15 @@ jobs:
           command: dotnet tool install --global Speckle.Manager.Feed
       - run:
           name: Upload new version
+          # this is where the installer gets the semver baked into the file name
           command: |
             /root/.dotnet/tools/Speckle.Manager.Feed deploy \
-                -s << parameters.slug >> \
+                -s blender \
                 -v ${SEMVER} \
-                -u https://releases.speckle.dev/installers/<< parameters.slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >> \
+                -u https://releases.speckle.dev/installers/blender/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >> \
                 -o << parameters.os >> \
                 -a << parameters.arch >> \
-                -f speckle-sharp-ci-tools/Installers/<< parameters.file_slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >>
+                -f speckle-sharp-ci-tools/Installers/<< parameters.file_slug >>/<< parameters.file_slug >>.<< parameters.extension >>
 
 workflows:
   build: # build the installers, but don't persist to workspace for deployment
@@ -180,12 +179,11 @@ workflows:
             - get-ci-tools
           filters: *build_filters
 
-      - deploy-connector-new:
+      - deploy-connector:
           name: deploy-windows
-          slug: blender
-          file_slug: blender-mac-intel
+          file_slug: blender
           os: WIN
-          arch: Intel
+          arch: Any
           extension: exe
           requires:
             - Windows Installer Build
@@ -203,9 +201,8 @@ workflows:
             - get-ci-tools
             - build-connector-zip
 
-      - deploy-connector-new:
+      - deploy-connector:
           name: deploy-mac-arm
-          slug: blender
           file_slug: blender-mac-arm
           os: OSX
           arch: Arm
@@ -222,15 +219,12 @@ workflows:
             - get-ci-tools
             - build-connector-zip
 
-      - deploy-connector-new:
+      - deploy-connector:
           name: deploy-mac-intel
-          slug: blender
-          file_slug: blender-mac-arm
+          file_slug: blender-mac-intel
           os: OSX
           arch: Intel
           extension: zip
           requires:
             - Mac Intel Build
           filters: *deploy_filters
-
-# VS Code Extension Version: 1.4.0
