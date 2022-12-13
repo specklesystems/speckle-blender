@@ -36,7 +36,7 @@ jobs:
           at: ./
       - run: &restore_semver
           name: Restore Semver
-          command: SEMVER=$(cat ./SEMVER)
+          command: SEMVER=$(cat ./SEMVER) && echo $SEMVER
       - run:
           name: Package to Zip
           command: zip -r bpy_speckle.zip bpy_speckle
