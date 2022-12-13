@@ -166,7 +166,7 @@ workflows:
       - package-connector:
           filters: &build_filters
             tags:
-              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?/
       
       - build-connector-zip:
           requires:
@@ -198,7 +198,7 @@ workflows:
             branches:
               ignore: /.*/
             tags:
-              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?$/
+              only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?/
 
       - build-installer-mac:
           name: Mac ARM Build
