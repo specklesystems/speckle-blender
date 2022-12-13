@@ -108,16 +108,15 @@ jobs:
       - run:
           name: Zip installer
           command: |
+            SEMVER=$(cat ./SEMVER)
+            echo $SEMVER
             cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/
             zip -r << parameters.slug >>-${SEMVER}.zip ./
 
       - persist_to_workspace:
           root: ./<< parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/
           paths:
-            - << parameters.slug >>-${SEMVER}.zip
-      
-      - store_artifacts:
-          path: << parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/<< parameters.slug >>-${SEMVER}.zip
+            - << parameters.slug >>-*.zip
 
   deploy-connector:
     docker:
