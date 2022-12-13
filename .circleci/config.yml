@@ -110,6 +110,7 @@ jobs:
           command: |
             SEMVER=$(cat ./SEMVER)
             echo $SEMVER
+            mkdir ${CIRCLE_WORKING_DIRECTORY}/speckle-sharp-ci-tools/Installers/blender/
             cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/
             zip -r ${CIRCLE_WORKING_DIRECTORY}/speckle-sharp-ci-tools/Installers/blender/<< parameters.slug >>-${SEMVER}.zip ./
 
