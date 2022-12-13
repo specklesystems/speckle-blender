@@ -109,15 +109,15 @@ jobs:
           name: Zip installer
           command: |
             cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/
-            zip -r << parameters.slug >>.zip ./
+            zip -r << parameters.slug >>-${SEMVER}.zip ./
 
       - persist_to_workspace:
           root: ./<< parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/
           paths:
-            - << parameters.slug >>.zip
+            - << parameters.slug >>-${SEMVER}.zip
       
       - store_artifacts:
-          path: << parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/<< parameters.slug >>.zip
+          path: << parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/<< parameters.slug >>-${SEMVER}.zip
 
   deploy-connector:
     docker:
@@ -144,13 +144,15 @@ jobs:
           name: Upload new version
           # this is where the installer gets the semver baked into the file name
           command: |
+            SEMVER=$(cat ./SEMVER)
+            echo $SEMVER
             /root/.dotnet/tools/Speckle.Manager.Feed deploy \
                 -s blender \
                 -v ${SEMVER} \
                 -u https://releases.speckle.dev/installers/blender/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >> \
                 -o << parameters.os >> \
                 -a << parameters.arch >> \
-                -f speckle-sharp-ci-tools/Installers/<< parameters.file_slug >>/<< parameters.file_slug >>.<< parameters.extension >>
+                -f speckle-sharp-ci-tools/Installers/<< parameters.file_slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >>
 
 workflows:
   build: # build the installers, but don't persist to workspace for deployment
