@@ -136,10 +136,10 @@ jobs:
       - checkout
       - attach_workspace:
           at: ./
-      - run: *restore_semver
       - run:
           name: Install Manager Feed CLI
           command: dotnet tool install --global Speckle.Manager.Feed
+      - run: *restore_semver
       - run:
           name: Upload new version
           # this is where the installer gets the semver baked into the file name
@@ -184,6 +184,8 @@ workflows:
           extension: exe
           requires:
             - Windows Installer Build
+            - Mac Intel Build
+            - Mac ARM Build
           filters: &deploy_filters
             branches:
               ignore: /.*/
@@ -206,6 +208,8 @@ workflows:
           arch: Arm
           extension: zip
           requires:
+            - Windows Installer Build
+            - Mac Intel Build
             - Mac ARM Build
           filters: *deploy_filters
 
@@ -225,5 +229,7 @@ workflows:
           arch: Intel
           extension: zip
           requires:
+            - Windows Installer Build
             - Mac Intel Build
+            - Mac ARM Build
           filters: *deploy_filters
