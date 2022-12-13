@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Iterable, Optional
 import bpy
 from bpy.types import Depsgraph, MeshVertColor, MeshVertex, Object
 from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Point, Polyline
@@ -296,7 +296,7 @@ def material_to_speckle(blender_object: Object) -> Optional[RenderMaterial]:
     return speckle_mat
 
 
-def transform_to_speckle(blender_transform: List[float], scale=1.0) -> Transform:
+def transform_to_speckle(blender_transform: Iterable[Iterable[float]], scale=1.0) -> Transform:
     value = [y for x in blender_transform for y in x]
     # scale the translation
     for i in (3, 7, 11):

@@ -5,7 +5,6 @@ import bpy, struct, idprop
 
 from specklepy.objects.base import Base
 from specklepy.objects.geometry import Mesh
-from specklepy.serialization.base_object_serializer import BaseObjectSerializer
 from bpy_speckle.functions import _report
 from bpy.types import Object
 
@@ -25,7 +24,7 @@ IGNORED_PROPERTY_KEYS = {
 }
 
 
-def to_rgba(argb_int: int) -> Tuple[float]:
+def to_rgba(argb_int: int) -> Tuple[float, float, float, float]:
     """Converts the int representation of a colour into a percent RGBA tuple"""
     alpha = ((argb_int >> 24) & 255) / 255
     red = ((argb_int >> 16) & 255) / 255
@@ -35,18 +34,17 @@ def to_rgba(argb_int: int) -> Tuple[float]:
     return (red, green, blue, alpha)
 
 
-def to_argb_int(diffuse_colour) -> int:
+def to_argb_int(rgba_color: list[float]) -> int:
     """Converts an RGBA array to an ARGB integer"""
-    diffuse_colour = diffuse_colour[-1:] + diffuse_colour[:3]
-    diffuse_colour = [int(val * 255) for val in diffuse_colour]
+    argb_color = rgba_color[-1:] + rgba_color[:3]
+    int_color = [int(val * 255) for val in argb_color]
 
-    return int.from_bytes(diffuse_colour, byteorder="big", signed=True)
+    return int.from_bytes(int_color, byteorder="big", signed=True)
 
 def add_custom_properties(speckle_object: Base, blender_object: Object):
     if blender_object is None:
         return
 
-    serializer = BaseObjectSerializer()
     blender_object["_speckle_type"] = type(speckle_object).__name__
 
     app_id = getattr(speckle_object, "applicationId", None)
@@ -124,12 +122,11 @@ def add_vertices(speckle_mesh: Mesh, blender_mesh: BMesh, scale=1.0):
                 )
             )
 
-    blender_mesh.verts.ensure_lookup_table()
 
 
-def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, smooth=False):
+def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, indexOffset: int = 0, materialIndex: int = 0, smooth:bool = False):
     sfaces = speckle_mesh.faces
-
+    
     if sfaces and len(sfaces) > 0:
         i = 0
         while i < len(sfaces):
@@ -140,15 +137,13 @@ def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, smooth=False):
             i += 1
             try:
                 f = blender_mesh.faces.new(
-                    [blender_mesh.verts[int(x)] for x in sfaces[i : i + n]]
+                    [blender_mesh.verts[int(x) + indexOffset] for x in sfaces[i : i + n]]
                 )
+                f.material_index = materialIndex
                 f.smooth = smooth
             except Exception as e:
                 _report(f"Failed to create face for mesh {speckle_mesh.id} \n{e}")
             i += n
-
-        blender_mesh.faces.ensure_lookup_table()
-        blender_mesh.verts.index_update()
 
 
 def add_colors(speckle_mesh: Mesh, blender_mesh: BMesh):
@@ -250,15 +245,15 @@ from: https://blender.stackexchange.com/a/34276
 """
 
 
-def macro_knotsu(nu):
+def macro_knotsu(nu: bpy.types.Spline) -> int:
     return nu.order_u + nu.point_count_u + (nu.order_u - 1 if nu.use_cyclic_u else 0)
 
 
-def macro_segmentsu(nu):
+def macro_segmentsu(nu: bpy.types.Spline) -> int:
     return nu.point_count_u if nu.use_cyclic_u else nu.point_count_u - 1
 
 
-def make_knots(nu):
+def make_knots(nu: bpy.types.Spline) -> list[float]:
     knots = [0.0] * (4 + macro_knotsu(nu))
     flag = nu.use_endpoint_u + (nu.use_bezier_u << 1)
     if nu.use_cyclic_u:
@@ -269,7 +264,7 @@ def make_knots(nu):
     return knots
 
 
-def calc_knots(knots, point_count, order, flag):
+def calc_knots(knots: list[float], point_count: int, order: int, flag: int) -> None:
     pts_order = point_count + order
     if flag == 1:
         k = 0.0
@@ -294,7 +289,7 @@ def calc_knots(knots, point_count, order, flag):
             knots[a] = a
 
 
-def makecyclicknots(knots, point_count, order):
+def makecyclicknots(knots: list[float], point_count: int, order: int) -> None:
     order2 = order - 1
 
     if order > 2:
