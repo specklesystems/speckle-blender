@@ -197,6 +197,7 @@ workflows:
           requires:
             - get-ci-tools
             - build-connector-zip
+          filters: *build_filters
 
       - deploy-connector:
           name: deploy-mac-arm
@@ -215,6 +216,7 @@ workflows:
           requires:
             - get-ci-tools
             - build-connector-zip
+          filters: *build_filters
 
       - deploy-connector:
           name: deploy-mac-intel
