@@ -77,7 +77,7 @@ jobs:
       - persist_to_workspace:
           root: ./
           paths:
-            - speckle-sharp-ci-tools/Installers
+            - speckle-sharp-ci-tools/Installers/blender/blender-*.exe
 
   build-dotnet-installer:
     docker:
@@ -111,12 +111,12 @@ jobs:
             SEMVER=$(cat ./SEMVER)
             echo $SEMVER
             cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/
-            zip -r << parameters.slug >>-${SEMVER}.zip ./
+            zip -r << parameters.slug >>-${SEMVER}.zip ${CIRCLE_WORKING_DIRECTORY}/speckle-sharp-ci-tools/Installers/blender/
 
       - persist_to_workspace:
-          root: ./<< parameters.installer_path >>/bin/Release/net6.0/<< parameters.runtime >>/publish/
+          root: ./
           paths:
-            - << parameters.slug >>-*.zip
+            - speckle-sharp-ci-tools/Installers/blender/<< parameters.slug >>*.zip
 
   deploy-connector:
     docker:
@@ -151,7 +151,7 @@ jobs:
                 -u https://releases.speckle.dev/installers/blender/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >> \
                 -o << parameters.os >> \
                 -a << parameters.arch >> \
-                -f speckle-sharp-ci-tools/Installers/<< parameters.file_slug >>/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >>
+                -f speckle-sharp-ci-tools/Installers/blender/<< parameters.file_slug >>-${SEMVER}.<< parameters.extension >>
 
 workflows:
   build: # build the installers, but don't persist to workspace for deployment
