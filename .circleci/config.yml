@@ -200,7 +200,7 @@ workflows:
       - build-dotnet-installer:
           name: Mac ARM Build
           slug: blender-mac-arm
-          runtime: osx-arm64
+          runtime: osx.13-arm64
           requires:
             - get-ci-tools
             - build-connector-zip
