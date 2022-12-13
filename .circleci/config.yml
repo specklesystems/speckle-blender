@@ -79,49 +79,6 @@ jobs:
           paths:
             - speckle-sharp-ci-tools/Installers/blender/blender-*.exe
 
-  build-dotnet-installer:
-    docker:
-      - image: mcr.microsoft.com/dotnet/sdk:6.0
-    parameters:
-      runtime:
-        type: string
-      slug:
-        type: string
-      installer_path:
-        type: string
-        default: speckle-sharp-ci-tools/Mac/SpeckleBlenderInstall
-    steps:
-      - attach_workspace:
-          at: ./
-      - run: *restore_semver
-      - run:
-          name: ensure zip
-          command: apt update && apt install -y zip
-      - run:
-          name: Copy connector files to installer
-          command: |
-            mkdir -p << parameters.installer_path >>/.installationFiles
-            cp bpy_speckle.zip << parameters.installer_path >>/.installationFiles
-      - run:
-          name: Build installer
-          command: dotnet publish <<parameters.installer_path>>/SpeckleBlenderInstall.sln -r << parameters.runtime >> -c Release
-            # cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/
-            # zip -r << parameters.slug >>-${SEMVER}.zip <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/. 
-            # cd ${CIRCLE_WORKING_DIRECTORY}
-      - run:
-          name: Zip installer
-          command: |
-            SEMVER=$(cat ./SEMVER)
-            echo $SEMVER
-            mkdir -p speckle-sharp-ci-tools/Installers/blender
-            (cd <<parameters.installer_path>>/bin/Release/net6.0/<< parameters.runtime >>/publish/ && zip -r - ./) > << parameters.slug >>-${SEMVER}.zip
-            cp << parameters.slug >>-${SEMVER}.zip speckle-sharp-ci-tools/Installers/blender/
-
-      - persist_to_workspace:
-          root: ./
-          paths:
-            - speckle-sharp-ci-tools/Installers/blender/<< parameters.slug >>*.zip
-    
   build-installer-mac:
     macos:
       xcode: 12.5.1
@@ -264,7 +221,7 @@ workflows:
             - Mac ARM Build
           filters: *deploy_filters
 
-      - build-dotnet-installer:
+      - build-installer-mac:
           name: Mac Intel Build
           slug: blender-mac-intel
           runtime: osx-x64
