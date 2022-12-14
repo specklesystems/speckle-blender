@@ -1,5 +1,5 @@
 from pathlib import Path
-from importlib import import_module
+from importlib import import_module, invalidate_caches
 
 import bpy
 import sys
@@ -118,7 +118,10 @@ def ensure_dependencies() -> None:
     except ImportError:
         print("Failed to load all dependencies, trying to install them...")
         install_dependencies()
-        raise Exception("Please restart Blender.")
+
+        invalidate_caches()
+        _import_dependencies()
+
 
 
 if __name__ == "__main__":
