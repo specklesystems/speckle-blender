@@ -1,4 +1,15 @@
 import bpy
+from bpy_speckle.installer import ensure_dependencies
+
+ensure_dependencies()
+
+from specklepy.logging import metrics
+
+from bpy_speckle.ui import *
+from bpy_speckle.properties import *
+from bpy_speckle.operators import *
+from bpy_speckle.callbacks import *
+from bpy.app.handlers import persistent
 
 bl_info = {
     "name": "SpeckleBlender 2.0",
@@ -17,15 +28,6 @@ bl_info = {
 """
 Import SpeckleBlender classes
 """
-
-from specklepy.api.client import SpeckleClient  # , SpeckleCache
-from specklepy.logging import metrics
-
-from bpy_speckle.ui import *
-from bpy_speckle.properties import *
-from bpy_speckle.operators import *
-from bpy_speckle.callbacks import *
-from bpy.app.handlers import persistent
 
 """
 Add load handler to initialize Speckle when 
