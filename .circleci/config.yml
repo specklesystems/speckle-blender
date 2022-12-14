@@ -53,7 +53,7 @@ jobs:
           name: Clone
           command: git clone https://$GITHUB_TOKEN@github.com/specklesystems/speckle-sharp-ci-tools.git speckle-sharp-ci-tools
       - run:
-          command: cd speckle-sharp-ci-tools && git checkout blender/installer-changes
+          command: cd speckle-sharp-ci-tools
       - persist_to_workspace:
           root: ./
           paths:
