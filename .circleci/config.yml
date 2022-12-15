@@ -275,7 +275,7 @@ workflows:
 
       - deploy-connector:
           name: deploy-manual
-          file_slug: bpy_speckle_manual
+          file_slug: bpy_speckle
           os: Any
           arch: Any
           extension: zip
