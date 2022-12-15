@@ -1,12 +1,13 @@
 import math
-from typing import Tuple
+from typing import Optional, Tuple
 from bmesh.types import BMesh
 import bpy, struct, idprop
 
 from specklepy.objects.base import Base
 from specklepy.objects.geometry import Mesh
+from specklepy.objects.other import RenderMaterial
 from bpy_speckle.functions import _report
-from bpy.types import Object
+from bpy.types import Material, Object
 
 IGNORED_PROPERTY_KEYS = {
     "id",
@@ -71,25 +72,14 @@ def add_custom_properties(speckle_object: Base, blender_object: Object):
                     blender_object[k] = v            
 
 
-def add_blender_material(speckle_object: Base, blender_object: Object) -> None:
-    """Add material to a blender object if the corresponding speckle object has a render material"""
-    if blender_object.data is None:
-        return
-
-    speckle_mat = getattr(
-        speckle_object,
-        "renderMaterial",
-        getattr(speckle_object, "@renderMaterial", None),
-    )
-    if not speckle_mat:
-        return
-
-    mat_name = getattr(speckle_mat, "name", None) or speckle_mat.__dict__.get("@name")
+def render_material_to_native(speckle_mat: RenderMaterial) -> Material:
+    
+    mat_name = speckle_mat.name
     if not mat_name:
         mat_name = speckle_mat.applicationId or speckle_mat.id or speckle_mat.get_id()
 
     blender_mat = bpy.data.materials.get(mat_name)
-    if not blender_mat:
+    if blender_mat is None:
         blender_mat = bpy.data.materials.new(mat_name)
 
         # for now, we're not updating these materials. as per tom's suggestion, we should have a toggle
@@ -103,10 +93,24 @@ def add_blender_material(speckle_object: Base, blender_object: Object) -> None:
         inputs["Metallic"].default_value = speckle_mat.metalness
         inputs["Alpha"].default_value = speckle_mat.opacity
 
-    if speckle_mat.opacity < 1:
+    if speckle_mat.opacity < 1.0:
         blender_mat.blend_method = "BLEND"
 
-    blender_object.data.materials.append(blender_mat)
+    return blender_mat
+
+def get_render_material(speckle_object: Base) -> Optional[RenderMaterial]:
+    """Trys to get a RenderMaterial on given speckle_object and convert it to a blender material"""
+
+    speckle_mat = getattr(
+        speckle_object,
+        "renderMaterial",
+        getattr(speckle_object, "@renderMaterial", None),
+    )
+    if not isinstance(speckle_mat, RenderMaterial):
+        return None
+
+    return speckle_mat
+    
 
 
 def add_vertices(speckle_mesh: Mesh, blender_mesh: BMesh, scale=1.0):

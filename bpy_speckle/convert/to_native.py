@@ -7,7 +7,8 @@ from specklepy.objects.other import *
 from specklepy.objects.geometry import *
 from bpy.types import Object
 from .util import (
-    add_blender_material,
+    get_render_material,
+    render_material_to_native,
     add_custom_properties,
     add_vertices,
     add_faces,
@@ -91,7 +92,6 @@ def convert_to_native(speckle_object: Base) -> list[Object]:
     blender_object.speckle.object_id = str(speckle_object.id)
     blender_object.speckle.enabled = True
     add_custom_properties(speckle_object, blender_object)
-    add_blender_material(speckle_object, blender_object)
     converted.append(blender_object)
 
     return converted
@@ -170,13 +170,16 @@ def mesh_to_native(speckle_mesh: Mesh, name: str, scale: float) -> bpy.types.Mes
     return meshes_to_native(speckle_mesh, [speckle_mesh], name, scale)
 
 def meshes_to_native(element: Base, meshes: Iterable[Mesh], name: str, scale: float) -> bpy.types.Mesh:
-
     if name in bpy.data.meshes.keys():
         blender_mesh = bpy.data.meshes[name]
     else:
         blender_mesh = bpy.data.meshes.new(name=name)
 
+    fallback_material = get_render_material(element)
+
     bm = bmesh.new()
+
+    # First pass, add vertex data
     for i, mesh in enumerate(meshes):
         scale = get_scale_factor(mesh, scale)
         add_vertices(mesh, bm, scale)
@@ -185,17 +188,25 @@ def meshes_to_native(element: Base, meshes: Iterable[Mesh], name: str, scale: fl
 
     bm.verts.ensure_lookup_table()
 
+    # Second pass, add face data
     offset = 0
     for i, mesh in enumerate(meshes):
         add_faces(mesh, bm, offset, i)
+
+        render_material = get_render_material(mesh) or fallback_material
+        if render_material is not None:
+            native_material = render_material_to_native(render_material)
+            blender_mesh.materials.append(native_material)
+
         offset += len(mesh.vertices) // 3
 
     bm.faces.ensure_lookup_table()
     bm.verts.index_update()
 
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+
     bm.to_mesh(blender_mesh)
-    bm.free()
+    bm.free()  
 
     return blender_mesh
 
