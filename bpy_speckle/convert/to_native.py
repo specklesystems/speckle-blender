@@ -97,15 +97,18 @@ def convert_to_native(speckle_object: Base) -> list[Object]:
     return converted
 
 
-def generate_object_name(speckle_object: Base) -> str:
-    return (
-        getattr(speckle_object, "name", None)
-        or getattr(speckle_object, "Name", None)
-        or f"{speckle_object.speckle_type} -- {speckle_object.id}"
-    )
 
-def get_scale_factor(speckle_object: Base) -> float:
-    scale = 1.0
+
+
+def generate_object_name(speckle_object: Base) -> str:
+    prefix = (getattr(speckle_object, "name", None)
+        or getattr(speckle_object, "Name", None)
+        or speckle_object.speckle_type.rsplit(':')[-1])
+
+    return f"{prefix} -- {speckle_object.id}"
+
+def get_scale_factor(speckle_object: Base, fallback: float = 1.0) -> float:
+    scale = fallback
     if units := getattr(speckle_object, "units", None):
         scale = get_scale_length(units) / bpy.context.scene.unit_settings.scale_length
     return scale
@@ -174,15 +177,19 @@ def meshes_to_native(element: Base, meshes: Iterable[Mesh], name: str, scale: fl
         blender_mesh = bpy.data.meshes.new(name=name)
 
     bm = bmesh.new()
-    offset = 0
     for i, mesh in enumerate(meshes):
+        scale = get_scale_factor(mesh, scale)
         add_vertices(mesh, bm, scale)
-        add_faces(mesh, bm, offset, i)
         add_colors(mesh, bm)
         add_uv_coords(mesh, bm)
-        offset += len(mesh.vertices)
 
     bm.verts.ensure_lookup_table()
+
+    offset = 0
+    for i, mesh in enumerate(meshes):
+        add_faces(mesh, bm, offset, i)
+        offset += len(mesh.vertices) // 3
+
     bm.faces.ensure_lookup_table()
     bm.verts.index_update()
 
