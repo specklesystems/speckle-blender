@@ -1,6 +1,6 @@
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional, Tuple
 import bpy
-from bpy.types import Depsgraph, MeshVertColor, MeshVertex, Object
+from bpy.types import Depsgraph, Material, MeshPolygon, Object
 from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Point, Polyline
 from specklepy.objects.other import *
 from bpy_speckle.functions import _report
@@ -23,7 +23,7 @@ def convert_to_speckle(blender_object: Object, scale: float, units: str, desgrap
         return None
 
     speckle_objects = []
-    speckle_material = material_to_speckle(blender_object)
+    speckle_material = material_to_speckle_old(blender_object)
     if desgraph:
         blender_object = blender_object.evaluated_get(desgraph)
     converted = None
@@ -44,8 +44,8 @@ def convert_to_speckle(blender_object: Object, scale: float, units: str, desgrap
         so.properties = get_blender_custom_properties(blender_object)
         so.applicationId = so.properties.pop("applicationId", None)
 
-        if speckle_material:
-            so["renderMaterial"] = speckle_material
+        #if speckle_material:
+        #    so["renderMaterial"] = speckle_material
 
         # Set object transform
         if blender_type != "EMPTY":
@@ -55,53 +55,67 @@ def convert_to_speckle(blender_object: Object, scale: float, units: str, desgrap
 
     return speckle_objects
 
+def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh, scale: float = 1.0) -> List[Mesh]:
+    #if data.loop_triangles is None or len(data.loop_triangles) < 1:
+    #    data.calc_loop_triangles()
 
-def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh, scale=1.0) -> List[Mesh]:
-    if data.loop_triangles is None or len(data.loop_triangles) < 1:
-        data.calc_loop_triangles()
+    # Categorise polygons by material index
+    submesh_data: Dict[int, List[MeshPolygon]] = {}
 
+    for p in data.polygons:
+        if p.material_index not in submesh_data:
+            submesh_data[p.material_index] = []
+        submesh_data[p.material_index].append(p)
 
-    mat = blender_object.matrix_world
+    transform = blender_object.matrix_world
+    scaled_vertices = [tuple(transform @ x.co * scale) for x in data.vertices]
 
-    verts = [tuple(mat @ x.co * scale) for x in data.vertices]
+    # Create Speckle meshes for each material
+    submeshes = []
+    index_counter = 0
+    for i in submesh_data:
+        index_mapping: Dict[int, int] = {}
 
-    flattend_verts = []
-    for row in verts: flattend_verts.extend(row)
+        #Loop through each polygon, and map indicies to their new index in m_verts
+    
+        m_verts: List[float] = []
+        m_faces: List[int] = []
+        m_texcoords: List[float] = []
+        for face in submesh_data[i]:
+            u_indices = face.vertices
+            m_faces.append(len(u_indices))
+            for u_index in u_indices:
+                if u_index not in index_mapping:
+                    # Create mapping between index in blender mesh, and new index in speckle submesh
+                    index_mapping[u_index] = len(m_verts) // 3
+                    vert = scaled_vertices[u_index]
+                    m_verts.append(vert[0])
+                    m_verts.append(vert[1])
+                    m_verts.append(vert[2])
+                
+                #if data.uv_layers.active:
+                #    vt = data.uv_layers.active.data[index_counter]
+                #    m_texcoords.extend([vt.uv.x, vt.uv.y])
 
-    faces = [p.vertices for p in data.polygons]
-    unit_system = bpy.context.scene.unit_settings.system
+                m_faces.append(index_mapping[u_index])
+                index_counter += 1
 
-    sm = Mesh(
-        name=blender_object.name,
-        vertices=flattend_verts,
-        faces=[],
-        colors=[],
-        textureCoordinates=[],
-        units=UNITS,
-        bbox=Box(area=0.0, volume=0.0),
-    )
+        speckle_mesh = Mesh(
+            vertices=m_verts,
+            faces=m_faces,
+            colors=[],
+            textureCoordinates=m_texcoords,
+            units=UNITS,
+            bbox=Box(area=0.0, volume=0.0),
+        )
+        
+        if i < len(data.materials):
+            material = data.materials[i]
+            if material is not None:
+                speckle_mesh["renderMaterial"] = material_to_speckle(material)
+        submeshes.append(speckle_mesh)           
 
-    if data.uv_layers.active:
-        for vt in data.uv_layers.active.data:
-            sm.textureCoordinates.extend([vt.uv.x, vt.uv.y])
-
-    for f in faces:
-        n = len(f)
-        if n == 3:
-            sm.faces.append(0)
-        elif n == 4:
-            sm.faces.append(1)
-        else:
-            sm.faces.append(n)
-        sm.faces.extend(f)
-
-    # TODO: figure out how to align vertex colors and vertices consistantly in receiving applications
-    # we are seeing the same issue as with texture coordinate alignment
-    #if data.color_attributes.active_color:
-    #    sm.colors = [to_argb_int(x.color) for x in data.color_attributes.active_color.data]
-            
-
-    return [sm]
+    return submeshes
 
 
 def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
@@ -266,15 +280,7 @@ def ngons_to_speckle_polylines(blender_object: Object, data: bpy.types.Mesh, sca
     return polylines
 
 
-def material_to_speckle(blender_object: Object) -> Optional[RenderMaterial]:
-    """Create and return a render material from a blender object"""
-    if not getattr(blender_object.data, "materials", None):
-        return None
-
-    blender_mat: bpy.types.Material = blender_object.data.materials[0]
-    if not blender_mat:
-        return None
-
+def material_to_speckle(blender_mat: bpy.types.Material) -> RenderMaterial:
     speckle_mat = RenderMaterial()
     speckle_mat.name = blender_mat.name
 
@@ -294,6 +300,18 @@ def material_to_speckle(blender_object: Object) -> Optional[RenderMaterial]:
         speckle_mat.roughness = blender_mat.roughness
 
     return speckle_mat
+
+
+def material_to_speckle_old(blender_object: Object) -> Optional[RenderMaterial]:
+    """Create and return a render material from a blender object"""
+    if not getattr(blender_object.data, "materials", None):
+        return None
+
+    blender_mat: bpy.types.Material = blender_object.data.materials[0]
+    if not blender_mat:
+        return None
+
+    return material_to_speckle(blender_mat)
 
 
 def transform_to_speckle(blender_transform: Iterable[Iterable[float]], scale=1.0) -> Transform:
