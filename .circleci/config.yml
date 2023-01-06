@@ -187,6 +187,7 @@ workflows:
           filters: *build_filters
 
       - build-installer-win:
+          context: innosetup
           name: Windows Installer Build
           requires:
             - package-connector
