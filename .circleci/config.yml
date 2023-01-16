@@ -125,6 +125,28 @@ jobs:
           paths:
             - speckle-sharp-ci-tools/Installers/blender/<< parameters.slug >>*.zip
 
+  build-installer-manual:
+    docker:
+      - image: cimg/base:2021.01
+    parameters:
+      slug:
+        type: string
+        default: bpy_speckle
+    steps:
+      - attach_workspace:
+          at: ./
+      - run: *restore_semver
+      - run:
+          name: Copy zip with semver
+          command: |
+            SEMVER=$(cat ./SEMVER)
+            mkdir -p speckle-sharp-ci-tools/Installers/blender
+            cp bpy_speckle.zip speckle-sharp-ci-tools/Installers/blender/<< parameters.slug >>-${SEMVER}.zip
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - speckle-sharp-ci-tools/Installers/blender/<< parameters.slug >>*.zip
+
   deploy-connector:
     docker:
       - image: mcr.microsoft.com/dotnet/sdk:6.0
@@ -173,7 +195,6 @@ workflows:
             - package-connector
           filters: *build_filters
 
-
       - get-ci-tools:
           filters: *build_filters
 
@@ -191,6 +212,7 @@ workflows:
           arch: Any
           extension: exe
           requires:
+            - Manual Installer Build
             - Windows Installer Build
             - Mac Intel Build
             - Mac ARM Build
@@ -216,6 +238,7 @@ workflows:
           arch: Arm
           extension: zip
           requires:
+            - Manual Installer Build
             - Windows Installer Build
             - Mac Intel Build
             - Mac ARM Build
@@ -237,6 +260,27 @@ workflows:
           arch: Intel
           extension: zip
           requires:
+            - Manual Installer Build
+            - Windows Installer Build
+            - Mac Intel Build
+            - Mac ARM Build
+          filters: *deploy_filters
+
+      - build-installer-manual:
+          name: Manual Installer Build
+          requires:
+            - get-ci-tools
+            - build-connector-zip
+          filters: *build_filters
+
+      - deploy-connector:
+          name: deploy-manual
+          file_slug: bpy_speckle
+          os: Any
+          arch: Any
+          extension: zip
+          requires:
+            - Manual Installer Build
             - Windows Installer Build
             - Mac Intel Build
             - Mac ARM Build
