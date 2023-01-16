@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  win: circleci/windows@2.4.0
+  win: circleci/windows@5.0.0
 
 jobs:
   package-connector:
@@ -79,6 +79,12 @@ jobs:
           name: Patch installer
           shell: powershell.exe
           command: python patch_installer.py (Get-Content -Raw SEMVER)
+      - run:
+          name: Create Innosetup signing cert
+          shell: powershell.exe
+          command: |
+            echo $env:PFX_B64 > "speckle-sharp-ci-tools\SignTool\AEC Systems Ltd.txt"
+            certutil -decode "speckle-sharp-ci-tools\SignTool\AEC Systems Ltd.txt" "speckle-sharp-ci-tools\SignTool\AEC Systems Ltd.pfx"
       - run:
           name: Installer
           shell: cmd.exe #does not work in powershell
