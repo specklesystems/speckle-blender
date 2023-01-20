@@ -48,9 +48,9 @@ def convert_to_native(speckle_object: Base, name: Optional[str] = None) -> Optio
     )
     # convert unsupported types with display values
     if speckle_type not in CAN_CONVERT_TO_NATIVE:
-        elements = getattr(speckle_object, "elements", []) or []
+        elements = getattr(speckle_object, "elements", getattr(speckle_object, "@elements", []))
         display = getattr(
-            speckle_object, "displayValue", getattr(speckle_object, "displayMesh", None)
+            speckle_object, "displayValue", getattr(speckle_object, "@displayValue", None)
         )
         if not elements and not display:
             _report(f"Could not convert unsupported Speckle object: {speckle_object}")

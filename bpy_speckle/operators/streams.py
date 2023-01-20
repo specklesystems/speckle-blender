@@ -52,6 +52,8 @@ def get_objects_collections(base: Base) -> Dict[str, list]:
 def get_objects_nested_lists(items: list, parent_col: Optional[bpy.types.Collection] = None) -> List:
     """For handling the weird nested lists that come from Grasshopper"""
     objects = []
+    if not items:
+        return objects
 
     if isinstance(items[0], list):
         items = list(chain.from_iterable(items))
