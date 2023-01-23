@@ -88,8 +88,8 @@ def install_requirements() -> None:
 
 
 def install_dependencies() -> None:
-    # if not is_pip_available():
-    #     ensure_pip()
+    if not is_pip_available():
+        ensure_pip()
 
     install_requirements()
 
