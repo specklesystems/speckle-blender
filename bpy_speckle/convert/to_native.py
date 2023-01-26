@@ -30,10 +30,10 @@ CAN_CONVERT_TO_NATIVE = (
 def can_convert_to_native(speckle_object: Base) -> bool:
     if type(speckle_object) in CAN_CONVERT_TO_NATIVE:
         return True
-    if getattr(
-        speckle_object, "displayValue", getattr(speckle_object, "displayMesh", None)
-    ):
-        return True
+
+    for alias in DISPLAY_VALUE_PROPERTY_ALIASES:
+        if getattr(speckle_object, alias, None):
+            return True
 
     _report(f"Could not convert unsupported Speckle object: {speckle_object}")
     return False
@@ -61,7 +61,7 @@ def convert_to_native(speckle_object: Base) -> list[Object]:
             obj_data = transform_to_native(speckle_object, scale)
         elif isinstance(speckle_object, BlockDefinition):
             obj_data = block_def_to_native(speckle_object)
-        elif isinstance(speckle_object, BlockInstance): # speckle_type is BlockInstance:
+        elif isinstance(speckle_object, BlockInstance):
             obj_data = block_instance_to_native(speckle_object, scale)
         else:
             _report(f"Unsupported type {speckle_type}")
@@ -92,8 +92,11 @@ def convert_to_native(speckle_object: Base) -> list[Object]:
     blender_object.speckle.object_id = str(speckle_object.id)
     blender_object.speckle.enabled = True
     add_custom_properties(speckle_object, blender_object)
-    converted.append(blender_object)
 
+    for child in converted:
+        child.parent = blender_object
+
+    converted.append(blender_object)
     return converted
 
 
@@ -116,7 +119,7 @@ def get_scale_factor(speckle_object: Base, fallback: float = 1.0) -> float:
 
 DISPLAY_VALUE_PROPERTY_ALIASES = ["displayValue", "@displayValue", "displayMesh", "@displayMesh", "elements", "@elements"]
 
-def display_value_to_native(speckle_object: Base, name: str, scale: float) -> tuple[Optional[bpy.types.Mesh], list[Object]]:
+def display_value_to_native(speckle_object: Base, name: str, scale: float) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
     """
     Converts mesh displayValues as one mesh
     Converts non-mesh displayValues as child Objects
@@ -124,11 +127,12 @@ def display_value_to_native(speckle_object: Base, name: str, scale: float) -> tu
     meshes: list[Mesh] = []
     elements: list[Base] = []
 
+    #NOTE: raw Mesh elements will be treated like displayValues, which is not ideal, but no connector sends raw Mesh elements so its fine
     for alias in DISPLAY_VALUE_PROPERTY_ALIASES:
         display = getattr(speckle_object, alias, None)
 
         count = 0
-        max_depth = 32
+        max_depth = 255
         def seperate(value: Any) -> None:
             nonlocal meshes, elements, count, max_depth
 
@@ -162,6 +166,9 @@ def display_value_to_native(speckle_object: Base, name: str, scale: float) -> tu
         else:
             add_custom_properties(speckle_object, blender_object)
             converted.append(blender_object)
+
+    if not elements and not meshes:
+        _report(f"Unsupported type {speckle_object.speckle_type}")
 
     return (mesh, converted)
 

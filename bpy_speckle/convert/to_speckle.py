@@ -23,7 +23,7 @@ def convert_to_speckle(blender_object: Object, scale: float, units: str, desgrap
         return None
 
     speckle_objects = []
-    speckle_material = material_to_speckle_old(blender_object)
+    # speckle_material = material_to_speckle_old(blender_object) #TODO: What about curves with materials...
     if desgraph:
         blender_object = blender_object.evaluated_get(desgraph)
     converted = None
@@ -40,12 +40,11 @@ def convert_to_speckle(blender_object: Object, scale: float, units: str, desgrap
         speckle_objects.extend([c for c in converted if c != None])
     else:
         speckle_objects.append(converted)
+
     for so in speckle_objects:
         so.properties = get_blender_custom_properties(blender_object)
         so.applicationId = so.properties.pop("applicationId", None)
 
-        #if speckle_material:
-        #    so["renderMaterial"] = speckle_material
 
         # Set object transform
         if blender_type != "EMPTY":
