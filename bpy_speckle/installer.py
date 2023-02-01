@@ -113,14 +113,14 @@ def _import_dependencies() -> None:
 
 def ensure_dependencies() -> None:
     try:
+        install_dependencies()
+        invalidate_caches()
         _import_dependencies()
         print("Found all dependencies, proceed with loading")
     except ImportError:
-        print("Failed to load all dependencies, trying to install them...")
-        install_dependencies()
-
-        invalidate_caches()
-        _import_dependencies()
+        raise Exception(
+            "Cannot automatically ensure Speckle dependencies. Please restart Blender!"
+        )
 
 
 
