@@ -3,13 +3,14 @@ Stream operators
 """
 from itertools import chain
 from math import radians
-from typing import Callable, Dict, Iterable
+from typing import Callable, Dict, Iterable, Optional
 import bpy
 from specklepy.api.models import Commit
 import webbrowser
 from bpy.props import (
     StringProperty,
     BoolProperty,
+    EnumProperty,
 )
 from bpy.types import Context, Object
 from bpy_speckle.convert.to_native import can_convert_to_native, convert_to_native
@@ -21,7 +22,6 @@ from bpy_speckle.functions import (
     get_scale_length,
     _report,
 )
-from bpy_speckle.convert import get_speckle_subobjects
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
 
@@ -79,8 +79,6 @@ def get_objects_collections_recursive(base: Base, parent_col: Optional[bpy.types
 
     for name in base.get_dynamic_member_names():
         value = base[name]
-        if name == "parameters" and "Revit" in base.speckle_type:
-            continue
         if isinstance(value, list):
             objects.extend(item for item in value if isinstance(item, Base))
         if isinstance(value, Base):
@@ -127,7 +125,7 @@ def get_receive_funcs(context: Context, created_objects: Dict[str, Object]) -> t
             nonlocal created_objects   
             nonlocal objectCallback   
                  
-            progress += 1 #TODO: Progress bar never reaches 100 because func is only called for convertible objects
+            progress += 1 #NOTE:XXX Progress bar never reaches 100 because func is only called for convertible objects
             context.window_manager.progress_update(progress)
             created_objects[obj.name] = obj
 
@@ -148,7 +146,7 @@ def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], sc
             for obj in objects:
                 if isinstance(obj, dict):
                     bases_to_native(context, obj, scale, stream_id, func)
-                elif isinstance(obj, list):
+                elif isinstance(obj, list): #FIXME: wtf are these nested if statement, can this not be a recursive call?
                     for item in obj:
                         if isinstance(item, dict):
                             bases_to_native(context, item, scale, stream_id, func)
@@ -161,7 +159,7 @@ def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], sc
 
                 else:
                     _report(
-                        f"Something went wrong when receiving collection: {col_name}"
+                        f"Something went wrong when receiving collection: {col_name}" #FIXME: undescript report message
                     )
 
             bpy.context.view_layer.update()
@@ -179,16 +177,16 @@ def base_to_native(context: bpy.types.Context,
     existing: Dict[str, Object],
     func: ObjectCallback = None
     ):
-    new_objects = convert_to_native(base)
-    if not isinstance(new_objects, list):
-        new_objects = [new_objects]
 
-    if hasattr(base, "properties") and base.properties is not None:
-        new_objects.extend(get_speckle_subobjects(base.properties, scale, base.id))
-    elif isinstance(base, dict) and "properties" in base.keys():
-        new_objects.extend(
-            get_speckle_subobjects(base["properties"], scale, base["id"])
-        )
+    new_objects = convert_to_native(base)
+
+    #NOTE: this code is ancient, and in testing does nothing, so we are removing it.
+    # if hasattr(base, "properties") and base.properties is not None: 
+    #     new_objects.extend(get_speckle_subobjects(base.properties, scale, base.id))
+    # elif isinstance(base, dict) and "properties" in base.keys():
+    #     new_objects.extend(
+    #          get_speckle_subobjects(base["properties"], scale, base["id"])
+    #      )
 
     """
     Set object Speckle settings
@@ -201,11 +199,11 @@ def base_to_native(context: bpy.types.Context,
         Run injected function
         """
         if func:
-            new_object = func(context, new_object, base) #this base object isn't the right one for hosted elements!
+            new_object = func(context, new_object, base) #this base object isn't always the right one for hosted elements! #TODO: may be it now, need to double check!
 
         if (
             new_object is None
-        ):  # Make sure that the injected function returned an object
+        ):  # If the injected function returned None, then we should ignore this object.
             _report(f"Script '{func.__module__}' returned None.")
             continue
 
@@ -246,7 +244,7 @@ def get_existing_collection_objs(col: bpy.types.Collection) -> Dict[str, bpy.typ
     }
 
 
-def get_collection_parents(collection, names):
+def get_collection_parents(collection: bpy.types.Collection, names: list[str]) -> None:
     for parent in bpy.data.collections:
         if collection.name in parent.children.keys():
             # TODO: this should be rethought to make it clear when this is an IFC delim so we know to replace it
@@ -255,7 +253,7 @@ def get_collection_parents(collection, names):
             get_collection_parents(parent, names)
 
 
-def get_collection_hierarchy(collection):
+def get_collection_hierarchy(collection: Optional[bpy.types.Collection]) -> list[str]:
     if not collection:
         return []
     names = [collection.name.replace("/", "::").replace(".", "::")]
@@ -264,7 +262,7 @@ def get_collection_hierarchy(collection):
     return names
 
 
-def create_nested_hierarchy(base, hierarchy, objects):
+def create_nested_hierarchy(base: Base, hierarchy: List[str], objects: Any):
     child = base
 
     while hierarchy:
@@ -281,6 +279,12 @@ def create_nested_hierarchy(base, hierarchy, objects):
 
     return base
 
+#RECEIVE_MODES = [#TODO: modes
+#    ("create", "Create", "Add new geometry, without removing any existing objects"),
+#    ("replace", "Replace", "Replace objects from previous receive operations from the same stream"),
+#    #("update","Update") #TODO: update mode!
+#]
+
 class ReceiveStreamObjects(bpy.types.Operator):
     """
     Receive stream objects
@@ -294,10 +298,14 @@ class ReceiveStreamObjects(bpy.types.Operator):
     
     clean_meshes: BoolProperty(name="Clean Meshes", default=False)
 
+    #receive_mode: EnumProperty(items=RECEIVE_MODES, name="Receive Type", default="replace", description="The behaviour of the recieve operation")
+
+
     def draw(self, context):
         layout = self.layout
         col = layout.column()
         col.prop(self, "clean_meshes")
+        #col.prop(self, "receive_mode")
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
@@ -387,7 +395,12 @@ class ReceiveStreamObjects(bpy.types.Operator):
         if not collections:
             return {"CANCELLED"}
 
-        name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id)
+        # name = ""
+        # if self.receive_mode == "create":
+        name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id) # Matches Rhino "Create" naming
+        # else:
+        #     name = stream.name # Doesn't quite match rhino's Update layer naming, but is close enough no? 
+
         col = create_collection(name)
         col.speckle.stream_id = stream.id
         col.speckle.units = stream_data.units or "m"
@@ -418,6 +431,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
         """
         Iterate through retrieved resources
         """
+
         bases_to_native(context, collections, scale, stream.id, func)
         context.window_manager.progress_end()
 

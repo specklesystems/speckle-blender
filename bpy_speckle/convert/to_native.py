@@ -1,5 +1,6 @@
 import math
-from typing import Union
+from typing import Iterable, Union
+from bpy_speckle.convert.to_speckle import transform_to_speckle
 from bpy_speckle.functions import get_scale_length, _report
 import mathutils
 import bpy, bmesh, bpy_types
@@ -7,7 +8,8 @@ from specklepy.objects.other import *
 from specklepy.objects.geometry import *
 from bpy.types import Object
 from .util import (
-    add_blender_material,
+    get_render_material,
+    render_material_to_native,
     add_custom_properties,
     add_vertices,
     add_faces,
@@ -19,9 +21,8 @@ SUPPORTED_CURVES = (Line, Polyline, Curve, Arc, Polycurve)
 
 CAN_CONVERT_TO_NATIVE = (
     Mesh,
-    Brep,
     *SUPPORTED_CURVES,
-    Transform,
+    transform_to_speckle,
     BlockDefinition,
     BlockInstance,
 )
@@ -30,97 +31,50 @@ CAN_CONVERT_TO_NATIVE = (
 def can_convert_to_native(speckle_object: Base) -> bool:
     if type(speckle_object) in CAN_CONVERT_TO_NATIVE:
         return True
-    if getattr(
-        speckle_object, "displayValue", getattr(speckle_object, "displayMesh", None)
-    ):
-        return True
+
+    for alias in DISPLAY_VALUE_PROPERTY_ALIASES:
+        if getattr(speckle_object, alias, None):
+            return True
 
     _report(f"Could not convert unsupported Speckle object: {speckle_object}")
     return False
 
 
-def convert_to_native(speckle_object: Base, name: Optional[str] = None) -> Optional[Union[list, Object]]:
+def convert_to_native(speckle_object: Base) -> list[Object]:
     speckle_type = type(speckle_object)
-    speckle_name = (
-        name
-        or getattr(speckle_object, "name", None)
-        or f"{speckle_object.speckle_type} -- {speckle_object.id}"
-    )
-    # convert unsupported types with display values
-    if speckle_type not in CAN_CONVERT_TO_NATIVE:
-        objects_to_convert = []
-
-        elements = getattr(speckle_object, "elements", getattr(speckle_object, "@elements", None))
-        display = getattr(speckle_object, "displayValue", getattr(speckle_object, "@displayValue", None))
-
-        if not elements and not display:
-            _report(f"Could not convert unsupported Speckle object: {speckle_object}")
-            return None
-
-        if isinstance(display, list):
-            objects_to_convert.extend(display)
-        else:
-            objects_to_convert.append(display)
-
-        if isinstance(elements, list):
-            objects_to_convert.extend(elements)
-        else:
-            objects_to_convert.append(elements)
-
-        
-        # TODO: depreciate the parent type
-        # add parent type here so we can use it as a blender custom prop
-        # not making it hidden, so it will get added on send as i think it might be helpful? can reconsider
-        converted = []
-        for item in objects_to_convert:
-            if not isinstance(item, Base):
-                continue
-            item.parent_speckle_type = speckle_object.speckle_type
-            blender_object = convert_to_native(item)
-            if isinstance(blender_object, list):
-                converted.extend(blender_object)
-            else:
-                add_custom_properties(speckle_object, blender_object)
-                converted.append(blender_object)
-        return converted
-        
+    speckle_name = generate_object_name(speckle_object)
     try:
-        # convert breps
-        if speckle_type is Brep:
-            meshes = getattr(
-                speckle_object, "displayValue", getattr(speckle_object, "displayMesh", iter([]))
-            )
-            if material := getattr(speckle_object, "renderMaterial", getattr(speckle_object, "@renderMaterial", None),):
-                for mesh in meshes:
-                    mesh["renderMaterial"] = material
+        scale = get_scale_factor(speckle_object)
 
-            return [convert_to_native(mesh) for mesh in meshes]
+        obj_data: Optional[Union[bpy.types.ID, bpy.types.Object, mathutils.Matrix]] = None
+        converted: list[Object] = []
 
-        scale = 1.0
-        if units := getattr(speckle_object, "units", None):
-            scale = get_scale_length(units) / bpy.context.scene.unit_settings.scale_length
+        # convert elements/breps
+        if speckle_type not in CAN_CONVERT_TO_NATIVE:
+            (obj_data, converted) = display_value_to_native(speckle_object, speckle_name, scale)
+
         # convert supported geometry
-        if isinstance(speckle_object, Mesh):
-            obj_data = mesh_to_native(speckle_object, name=speckle_name, scale=scale)
+        elif isinstance(speckle_object, Mesh):
+            obj_data = mesh_to_native(speckle_object, speckle_name, scale)
         elif speckle_type in SUPPORTED_CURVES:
-            obj_data = icurve_to_native(speckle_object, name=speckle_name, scale=scale)
+            obj_data = icurve_to_native(speckle_object, speckle_name, scale)
         elif isinstance(speckle_object, Transform):
-            obj_data = transform_to_native(speckle_object, scale=scale)
+            obj_data = transform_to_native(speckle_object, scale)
         elif isinstance(speckle_object, BlockDefinition):
-            obj_data = block_def_to_native(speckle_object, scale=scale)
-        elif isinstance(speckle_object, BlockInstance): # speckle_type is BlockInstance:
-            obj_data = block_instance_to_native(speckle_object, scale=scale)
+            obj_data = block_def_to_native(speckle_object)
+        elif isinstance(speckle_object, BlockInstance):
+            obj_data = block_instance_to_native(speckle_object, scale)
         else:
             _report(f"Unsupported type {speckle_type}")
-            return None
+            return []
     except Exception as ex:  # conversion error
         _report(f"Error converting {speckle_object} \n{ex}")
-        return None
+        return []
 
     if speckle_name in bpy.data.objects.keys():
         blender_object = bpy.data.objects[speckle_name]
         blender_object.data = (
-            obj_data.data if isinstance(obj_data, bpy_types.Object) else obj_data
+            obj_data.data if isinstance(obj_data, Object) else obj_data
         )
         blender_object.matrix_world = (
             blender_object.matrix_world
@@ -132,39 +86,140 @@ def convert_to_native(speckle_object: Base, name: Optional[str] = None) -> Optio
     else:
         blender_object = (
             obj_data
-            if isinstance(obj_data, bpy_types.Object)
+            if isinstance(obj_data, Object)
             else bpy.data.objects.new(speckle_name, obj_data)
         )
 
     blender_object.speckle.object_id = str(speckle_object.id)
     blender_object.speckle.enabled = True
     add_custom_properties(speckle_object, blender_object)
-    add_blender_material(speckle_object, blender_object)
 
-    return blender_object
+    for child in converted:
+        child.parent = blender_object
+
+    converted.append(blender_object)
+    return converted
 
 
-def mesh_to_native(speckle_mesh: Mesh, name: str, scale=1.0) -> bpy.types.Mesh:
 
+
+
+def generate_object_name(speckle_object: Base) -> str:
+    prefix = (getattr(speckle_object, "name", None)
+        or getattr(speckle_object, "Name", None)
+        or speckle_object.speckle_type.rsplit(':')[-1])
+
+    return f"{prefix} -- {speckle_object.id}"
+
+def get_scale_factor(speckle_object: Base, fallback: float = 1.0) -> float:
+    scale = fallback
+    if units := getattr(speckle_object, "units", None):
+        scale = get_scale_length(units) / bpy.context.scene.unit_settings.scale_length
+    return scale
+
+
+DISPLAY_VALUE_PROPERTY_ALIASES = ["displayValue", "@displayValue", "displayMesh", "@displayMesh", "elements", "@elements"]
+
+def display_value_to_native(speckle_object: Base, name: str, scale: float) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
+    """
+    Converts mesh displayValues as one mesh
+    Converts non-mesh displayValues as child Objects
+    """
+    meshes: list[Mesh] = []
+    elements: list[Base] = []
+
+    #NOTE: raw Mesh elements will be treated like displayValues, which is not ideal, but no connector sends raw Mesh elements so its fine
+    for alias in DISPLAY_VALUE_PROPERTY_ALIASES:
+        display = getattr(speckle_object, alias, None)
+
+        count = 0
+        max_depth = 255
+        def seperate(value: Any) -> None:
+            nonlocal meshes, elements, count, max_depth
+
+            if isinstance(value, Mesh):
+                meshes.append(value)
+            elif isinstance(value, Base):
+                elements.append(value)
+            elif isinstance(value, list):
+                count += 1
+                if(count > max_depth):
+                    return
+                for x in value:
+                    seperate(x) 
+
+        seperate(display)
+
+
+    converted: list[Object] = []
+    mesh = None
+
+    if meshes:
+        mesh = meshes_to_native(speckle_object, meshes, name, scale)
+
+    # add parent type here so we can use it as a blender custom prop
+    # not making it hidden, so it will get added on send as i think it might be helpful? can reconsider
+    for item in elements:
+        item.parent_speckle_type = speckle_object.speckle_type
+        blender_object = convert_to_native(item)
+        if isinstance(blender_object, list):
+            converted.extend(blender_object)
+        else:
+            add_custom_properties(speckle_object, blender_object)
+            converted.append(blender_object)
+
+    if not elements and not meshes:
+        _report(f"Unsupported type {speckle_object.speckle_type}")
+
+    return (mesh, converted)
+
+
+def mesh_to_native(speckle_mesh: Mesh, name: str, scale: float) -> bpy.types.Mesh:
+    return meshes_to_native(speckle_mesh, [speckle_mesh], name, scale)
+
+def meshes_to_native(element: Base, meshes: Iterable[Mesh], name: str, scale: float) -> bpy.types.Mesh:
     if name in bpy.data.meshes.keys():
         blender_mesh = bpy.data.meshes[name]
     else:
         blender_mesh = bpy.data.meshes.new(name=name)
 
+    fallback_material = get_render_material(element)
+
     bm = bmesh.new()
 
-    add_vertices(speckle_mesh, bm, scale)
-    add_faces(speckle_mesh, bm)
-    add_colors(speckle_mesh, bm)
-    add_uv_coords(speckle_mesh, bm)
+    # First pass, add vertex data
+    for i, mesh in enumerate(meshes):
+        scale = get_scale_factor(mesh, scale)
+        add_vertices(mesh, bm, scale)
+        add_colors(mesh, bm)
+        add_uv_coords(mesh, bm)
+
+    bm.verts.ensure_lookup_table()
+
+    # Second pass, add face data
+    offset = 0
+    for i, mesh in enumerate(meshes):
+        add_faces(mesh, bm, offset, i)
+
+        render_material = get_render_material(mesh) or fallback_material
+        if render_material is not None:
+            native_material = render_material_to_native(render_material)
+            blender_mesh.materials.append(native_material)
+
+        offset += len(mesh.vertices) // 3
+
+    bm.faces.ensure_lookup_table()
+    bm.verts.index_update()
 
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+
     bm.to_mesh(blender_mesh)
-    bm.free()
+    bm.free()  
 
     return blender_mesh
 
-def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: float) -> Optional[bpy.types.Spline]:
+
+def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
     line = blender_curve.splines.new("POLY")
     line.points.add(1)
 
@@ -184,10 +239,10 @@ def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: f
             1,
         )
 
-        return line
+        return [line]
+    return []
 
-
-def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) -> Optional[bpy.types.Spline]:
+def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
     if value := scurve.value:
         N = len(value) // 3
 
@@ -208,13 +263,14 @@ def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) 
                 1,
             )
 
-        return polyline
+        return [polyline]
+    return []
 
 
-def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> Optional[bpy.types.Spline]:
+def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
     if points := scurve.points:
         N = len(points) // 3
-
+        
         nurbs = bcurve.splines.new("NURBS")
 
         if hasattr(scurve, "closed"):
@@ -237,7 +293,8 @@ def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> Opt
         # nurbs.use_endpoint_u = True
         nurbs.order_u = scurve.degree + 1
 
-        return nurbs
+        return [nurbs]
+    return []
 
 
 def arc_to_native(rcurve: Arc, bcurve: bpy.types.Curve, scale: float) -> Optional[bpy.types.Spline]:
@@ -302,7 +359,7 @@ def arc_to_native(rcurve: Arc, bcurve: bpy.types.Curve, scale: float) -> Optiona
     return arc
 
 
-def polycurve_to_native(scurve: Polycurve, bcurve: bpy.types.Curve, scale: float):
+def polycurve_to_native(scurve: Polycurve, bcurve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
     """
     Convert Polycurve object
     """
@@ -314,33 +371,38 @@ def polycurve_to_native(scurve: Polycurve, bcurve: bpy.types.Curve, scale: float
         speckle_type = type(seg)
 
         if speckle_type in SUPPORTED_CURVES:
-            curves.append(icurve_to_native_spline(seg, bcurve, scale=scale))
+            curves.append(icurve_to_native_spline(seg, bcurve, scale))
         else:
             _report(f"Unsupported curve type: {speckle_type}")
 
     return curves
 
 
-def icurve_to_native_spline(speckle_curve: Base, blender_curve: bpy.types.Curve, scale=1.0):
-    curve_type = type(speckle_curve)
-    if curve_type is Line:
-        return line_to_native(speckle_curve, blender_curve, scale)
-    if curve_type is Polyline:
-        return polyline_to_native(speckle_curve, blender_curve, scale)
-    if curve_type is Curve:
-        return nurbs_to_native(speckle_curve, blender_curve, scale)
-    if curve_type is Polycurve:
+def icurve_to_native_spline(speckle_curve: Base, blender_curve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
+    # polycurves
+    if isinstance(speckle_curve, Polycurve):
         return polycurve_to_native(speckle_curve, blender_curve, scale)
-    if curve_type is Arc:
-        return arc_to_native(speckle_curve, blender_curve, scale)
+
+    # single curves
+    if isinstance(speckle_curve, Line):
+        spline = line_to_native(speckle_curve, blender_curve, scale)
+    elif isinstance(speckle_curve, Curve):
+        spline = nurbs_to_native(speckle_curve, blender_curve, scale)
+    elif isinstance(speckle_curve,Polyline):
+        spline = polyline_to_native(speckle_curve, blender_curve, scale)
+    elif isinstance(speckle_curve, Arc):
+        spline =  arc_to_native(speckle_curve, blender_curve, scale)
+    else:
+        raise TypeError(f"{speckle_curve} is not a supported curve type. Supported types: {SUPPORTED_CURVES}")
+
+    return [spline] if spline is not None else [] 
 
 
-def icurve_to_native(speckle_curve: Base, name=None, scale=1.0) -> Optional[Curve]:
+def icurve_to_native(speckle_curve: Base, name: str, scale: float) -> Optional[bpy.types.Curve]:
     curve_type = type(speckle_curve)
     if curve_type not in SUPPORTED_CURVES:
         _report(f"Unsupported curve type: {curve_type}")
         return None
-    name = name or f"{curve_type} -- {speckle_curve.id}"
     blender_curve = (
         bpy.data.curves[name]
         if name in bpy.data.curves.keys()
@@ -354,7 +416,7 @@ def icurve_to_native(speckle_curve: Base, name=None, scale=1.0) -> Optional[Curv
     return blender_curve
 
 
-def transform_to_native(transform: Transform, scale=1.0) -> mathutils.Matrix:
+def transform_to_native(transform: Transform, scale: float) -> mathutils.Matrix:
     mat = mathutils.Matrix(
         [
             transform.value[:4],
@@ -369,7 +431,7 @@ def transform_to_native(transform: Transform, scale=1.0) -> mathutils.Matrix:
     return mat
 
 
-def block_def_to_native(definition: BlockDefinition, scale=1.0) -> bpy.types.Collection:
+def block_def_to_native(definition: BlockDefinition) -> bpy.types.Collection:
     native_def = bpy.data.collections.get(definition.name)
     if native_def:
         return native_def
@@ -387,12 +449,12 @@ def block_def_to_native(definition: BlockDefinition, scale=1.0) -> bpy.types.Col
     return native_def
 
 
-def block_instance_to_native(instance: BlockInstance, scale=1.0) -> bpy.types.Object:
+def block_instance_to_native(instance: BlockInstance, scale: float) -> bpy.types.Object:
     """
     Convert BlockInstance to native
     """
     name = f"{getattr(instance, 'name', None) or instance.blockDefinition.name} -- {instance.id}"
-    native_def = block_def_to_native(instance.blockDefinition, scale)
+    native_def = block_def_to_native(instance.blockDefinition)
 
     native_instance = bpy.data.objects.new(name, None)
     add_custom_properties(instance, native_instance)

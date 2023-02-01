@@ -1,13 +1,13 @@
 import math
-from typing import Tuple
+from typing import Optional, Tuple
 from bmesh.types import BMesh
 import bpy, struct, idprop
 
 from specklepy.objects.base import Base
 from specklepy.objects.geometry import Mesh
-from specklepy.serialization.base_object_serializer import BaseObjectSerializer
+from specklepy.objects.other import RenderMaterial
 from bpy_speckle.functions import _report
-from bpy.types import Object
+from bpy.types import Material, Object
 
 IGNORED_PROPERTY_KEYS = {
     "id",
@@ -25,7 +25,7 @@ IGNORED_PROPERTY_KEYS = {
 }
 
 
-def to_rgba(argb_int: int) -> Tuple[float]:
+def to_rgba(argb_int: int) -> Tuple[float, float, float, float]:
     """Converts the int representation of a colour into a percent RGBA tuple"""
     alpha = ((argb_int >> 24) & 255) / 255
     red = ((argb_int >> 16) & 255) / 255
@@ -35,18 +35,17 @@ def to_rgba(argb_int: int) -> Tuple[float]:
     return (red, green, blue, alpha)
 
 
-def to_argb_int(diffuse_colour) -> int:
+def to_argb_int(rgba_color: list[float]) -> int:
     """Converts an RGBA array to an ARGB integer"""
-    diffuse_colour = diffuse_colour[-1:] + diffuse_colour[:3]
-    diffuse_colour = [int(val * 255) for val in diffuse_colour]
+    argb_color = rgba_color[-1:] + rgba_color[:3]
+    int_color = [int(val * 255) for val in argb_color]
 
-    return int.from_bytes(diffuse_colour, byteorder="big", signed=True)
+    return int.from_bytes(int_color, byteorder="big", signed=True)
 
 def add_custom_properties(speckle_object: Base, blender_object: Object):
     if blender_object is None:
         return
 
-    serializer = BaseObjectSerializer()
     blender_object["_speckle_type"] = type(speckle_object).__name__
 
     app_id = getattr(speckle_object, "applicationId", None)
@@ -73,25 +72,14 @@ def add_custom_properties(speckle_object: Base, blender_object: Object):
                     blender_object[k] = v            
 
 
-def add_blender_material(speckle_object: Base, blender_object: Object) -> None:
-    """Add material to a blender object if the corresponding speckle object has a render material"""
-    if blender_object.data is None:
-        return
-
-    speckle_mat = getattr(
-        speckle_object,
-        "renderMaterial",
-        getattr(speckle_object, "@renderMaterial", None),
-    )
-    if not speckle_mat:
-        return
-
-    mat_name = getattr(speckle_mat, "name", None) or speckle_mat.__dict__.get("@name")
+def render_material_to_native(speckle_mat: RenderMaterial) -> Material:
+    
+    mat_name = speckle_mat.name
     if not mat_name:
         mat_name = speckle_mat.applicationId or speckle_mat.id or speckle_mat.get_id()
 
     blender_mat = bpy.data.materials.get(mat_name)
-    if not blender_mat:
+    if blender_mat is None:
         blender_mat = bpy.data.materials.new(mat_name)
 
         # for now, we're not updating these materials. as per tom's suggestion, we should have a toggle
@@ -105,10 +93,24 @@ def add_blender_material(speckle_object: Base, blender_object: Object) -> None:
         inputs["Metallic"].default_value = speckle_mat.metalness
         inputs["Alpha"].default_value = speckle_mat.opacity
 
-    if speckle_mat.opacity < 1:
+    if speckle_mat.opacity < 1.0:
         blender_mat.blend_method = "BLEND"
 
-    blender_object.data.materials.append(blender_mat)
+    return blender_mat
+
+def get_render_material(speckle_object: Base) -> Optional[RenderMaterial]:
+    """Trys to get a RenderMaterial on given speckle_object and convert it to a blender material"""
+
+    speckle_mat = getattr(
+        speckle_object,
+        "renderMaterial",
+        getattr(speckle_object, "@renderMaterial", None),
+    )
+    if not isinstance(speckle_mat, RenderMaterial):
+        return None
+
+    return speckle_mat
+    
 
 
 def add_vertices(speckle_mesh: Mesh, blender_mesh: BMesh, scale=1.0):
@@ -124,12 +126,11 @@ def add_vertices(speckle_mesh: Mesh, blender_mesh: BMesh, scale=1.0):
                 )
             )
 
-    blender_mesh.verts.ensure_lookup_table()
 
 
-def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, smooth=False):
+def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, indexOffset: int, materialIndex: int = 0, smooth:bool = False):
     sfaces = speckle_mesh.faces
-
+    
     if sfaces and len(sfaces) > 0:
         i = 0
         while i < len(sfaces):
@@ -140,15 +141,13 @@ def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, smooth=False):
             i += 1
             try:
                 f = blender_mesh.faces.new(
-                    [blender_mesh.verts[int(x)] for x in sfaces[i : i + n]]
+                    [blender_mesh.verts[x + indexOffset] for x in sfaces[i : i + n]]
                 )
+                f.material_index = materialIndex
                 f.smooth = smooth
             except Exception as e:
                 _report(f"Failed to create face for mesh {speckle_mesh.id} \n{e}")
             i += n
-
-        blender_mesh.faces.ensure_lookup_table()
-        blender_mesh.verts.index_update()
 
 
 def add_colors(speckle_mesh: Mesh, blender_mesh: BMesh):
@@ -250,15 +249,15 @@ from: https://blender.stackexchange.com/a/34276
 """
 
 
-def macro_knotsu(nu):
+def macro_knotsu(nu: bpy.types.Spline) -> int:
     return nu.order_u + nu.point_count_u + (nu.order_u - 1 if nu.use_cyclic_u else 0)
 
 
-def macro_segmentsu(nu):
+def macro_segmentsu(nu: bpy.types.Spline) -> int:
     return nu.point_count_u if nu.use_cyclic_u else nu.point_count_u - 1
 
 
-def make_knots(nu):
+def make_knots(nu: bpy.types.Spline) -> list[float]:
     knots = [0.0] * (4 + macro_knotsu(nu))
     flag = nu.use_endpoint_u + (nu.use_bezier_u << 1)
     if nu.use_cyclic_u:
@@ -269,7 +268,7 @@ def make_knots(nu):
     return knots
 
 
-def calc_knots(knots, point_count, order, flag):
+def calc_knots(knots: list[float], point_count: int, order: int, flag: int) -> None:
     pts_order = point_count + order
     if flag == 1:
         k = 0.0
@@ -294,7 +293,7 @@ def calc_knots(knots, point_count, order, flag):
             knots[a] = a
 
 
-def makecyclicknots(knots, point_count, order):
+def makecyclicknots(knots: list[float], point_count: int, order: int) -> None:
     order2 = order - 1
 
     if order > 2:
