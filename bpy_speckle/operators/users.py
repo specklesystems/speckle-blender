@@ -46,7 +46,7 @@ class LoadUsers(bpy.types.Operator):
                     host=profile.serverInfo.url,
                     use_ssl="https" in profile.serverInfo.url,
                 )
-                client.authenticate(user.authToken)
+                client.authenticate_with_account(profile)
                 speckle_clients.append(client)
             except Exception as ex:
                 _report(ex)
@@ -54,7 +54,7 @@ class LoadUsers(bpy.types.Operator):
             if profile.isDefault:
                 active_user_index = len(users) - 1
 
-        speckle.active_user_index = int(speckle.active_user) #TODO: what is this?
+        speckle.active_user_index = int(speckle.active_user)
         speckle.active_user = str(active_user_index)
         bpy.context.view_layer.update()
 

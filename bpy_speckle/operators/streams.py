@@ -279,11 +279,11 @@ def create_nested_hierarchy(base: Base, hierarchy: List[str], objects: Any):
 
     return base
 
-RECEIVE_TYPES = [
-    ("create", "Create", "Add new geometry, without removing any existing objects"),
-    ("replace", "Replace", "Replace objects from previous receive operations from the same stream"),
-    #("update","Update") #TODO: update mode!
-]
+#RECEIVE_MODES = [#TODO: modes
+#    ("create", "Create", "Add new geometry, without removing any existing objects"),
+#    ("replace", "Replace", "Replace objects from previous receive operations from the same stream"),
+#    #("update","Update") #TODO: update mode!
+#]
 
 class ReceiveStreamObjects(bpy.types.Operator):
     """
@@ -298,14 +298,14 @@ class ReceiveStreamObjects(bpy.types.Operator):
     
     clean_meshes: BoolProperty(name="Clean Meshes", default=False)
 
-    receive_type: EnumProperty(items=RECEIVE_TYPES, name="Receive Type", default="replace", description="The behaviour of the recieve operation")
+    #receive_mode: EnumProperty(items=RECEIVE_MODES, name="Receive Type", default="replace", description="The behaviour of the recieve operation")
 
 
     def draw(self, context):
         layout = self.layout
         col = layout.column()
         col.prop(self, "clean_meshes")
-        col.prop(self, "receive_type")
+        #col.prop(self, "receive_mode")
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
@@ -395,11 +395,11 @@ class ReceiveStreamObjects(bpy.types.Operator):
         if not collections:
             return {"CANCELLED"}
 
-        name = ""
-        if self.receive_type == "create":
-            name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id) # Matches Rhino "Create" naming
-        else:
-            name = stream.name # Doesn't quite match rhino's Update layer naming, but is close enough no? 
+        # name = ""
+        # if self.receive_mode == "create":
+        name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id) # Matches Rhino "Create" naming
+        # else:
+        #     name = stream.name # Doesn't quite match rhino's Update layer naming, but is close enough no? 
 
         col = create_collection(name)
         col.speckle.stream_id = stream.id

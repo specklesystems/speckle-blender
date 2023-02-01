@@ -1,5 +1,6 @@
 import math
 from typing import Iterable, Union
+from bpy_speckle.convert.to_speckle import transform_to_speckle
 from bpy_speckle.functions import get_scale_length, _report
 import mathutils
 import bpy, bmesh, bpy_types
@@ -21,7 +22,7 @@ SUPPORTED_CURVES = (Line, Polyline, Curve, Arc, Polycurve)
 CAN_CONVERT_TO_NATIVE = (
     Mesh,
     *SUPPORTED_CURVES,
-    Transform,
+    transform_to_speckle,
     BlockDefinition,
     BlockInstance,
 )

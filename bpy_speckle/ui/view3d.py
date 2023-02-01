@@ -115,7 +115,7 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
         col = layout.column()
 
         if len(speckle.users) < 1:
-            col.label(text="No users found.")
+            col.label(text="Refresh to initialise")
         else:
             col.prop(speckle, "active_user", text="")
             user = speckle.users[int(speckle.active_user)]

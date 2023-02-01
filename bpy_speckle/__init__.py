@@ -36,7 +36,8 @@ loading a Blender file
 
 @persistent
 def load_handler(dummy):
-    bpy.ops.speckle.users_load()
+    pass
+    #bpy.ops.speckle.users_load() #this is an expensive operation, one that forces the user to wait every time blender loads. Until we can do this non-blocking, we will make the user hit the refresh button each time.
 
 
 """
