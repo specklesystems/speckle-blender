@@ -69,7 +69,7 @@ def add_custom_properties(speckle_object: Base, blender_object: Object):
         elif isinstance(val,dict):
             for (k,v) in val.items():
                 if not isinstance(v, Base):
-                    blender_object[k] = v            
+                    blender_object[k] = v
 
 
 def render_material_to_native(speckle_mat: RenderMaterial) -> Material:
@@ -195,7 +195,7 @@ def add_uv_coords(speckle_mesh: Mesh, blender_mesh: BMesh):
             )
         else:
             _report(
-                f"Failed to match UV coordinates to vert data. Blender mesh verts: {len(blender_mesh.verts)}, Speckle UVs * 2: {len(s_uvs) * 2}"
+                f"Failed to match UV coordinates to vert data. Blender mesh verts: {len(blender_mesh.verts)}, Speckle UVs: {len(s_uvs) // 2}"
             )
             return
 
