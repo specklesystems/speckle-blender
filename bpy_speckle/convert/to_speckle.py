@@ -92,9 +92,9 @@ def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh, scale: float =
                     m_verts.append(vert[1])
                     m_verts.append(vert[2])
                 
-                #if data.uv_layers.active:
-                #    vt = data.uv_layers.active.data[index_counter]
-                #    m_texcoords.extend([vt.uv.x, vt.uv.y])
+                if data.uv_layers.active:
+                    vt = data.uv_layers.active.data[index_counter]
+                    m_texcoords.extend([vt.uv.x, vt.uv.y])
 
                 m_faces.append(index_mapping[u_index])
                 index_counter += 1

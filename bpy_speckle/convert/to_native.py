@@ -1,5 +1,5 @@
 import math
-from typing import Iterable, Union
+from typing import Iterable, Union, Collection
 from bpy_speckle.convert.to_speckle import transform_to_speckle
 from bpy_speckle.functions import get_scale_length, _report
 import mathutils
@@ -177,7 +177,7 @@ def display_value_to_native(speckle_object: Base, name: str, scale: float) -> tu
 def mesh_to_native(speckle_mesh: Mesh, name: str, scale: float) -> bpy.types.Mesh:
     return meshes_to_native(speckle_mesh, [speckle_mesh], name, scale)
 
-def meshes_to_native(element: Base, meshes: Iterable[Mesh], name: str, scale: float) -> bpy.types.Mesh:
+def meshes_to_native(element: Base, meshes: Collection[Mesh], name: str, scale: float) -> bpy.types.Mesh:
     if name in bpy.data.meshes.keys():
         blender_mesh = bpy.data.meshes[name]
     else:
@@ -188,11 +188,9 @@ def meshes_to_native(element: Base, meshes: Iterable[Mesh], name: str, scale: fl
     bm = bmesh.new()
 
     # First pass, add vertex data
-    for i, mesh in enumerate(meshes):
+    for mesh in meshes:
         scale = get_scale_factor(mesh, scale)
         add_vertices(mesh, bm, scale)
-        add_colors(mesh, bm)
-        add_uv_coords(mesh, bm)
 
     bm.verts.ensure_lookup_table()
 
@@ -210,6 +208,11 @@ def meshes_to_native(element: Base, meshes: Iterable[Mesh], name: str, scale: fl
 
     bm.faces.ensure_lookup_table()
     bm.verts.index_update()
+
+    # Third pass, add vertex instance data
+    for mesh in meshes:
+        add_colors(mesh, bm)
+        add_uv_coords(mesh, bm)
 
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 
