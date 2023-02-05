@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 from bmesh.types import BMesh
 import bpy, struct, idprop
 
@@ -42,6 +42,16 @@ def to_argb_int(rgba_color: list[float]) -> int:
 
     return int.from_bytes(int_color, byteorder="big", signed=True)
 
+def set_custom_property(key: str, value: Any, blender_object: Object) -> None:
+    try:
+        #Expected c types: float, int, string, float[], int[]
+        blender_object[key] = value
+    except (OverflowError, TypeError) as ex:
+        print(f"Skipping setting property ({key}={value}) on {blender_object.name_full}, Reason: {ex}")
+    except Exception as ex:
+        #TODO: Log this as it's unexpected!!!
+        print(f"Skipping setting property ({key}={value}) on {blender_object.name_full}, Reason: {ex}")
+
 def add_custom_properties(speckle_object: Base, blender_object: Object):
     if blender_object is None:
         return
@@ -58,18 +68,18 @@ def add_custom_properties(speckle_object: Base, blender_object: Object):
             continue
 
         if isinstance(val, (int, str, float)):
-            blender_object[key] = val
+            set_custom_property(key, val, blender_object)
         elif key == "properties" and isinstance(val, Base):
             val["applicationId"] = None
             add_custom_properties(val, blender_object)
         elif isinstance(val, list):
             items = [item for item in val if not isinstance(item, Base)]
             if items:
-                blender_object[key] = items
+                set_custom_property(key, items, blender_object)
         elif isinstance(val,dict):
             for (k,v) in val.items():
                 if not isinstance(v, Base):
-                    blender_object[k] = v
+                    set_custom_property(k, v, blender_object)
 
 
 def render_material_to_native(speckle_mat: RenderMaterial) -> Material:
