@@ -17,7 +17,7 @@ def modules_path() -> Path:
 
     # set user modules path at beginning of paths for earlier hit
     if sys.path[1] != modules_path:
-        sys.path.insert(1, modules_path)
+        sys.path.insert(1, str(modules_path))
 
     return modules_path
 
