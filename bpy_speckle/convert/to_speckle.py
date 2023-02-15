@@ -1,6 +1,7 @@
 from typing import Dict, Iterable, Optional, Tuple
 import bpy
 from bpy.types import Depsgraph, Material, MeshPolygon, Object
+from mathutils import Matrix as MMatrix
 from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Point, Polyline
 from specklepy.objects.other import *
 from bpy_speckle.functions import _report
@@ -117,7 +118,7 @@ def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh, scale: float =
     return submeshes
 
 
-def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
+def bezier_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
     degree = 3
     closed = spline.use_cyclic_u
 
@@ -169,7 +170,7 @@ def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: floa
     )
 
 
-def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
+def nurbs_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
     knots = make_knots(spline)
     # increase knot multiplicity to (# control points + degree + 1)
     # add extra knots at start & end  because Rhino's knot multiplicity standard is (# control points + degree - 1)
@@ -203,7 +204,7 @@ def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float
     )
 
 
-def poly_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Polyline:
+def poly_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Polyline:
     points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
 
     flattend_points = []
