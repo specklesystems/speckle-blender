@@ -73,7 +73,6 @@ class SpeckleUserObject(bpy.types.PropertyGroup):
     name: StringProperty(default="Speckle User")
     email: StringProperty(default="user@speckle.xyz")
     company: StringProperty(default="SpeckleSystems")
-    authToken: StringProperty(default="", subtype='PASSWORD')
     streams: CollectionProperty(type=SpeckleStreamObject)
     active_stream: IntProperty(default=0)
 

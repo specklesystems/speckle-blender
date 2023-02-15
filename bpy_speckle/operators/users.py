@@ -40,7 +40,6 @@ class LoadUsers(bpy.types.Operator):
             user.name = profile.userInfo.name
             user.email = profile.userInfo.email
             user.company = profile.userInfo.company or ""
-            user.authToken = profile.token
             try:
                 client = SpeckleClient(
                     host=profile.serverInfo.url,
