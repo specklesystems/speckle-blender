@@ -171,9 +171,14 @@ def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: floa
 
 def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
     knots = make_knots(spline)
+    # increase knot multiplicity to (# control points + degree + 1)
+    # add extra knots at start & end  because Rhino's knot multiplicity standard is (# control points + degree - 1)
+    knots.insert(0, knots[0])
+    knots.append(knots[-1])
+
     points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
     degree = spline.order_u - 1
-
+    
     length = spline.calc_length()
     domain = Interval(start=0, end=length, totalChildrenCount=0)
 
@@ -184,7 +189,7 @@ def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float
         name=name,
         degree=degree,
         closed=spline.use_cyclic_u,
-        periodic=spline.use_cyclic_u,
+        periodic=spline.use_endpoint_u,
         points=flattend_points,
         weights=[pt.weight for pt in spline.points],
         knots=knots,
