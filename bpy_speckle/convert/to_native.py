@@ -273,28 +273,28 @@ def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) 
 def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
     if not (points := scurve.points): return []
 
-    N = len(points) // 3
+    TOLLERANCE = 1e-4
+
+    # Closed curves from rhino will have n + degree points. We ignore the extras
+    num_points = len(points) // 3 - scurve.degree if (scurve.closed) else (
+        len(points) // 3)   
     
     nurbs = bcurve.splines.new("NURBS")
-
-    if hasattr(scurve, "closed"):
-        nurbs.use_cyclic_u = scurve.closed != 0
-
-    nurbs.points.add(N - 1)
-    for i in range(N):
+    nurbs.use_cyclic_u = scurve.closed
+    nurbs.use_endpoint_u = not scurve.periodic
+    
+    nurbs.points.add(num_points - 1)
+    use_weights = len(scurve.weights) >= num_points
+    for i in range(num_points):
         nurbs.points[i].co = (
             float(points[i * 3]) * scale,
             float(points[i * 3 + 1]) * scale,
             float(points[i * 3 + 2]) * scale,
             1,
         )
+        
+        nurbs.points[i].weight = scurve.weights[i] if use_weights else 1
 
-    if len(scurve.weights) == len(nurbs.points):
-        for i, w in enumerate(scurve.weights):
-            nurbs.points[i].weight = w
-
-    # TODO: anaylize curve knots to decide if use_endpoint_u or use_bezier_u should be enabled
-    # nurbs.use_endpoint_u = True
     nurbs.order_u = scurve.degree + 1
 
     return [nurbs]

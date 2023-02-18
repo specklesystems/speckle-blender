@@ -2,6 +2,7 @@ from typing import Dict, Iterable, Optional, Tuple
 import bpy
 from bpy.types import Depsgraph, Material, MeshPolygon, Object
 from mathutils import Matrix as MMatrix
+import mathutils
 from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Point, Polyline
 from specklepy.objects.other import *
 from bpy_speckle.functions import _report
@@ -172,10 +173,6 @@ def bezier_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, n
 
 def nurbs_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
     knots = make_knots(spline)
-    # increase knot multiplicity to (# control points + degree + 1)
-    # add extra knots at start & end  because Rhino's knot multiplicity standard is (# control points + degree - 1)
-    knots.insert(0, knots[0])
-    knots.append(knots[-1])
 
     points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
     degree = spline.order_u - 1
@@ -186,21 +183,29 @@ def nurbs_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, na
     flattend_points = []
     for row in points: flattend_points.extend(row)
 
+    if(spline.use_cyclic_u):
+        for i in range(0, degree * 3, 3):
+            # Rhino expects n + degree number of points (for closed curves). So we need to add an extra point for each degree
+            flattend_points.append(flattend_points[i + 0])
+            flattend_points.append(flattend_points[i + 1])
+            flattend_points.append(flattend_points[i + 2])
+
     return Curve(
         name=name,
         degree=degree,
         closed=spline.use_cyclic_u,
-        periodic=spline.use_endpoint_u,
+        periodic= not spline.use_endpoint_u,
         points=flattend_points,
         weights=[pt.weight for pt in spline.points],
         knots=knots,
-        rational=False,
+        rational=False, #TODO: wtf is this?
         area=0,
         volume=0,
         length=length,
         domain=domain,
         units=UNITS,
         bbox=Box(area=0.0, volume=0.0),
+        displayValue=Polyline(value=flattend_points, closed = spline.use_cyclic_u, domain=domain, area=0, len=0 ), #FIXME: this is the worst way to aproxmiate a curve
     )
 
 
