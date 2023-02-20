@@ -257,67 +257,26 @@ def get_blender_custom_properties(obj, max_depth=1000):
 """
 Python implementation of Blender's NURBS curve generation for to Speckle conversion
 from: https://blender.stackexchange.com/a/34276
-based on https://projects.blender.org/blender/blender/src/branch/main/source/blender/blenkernel/intern/curve.cc
+based on https://projects.blender.org/blender/blender/src/branch/main/source/blender/blenkernel/intern/curve.cc (check old version)
 """
-
 
 def macro_knotsu(nu: bpy.types.Spline) -> int:
     return nu.order_u + nu.point_count_u + (nu.order_u - 1 if nu.use_cyclic_u else 0)
 
-
 def macro_segmentsu(nu: bpy.types.Spline) -> int:
     return nu.point_count_u if nu.use_cyclic_u else nu.point_count_u - 1
 
-
-
 def make_knots(nu: bpy.types.Spline) -> list[float]:
     knots = [0.0] * macro_knotsu(nu)
-    calc_knots(knots, nu.point_count_u, nu.order_u, nu.use_cyclic_u, nu.use_bezier_u, nu.use_endpoint_u)
-    return knots
-
-
-def calc_knots(knots: list[float], point_count: int, order: int, is_cyclic: bool, is_bezier: bool, is_end_point: bool) -> None:
-    # Inner knots are always repeated once except on Bezier case.
-    REPEAT_INNER = order - 1 if is_bezier else 1
-    # How many times to repeat 0.0 at the beginning of knot.
-    HEAD = (order - int(is_cyclic)) if is_end_point else (min(2, REPEAT_INNER) if is_bezier else 1 )
-    #Number of knots replicating widths of the starting knots.
-    #Covers both Cyclic and EndPoint cases
-    TAIL = 2 * order - 1 if is_cyclic else (order if is_end_point else 0)
-
-    KNOTS_COUNT = point_count + order + (order - 1 if is_cyclic else 0)
-    
-    r = HEAD
-    current = 0.0
-    OFFSET = is_end_point and is_cyclic
-    if OFFSET:
-        knots[0] = current
-        current += 1.0
-
-    for i in range(OFFSET, KNOTS_COUNT - OFFSET - TAIL):
-        knots[i] = current
-        r -= 1
-        if r == 0:
-            current += 1.0
-            r = REPEAT_INNER
-    
-    TAIL_INDEX = KNOTS_COUNT - TAIL
-    for i in range(TAIL):
-        knots[TAIL_INDEX + 1] = current + (knots[i] - knots[0])
-
-#TODO obsolete
-def _make_knots(nu: bpy.types.Spline) -> list[float]:
-    knots = [0.0] * (4 + macro_knotsu(nu))
     flag = nu.use_endpoint_u + (nu.use_bezier_u << 1)
     if nu.use_cyclic_u:
-        __calc_knots(knots, nu.point_count_u, nu.order_u, 0)
-        makecyclicknots(knots, nu.point_count_u, nu.order_u)
+        calc_knots(knots, nu.point_count_u, nu.order_u, 0)
     else:
-        __calc_knots(knots, nu.point_count_u, nu.order_u, flag)
+        calc_knots(knots, nu.point_count_u, nu.order_u, flag)
     return knots
 
-#TODO obsolete
-def __calc_knots(knots: list[float], point_count: int, order: int, flag: int) -> None:
+
+def calc_knots(knots: list[float], point_count: int, order: int, flag: int) -> None:
     pts_order = point_count + order
     if flag == 1: # CU_NURB_ENDPOINT
         k = 0.0
@@ -338,27 +297,10 @@ def __calc_knots(knots: list[float], point_count: int, order: int, flag: int) ->
                     k += 0.5
                     knots[a] = math.floor(k)
     else:
-        for a in range(pts_order):
-            knots[a] = a
+        for a in range(1, len(knots) - 1):
+            knots[a] = a - 1
 
-#TODO obsolete
-def makecyclicknots(knots: list[float], point_count: int, order: int) -> None:
-    order2 = order - 1
-
-    if order > 2:
-        b = point_count + order2
-        for a in range(1, order2):
-            if knots[b] != knots[b - a]:
-                break
-
-            if a == order2:
-                knots[point_count + order - 2] += 1.0
-
-    b = order
-    c = point_count + order + order2
-    for a in range(point_count + order2, c):
-        knots[a] = knots[a - 1] + (knots[b] - knots[b - 1])
-        b -= 1
+        knots[-1] = knots[-2]
 
 def basis_nurb(t: float, order: int, point_count: int, knots: list[float], basis: list[float], start: int, end: int) -> Tuple[int, int]:
     i1 = i2 = 0
@@ -421,7 +363,8 @@ def basis_nurb(t: float, order: int, point_count: int, knots: list[float], basis
 
     return start, end
 
-def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int) -> list[float]:
+def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[float]:
+    """"BKE_nurb_makeCurve"""
     EPS = 1e-6
     coord_index = istart = iend = 0
 

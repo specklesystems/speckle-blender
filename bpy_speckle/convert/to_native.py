@@ -273,8 +273,6 @@ def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) 
 def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
     if not (points := scurve.points): return []
 
-    TOLLERANCE = 1e-4
-
     # Closed curves from rhino will have n + degree points. We ignore the extras
     num_points = len(points) // 3 - scurve.degree if (scurve.closed) else (
         len(points) // 3)   
