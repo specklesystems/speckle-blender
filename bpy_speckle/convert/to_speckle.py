@@ -10,7 +10,6 @@ from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Point, Polyli
 from specklepy.objects.other import *
 from bpy_speckle.functions import _report
 from bpy_speckle.convert.util import (
-    _make_knots,
     get_blender_custom_properties,
     make_knots,
     nurb_make_curve,
@@ -179,7 +178,7 @@ def bezier_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, n
 def nurbs_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
 
     degree = spline.order_u - 1
-    knots = _make_knots(spline)
+    knots = make_knots(spline)
 
     length = spline.calc_length()
     domain = Interval(start=0, end=length, totalChildrenCount=0)

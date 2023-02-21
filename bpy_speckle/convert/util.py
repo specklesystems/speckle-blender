@@ -1,11 +1,10 @@
-from enum import IntFlag
 import math
 from typing import Any, Optional, Tuple
 from bmesh.types import BMesh
 import bpy, struct, idprop
 
 from specklepy.objects.base import Base
-from specklepy.objects.geometry import Mesh
+from specklepy.objects.geometry import Circle, Mesh, Ellipse
 from specklepy.objects.other import RenderMaterial
 from bpy_speckle.functions import _report
 from bpy.types import Material, Object
@@ -252,7 +251,6 @@ def get_blender_custom_properties(obj, max_depth=1000):
         return [get_blender_custom_properties(o, max_depth - 1) for o in obj]
     
     return obj
-
 
 """
 Python implementation of Blender's NURBS curve generation for to Speckle conversion
