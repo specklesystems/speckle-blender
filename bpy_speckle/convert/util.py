@@ -138,7 +138,7 @@ def add_vertices(speckle_mesh: Mesh, blender_mesh: BMesh, scale=1.0):
 
 
 
-def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, indexOffset: int, materialIndex: int = 0, smooth:bool = False):
+def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, indexOffset: int, materialIndex: int = 0, smooth:bool = True):
     sfaces = speckle_mesh.faces
     
     if sfaces and len(sfaces) > 0:
