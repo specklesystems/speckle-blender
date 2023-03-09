@@ -17,7 +17,7 @@ from .util import (
     add_uv_coords,
 )
 
-SUPPORTED_CURVES = (Line, Polyline, Curve, Arc, Polycurve)
+SUPPORTED_CURVES = (Line, Polyline, Curve, Arc, Polycurve, Ellipse, Circle)
 
 CAN_CONVERT_TO_NATIVE = (
     Mesh,
@@ -223,6 +223,8 @@ def meshes_to_native(element: Base, meshes: Collection[Mesh], name: str, scale: 
 
 
 def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
+    if not speckle_curve.end: return []
+
     line = blender_curve.splines.new("POLY")
     line.points.add(1)
 
@@ -233,75 +235,71 @@ def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: f
         1,
     )
 
-    if speckle_curve.end:
+    line.points[1].co = (
+        float(speckle_curve.end.x) * scale,
+        float(speckle_curve.end.y) * scale,
+        float(speckle_curve.end.z) * scale,
+        1,
+    )
 
-        line.points[1].co = (
-            float(speckle_curve.end.x) * scale,
-            float(speckle_curve.end.y) * scale,
-            float(speckle_curve.end.z) * scale,
+    return [line]
+
+
+def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
+    if not (value := scurve.value): return []
+    N = len(value) // 3
+
+    polyline = bcurve.splines.new("POLY")
+
+    if hasattr(scurve, "closed"):
+        polyline.use_cyclic_u = scurve.closed
+
+    # if "closed" in scurve.keys():
+    #    polyline.use_cyclic_u = scurve["closed"]
+
+    polyline.points.add(N - 1)
+    for i in range(N):
+        polyline.points[i].co = (
+            float(value[i * 3]) * scale,
+            float(value[i * 3 + 1]) * scale,
+            float(value[i * 3 + 2]) * scale,
             1,
         )
 
-        return [line]
-    return []
-
-def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
-    if value := scurve.value:
-        N = len(value) // 3
-
-        polyline = bcurve.splines.new("POLY")
-
-        if hasattr(scurve, "closed"):
-            polyline.use_cyclic_u = scurve.closed
-
-        # if "closed" in scurve.keys():
-        #    polyline.use_cyclic_u = scurve["closed"]
-
-        polyline.points.add(N - 1)
-        for i in range(N):
-            polyline.points[i].co = (
-                float(value[i * 3]) * scale,
-                float(value[i * 3 + 1]) * scale,
-                float(value[i * 3 + 2]) * scale,
-                1,
-            )
-
-        return [polyline]
-    return []
+    return [polyline]
+    
 
 
 def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
-    if points := scurve.points:
-        N = len(points) // 3
+    if not (points := scurve.points): return []
+
+    # Closed curves from rhino will have n + degree points. We ignore the extras
+    num_points = len(points) // 3 - scurve.degree if (scurve.closed) else (
+        len(points) // 3)   
+    
+    nurbs = bcurve.splines.new("NURBS")
+    nurbs.use_cyclic_u = scurve.closed
+    nurbs.use_endpoint_u = not scurve.periodic
+    
+    nurbs.points.add(num_points - 1)
+    use_weights = len(scurve.weights) >= num_points
+    for i in range(num_points):
+        nurbs.points[i].co = (
+            float(points[i * 3]) * scale,
+            float(points[i * 3 + 1]) * scale,
+            float(points[i * 3 + 2]) * scale,
+            1,
+        )
         
-        nurbs = bcurve.splines.new("NURBS")
+        nurbs.points[i].weight = scurve.weights[i] if use_weights else 1
 
-        if hasattr(scurve, "closed"):
-            nurbs.use_cyclic_u = scurve.closed != 0
+    nurbs.order_u = scurve.degree + 1
 
-        nurbs.points.add(N - 1)
-        for i in range(N):
-            nurbs.points[i].co = (
-                float(points[i * 3]) * scale,
-                float(points[i * 3 + 1]) * scale,
-                float(points[i * 3 + 2]) * scale,
-                1,
-            )
-
-        if len(scurve.weights) == len(nurbs.points):
-            for i, w in enumerate(scurve.weights):
-                nurbs.points[i].weight = w
-
-        # TODO: anaylize curve knots to decide if use_endpoint_u or use_bezier_u should be enabled
-        # nurbs.use_endpoint_u = True
-        nurbs.order_u = scurve.degree + 1
-
-        return [nurbs]
-    return []
+    return [nurbs]
 
 
 def arc_to_native(rcurve: Arc, bcurve: bpy.types.Curve, scale: float) -> Optional[bpy.types.Spline]:
-    # TODO: improve Blender representation of arc
+    # TODO: improve Blender representation of arc - check autocad test stream
 
     plane = rcurve.plane
     if not plane:
@@ -380,6 +378,55 @@ def polycurve_to_native(scurve: Polycurve, bcurve: bpy.types.Curve, scale: float
 
     return curves
 
+def circle_to_native(circle: Circle, bcurve: bpy.types.Curve, units_scale: float) -> list[bpy.types.Spline]:
+    #HACK: not the cleanest way
+    circle["firstRadius"] = circle.radius
+    circle["secondRadius"] = circle.radius
+    return ellipse_to_native(circle, bcurve, units_scale) # type: ignore
+ 
+def ellipse_to_native(ellipse: Ellipse, bcurve: bpy.types.Curve, units_scale: float) -> list[bpy.types.Spline]:
+    plane = ellipse.plane
+
+    radX = ellipse.firstRadius * units_scale
+    radY = ellipse.secondRadius * units_scale
+
+    D = 2 * 0.27606262
+
+    right_handles = [
+        (+radX,     +radY * D,  0.0),
+        (-radX * D, +radY,      0.0),
+        (-radX,     -radY * D,  0.0),
+        (+radX * D, -radY,      0.0),
+    ]
+
+    left_handles = [
+        (+radX,     -radY * D,  0.0),
+        (+radX * D, +radY,      0.0),
+        (-radX,     +radY * D,  0.0),
+        (-radX * D, -radY,      0.0),
+    ]
+
+    points = [
+        (+radX, 0.0,   0.0),
+        (0.0,   +radY, 0.0),
+        (-radX, 0.0,   0.0),
+        (0.0,   -radY, 0.0),
+    ]
+    transform = plane_to_native_transform(plane, units_scale)
+
+    spline = bcurve.splines.new("BEZIER")
+    spline.bezier_points.add(len(points) - 1)
+
+    for i in range(len(points)):
+        spline.bezier_points[i].co = transform @ mathutils.Vector(points[i])
+        spline.bezier_points[i].handle_left = transform @ mathutils.Vector(left_handles[i])
+        spline.bezier_points[i].handle_right = transform @ mathutils.Vector(right_handles[i])
+
+    spline.use_cyclic_u = True
+    
+    #TODO support trims?
+    return [spline]
+
 
 def icurve_to_native_spline(speckle_curve: Base, blender_curve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
     # polycurves
@@ -395,6 +442,10 @@ def icurve_to_native_spline(speckle_curve: Base, blender_curve: bpy.types.Curve,
         spline = polyline_to_native(speckle_curve, blender_curve, scale)
     elif isinstance(speckle_curve, Arc):
         spline =  arc_to_native(speckle_curve, blender_curve, scale)
+    elif isinstance(speckle_curve, Ellipse):
+        spline =  ellipse_to_native(speckle_curve, blender_curve, scale)
+    elif isinstance(speckle_curve, Circle):
+        spline =  circle_to_native(speckle_curve, blender_curve, scale)
     else:
         raise TypeError(f"{speckle_curve} is not a supported curve type. Supported types: {SUPPORTED_CURVES}")
 
@@ -433,6 +484,18 @@ def transform_to_native(transform: Transform, scale: float) -> mathutils.Matrix:
         mat[i][3] *= scale
     return mat
 
+def plane_to_native_transform(plane: Plane, fallback_scale:float = 1) -> mathutils.Matrix:
+    scale_factor = get_scale_factor(plane, fallback_scale)
+    tx = (plane.origin.x * scale_factor)
+    ty = (plane.origin.y * scale_factor)
+    tz = (plane.origin.z * scale_factor)
+
+    return mathutils.Matrix((
+        (plane.xdir.x,  plane.xdir.y,  plane.xdir.z , 0),
+        (plane.ydir.x,  plane.ydir.y,  plane.ydir.z , 0),
+        (plane.normal.x,  plane.normal.y,  plane.normal.z , 0),
+        (tx, ty, tz, 1)
+    )).transposed()
 
 def block_def_to_native(definition: BlockDefinition) -> bpy.types.Collection:
     native_def = bpy.data.collections.get(definition.name)

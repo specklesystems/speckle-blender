@@ -1,12 +1,18 @@
 from typing import Dict, Iterable, Optional, Tuple
 import bpy
 from bpy.types import Depsgraph, Material, MeshPolygon, Object
+from deprecated import deprecated
+from mathutils import (
+    Matrix as MMatrix,
+    Vector as MVector,
+)
 from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Point, Polyline
 from specklepy.objects.other import *
 from bpy_speckle.functions import _report
 from bpy_speckle.convert.util import (
     get_blender_custom_properties,
     make_knots,
+    nurb_make_curve,
     to_argb_int,
 )
 
@@ -117,7 +123,7 @@ def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh, scale: float =
     return submeshes
 
 
-def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
+def bezier_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
     degree = 3
     closed = spline.use_cyclic_u
 
@@ -169,36 +175,71 @@ def bezier_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: floa
     )
 
 
-def nurbs_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
-    knots = make_knots(spline)
-    points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
+def nurbs_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Curve:
+
     degree = spline.order_u - 1
+    knots = make_knots(spline)
 
     length = spline.calc_length()
     domain = Interval(start=0, end=length, totalChildrenCount=0)
 
+    weights = [pt.weight for pt in spline.points]
+    is_rational = all(w == weights[0] for w in weights)
+
+    points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
+
     flattend_points = []
     for row in points: flattend_points.extend(row)
+
+    if spline.use_cyclic_u:
+        for i in range(0, degree * 3, 3):
+            # Rhino expects n + degree number of points (for closed curves). So we need to add an extra point for each degree
+            flattend_points.append(flattend_points[i + 0])
+            flattend_points.append(flattend_points[i + 1])
+            flattend_points.append(flattend_points[i + 2])
+        
+        for i in range(0, degree):
+            weights.append(weights[i])
 
     return Curve(
         name=name,
         degree=degree,
         closed=spline.use_cyclic_u,
-        periodic=spline.use_cyclic_u,
+        periodic= not spline.use_endpoint_u,
         points=flattend_points,
-        weights=[pt.weight for pt in spline.points],
+        weights=weights,
         knots=knots,
-        rational=False,
+        rational=is_rational, 
         area=0,
         volume=0,
         length=length,
         domain=domain,
         units=UNITS,
         bbox=Box(area=0.0, volume=0.0),
+        displayValue=nurbs_to_speckle_polyline(matrix, spline, scale, length),
     )
 
+def nurbs_to_speckle_polyline(matrix: MMatrix, spline: bpy.types.Spline, scale: float, length: Optional[float] = None) -> Polyline:
+    """
+    Samples a nurbs curve with resolution_u creating a polyline
+    """
+    points = []
+    sampled_points = nurb_make_curve(spline, spline.resolution_u, 3)
+    for i in range(0, len(sampled_points), 3):
+        scaled_point = matrix @ MVector((
+        sampled_points[i + 0],
+        sampled_points[i + 1],
+        sampled_points[i + 2])) * scale
 
-def poly_to_speckle(matrix: List[float], spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Polyline:
+        points.append(scaled_point.x)
+        points.append(scaled_point.y)
+        points.append(scaled_point.z)
+        
+    length = length or spline.calc_length()
+    domain = Interval(start=0, end=length, totalChildrenCount=0)
+    return Polyline(value=points, closed = spline.use_cyclic_u, domain=domain, area=0, len=length)
+
+def poly_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, name: Optional[str] = None) -> Polyline:
     points = [tuple(matrix @ pt.co.xyz * scale) for pt in spline.points]
 
     flattend_points = []
@@ -246,7 +287,7 @@ def icurve_to_speckle(blender_object: Object, data: bpy.types.Curve, scale=1.0) 
 
     return curves
 
-
+@deprecated
 def ngons_to_speckle_polylines(blender_object: Object, data: bpy.types.Mesh, scale=1.0) -> Optional[List[Polyline]]:
     UNITS = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
 
