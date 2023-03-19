@@ -14,7 +14,7 @@ specklepy = "^2.12.0"
 
 [tool.poetry.group.dev.dependencies]
 numpy = "^1.23.5"
-fake-bpy-module-latest = "^20221006"
+fake-bpy-module-latest = "^20230117"
 black = "^22.10.0"
 pylint = "^2.15.7"
 ruff = "^0.0.166"

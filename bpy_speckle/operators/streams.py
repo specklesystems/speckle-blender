@@ -5,6 +5,8 @@ from itertools import chain
 from math import radians
 from typing import Callable, Dict, Iterable, Optional
 import bpy
+from bpy_speckle.convert.util import link_object_to_collection_nested
+from bpy_speckle.properties.scene import SpeckleSceneSettings
 from specklepy.api.models import Commit
 import webbrowser
 from bpy.props import (
@@ -187,7 +189,7 @@ def base_to_native(context: bpy.types.Context,
     #     new_objects.extend(
     #          get_speckle_subobjects(base["properties"], scale, base["id"])
     #      )
-
+ 
     """
     Set object Speckle settings
     """
@@ -216,8 +218,9 @@ def base_to_native(context: bpy.types.Context,
             new_object.name = name
             col.objects.unlink(existing[new_object.speckle.object_id])
 
-        if new_object.name not in col.objects:
-            col.objects.link(new_object)
+        link_object_to_collection_nested(new_object, col)
+        #if new_object.name not in col.objects:
+            #col.objects.link(new_object)
 
 
 def create_collection(name: str, clear_collection=True) -> bpy.types.Collection:
@@ -282,8 +285,13 @@ def create_nested_hierarchy(base: Base, hierarchy: List[str], objects: Any):
 #RECEIVE_MODES = [#TODO: modes
 #    ("create", "Create", "Add new geometry, without removing any existing objects"),
 #    ("replace", "Replace", "Replace objects from previous receive operations from the same stream"),
-#    #("update","Update") #TODO: update mode!
+#    #("update","Update", "") #TODO: update mode!
 #]
+
+INSTANCES_SETTINGS = [
+    ("collection_instance", "Collection Instace", "Receive Instances as Collection Instances"),
+    ("linked_duplicates", "Linked Duplicates", "Receive Instances as Linked Duplicates"),
+]
 
 class ReceiveStreamObjects(bpy.types.Operator):
     """
@@ -299,13 +307,15 @@ class ReceiveStreamObjects(bpy.types.Operator):
     clean_meshes: BoolProperty(name="Clean Meshes", default=False)
 
     #receive_mode: EnumProperty(items=RECEIVE_MODES, name="Receive Type", default="replace", description="The behaviour of the recieve operation")
-
+    instances_setting: EnumProperty(items=INSTANCES_SETTINGS, name="Receive Instances As", default="collection_instance", description="How to receive speckle Instances")
+    
 
     def draw(self, context):
         layout = self.layout
         col = layout.column()
         col.prop(self, "clean_meshes")
         #col.prop(self, "receive_mode")
+        col.prop(self, "instances_setting")
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
@@ -341,30 +351,31 @@ class ReceiveStreamObjects(bpy.types.Operator):
     def execute(self, context):
         bpy.context.view_layer.objects.active = None
 
-        check = _check_speckle_client_user_stream(context.scene)
-        if check is None:
+        speckle: SpeckleSceneSettings = context.scene.speckle
+        
+        #Get UI Selection
+        user = speckle.get_active_user()
+        if not user:
+            print("No user selected/found")
             return {"CANCELLED"}
 
-        user, bstream = check
-
-        client = speckle_clients[int(context.scene.speckle.active_user)]
-
-        stream = client.stream.get(id=bstream.id, branch_limit=20)
-        if stream.branches.totalCount < 1:
+        stream = user.get_active_stream()
+        if not stream:
+            print("No stream selected/found")
             return {"CANCELLED"}
 
-        if not stream.branches:
+        branch = stream.get_active_branch()
+        if not branch:
+            print("No branch selected/found")
             return {"CANCELLED"}
 
-        branch = stream.branches.items[int(bstream.branch)]
-
-        bbranch = bstream.branches[int(bstream.branch)]
-
-        if branch.commits.totalCount < 1:
-            _report("No commits found. Probably an empty stream.")
+        commit = branch.get_active_commit()
+        if commit is None:
+            print("No commit selected/found")
             return {"CANCELLED"}
 
-        commit: Commit = branch.commits.items[int(bbranch.commit)]
+        #Get actual stream data
+        client = speckle_clients[int(speckle.active_user)]
 
         transport = ServerTransport(stream.id, client)
 
@@ -372,25 +383,24 @@ class ReceiveStreamObjects(bpy.types.Operator):
             metrics.RECEIVE,
             getattr(transport, "account", None), 
             custom_props={
-                "sourceHostApp": host_applications.get_host_app_from_string(commit.sourceApplication).slug,
-                "sourceHostAppVersion": commit.sourceApplication 
+                "sourceHostApp": host_applications.get_host_app_from_string(commit.source_application).slug,
+                "sourceHostAppVersion": commit.source_application
             },
         )
-        stream_data = operations._untracked_receive(commit.referencedObject, transport)
+        commit_object = operations._untracked_receive(commit.referenced_object, transport)
         client.commit.received(
-            bstream.id,
+            stream.id,
             commit.id,
             source_application="blender",
             message="received commit from Speckle Blender",
         )
 
-        context.window_manager.progress_begin(0, stream_data.totalChildrenCount)
-
+        context.window_manager.progress_begin(0, commit_object.totalChildrenCount or 1)
 
         """
         Create or get Collection for stream objects
         """
-        collections = get_objects_collections(stream_data)
+        collections = get_objects_collections(commit_object)
 
         if not collections:
             return {"CANCELLED"}
@@ -403,7 +413,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         col = create_collection(name)
         col.speckle.stream_id = stream.id
-        col.speckle.units = stream_data.units or "m"
+        col.speckle.units = commit_object.units or "m"
             
         if col.name not in bpy.context.scene.collection.children:
             bpy.context.scene.collection.children.link(col)
@@ -490,10 +500,11 @@ class SendStreamObjects(bpy.types.Operator):
             return {"CANCELLED"}
 
         check = _check_speckle_client_user_stream(context.scene)
-        if check is None:
+        user, bstream = check
+
+        if user is None:
             return {"CANCELLED"}
 
-        user, bstream = check
         stream = user.streams[user.active_stream]
         branch = stream.branches[int(stream.branch)]
 
@@ -572,17 +583,20 @@ class SendStreamObjects(bpy.types.Operator):
 
         transport = ServerTransport(stream.id, client)
 
+        _report(f"Sending to {stream}")
         obj_id = operations.send(
             base,
             [transport],
         )
-        client.commit.create(
+
+        commitId = client.commit.create(
             stream.id,
             obj_id,
             branch.name,
             message=self.commit_message,
             source_application="blender",
         )
+        _report(f"Commit Created {user.server_url}/streams/{stream.id}/commits/{commitId}")
 
         bpy.ops.speckle.load_user_streams()
 
