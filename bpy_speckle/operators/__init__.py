@@ -1,4 +1,4 @@
-from .users import LoadUsers, LoadUserStreams
+from .users import LoadUsers, LoadUserStreams, ResetUsers
 from .object import (
     UpdateObject,
     ResetObject,
@@ -27,6 +27,7 @@ from .misc import OpenSpeckleGuide, OpenSpeckleTutorials, OpenSpeckleForum
 
 operator_classes = [
     LoadUsers,
+    ResetUsers,
     ReceiveStreamObjects,
     SendStreamObjects,
     LoadUserStreams,

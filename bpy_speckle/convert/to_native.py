@@ -1,5 +1,5 @@
 import math
-from typing import Iterable, Tuple, Union, Collection
+from typing import Tuple, Union, Collection
 from bpy_speckle.functions import get_scale_length, _report
 from mathutils import (
     Matrix as MMatrix,
@@ -8,12 +8,9 @@ from mathutils import (
 )
 import bpy, bmesh
 from specklepy.objects.other import (
-    Collection as SCollection,
     Instance,
     Transform,
     BlockDefinition,
-    BlockInstance,
-
 )
 from specklepy.objects.geometry import *
 from bpy.types import Object
@@ -67,7 +64,13 @@ def create_new_object(obj_data: Optional[bpy.types.ID], desired_name: str, count
     blender_object = bpy.data.objects.new(name, obj_data)
     return blender_object
 
+convert_instances_as: str #HACK: This is hacky, we need a better way to pass settings down to the converter
+def set_convert_instances_as(value: str):
+    global convert_instances_as
+    convert_instances_as = value
+    
 def convert_to_native(speckle_object: Base) -> list[Object]:
+
     speckle_type = type(speckle_object)
     try:
         object_name = _generate_object_name(speckle_object)
@@ -88,9 +91,9 @@ def convert_to_native(speckle_object: Base) -> list[Object]:
         elif speckle_type in SUPPORTED_CURVES:
             obj_data = icurve_to_native(speckle_object, object_name, scale)
         elif isinstance(speckle_object, Instance):
-            #if(bpy.context.scene.speckle.instances_setting == "linked_duplicates"): #TODO: figure out how we can pass this setting in to the converter
-            #    (obj_data, converted) = instance_to_native_object(speckle_object, scale)
-            #else: # instances_setting == collection_instance
+            if convert_instances_as == "linked_duplicates":
+                (obj_data, converted) = instance_to_native_object(speckle_object, scale)
+            else: # convert_instances_as == collection_instance
                 obj_data = instance_to_native_collection_instance(speckle_object, scale)
         else:
             _report(f"Unsupported type {speckle_type}")
@@ -540,9 +543,14 @@ def instance_to_native_object(instance: Instance, scale: float) -> Tuple[bpy.typ
     else:
         native_instance = convert_to_native(instance.definition)[-1] # Convert assuming that definition is convertable
 
-    native_instance.matrix_world = transform_to_native(instance.transform, scale)
-
+    instance_transform = transform_to_native(instance.transform, scale)
+    instance_transform_inverted = instance_transform.inverted()
+    native_instance.matrix_world = instance_transform
+    
     (_, elements_on_instance) = element_to_native(instance, name, scale)
+    for c in elements_on_instance:
+        c.matrix_world = instance_transform_inverted @ c.matrix_world #Undo the instance transform on elements
+
     native_elements.extend(elements_on_instance)
     
     return (native_instance, native_elements) #TODO: need to double check that all child objects have custom props attached correctly
@@ -565,6 +573,10 @@ def instance_to_native_collection_instance(instance: Instance, scale: float) -> 
 
     # Convert elements as children of collection instance object
     (_, elements) = element_to_native(instance, name, scale, False)
+
+    instance_transform = transform_to_native(instance.transform, scale)
+    instance_transform_inverted = instance_transform.inverted()
+
     native_instance = bpy.data.objects.new(name, None)
 
     #add_custom_properties(instance, native_instance)
@@ -572,9 +584,10 @@ def instance_to_native_collection_instance(instance: Instance, scale: float) -> 
     native_instance.empty_display_size = 0
     native_instance.instance_collection = collection_def
     native_instance.instance_type = "COLLECTION"
-    native_instance.matrix_world = transform_to_native(instance.transform, scale)
+    native_instance.matrix_world =instance_transform
 
     for c in elements:
+        c.matrix_world = instance_transform_inverted @ c.matrix_world #Undo the instance transform on elements
         c.parent = native_instance #TODO: need to double check that all child objects have custom props attached correctly
 
     return native_instance 
@@ -609,7 +622,9 @@ Object Naming
 
 def _speckle_object_name(speckle_object: Base) -> Optional[str]:
     return (getattr(speckle_object, "name", None)
-        or getattr(speckle_object, "Name", None))
+        or getattr(speckle_object, "Name", None)
+        or getattr(speckle_object, "family", None)
+        )
 
 
 # Blender object names must not exceed 62 characters

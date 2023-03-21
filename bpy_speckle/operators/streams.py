@@ -15,7 +15,11 @@ from bpy.props import (
     EnumProperty,
 )
 from bpy.types import Context, Object
-from bpy_speckle.convert.to_native import can_convert_to_native, convert_to_native
+from bpy_speckle.convert.to_native import (
+    can_convert_to_native,
+    convert_to_native,
+    set_convert_instances_as,
+)
 from bpy_speckle.convert.to_speckle import (
     convert_to_speckle,
 )
@@ -276,9 +280,9 @@ def create_nested_hierarchy(base: Base, hierarchy: List[str], objects: Any):
         child = child[name]
 
     # TODO: what do we call this attribute?
-    if not hasattr(child, "@objects"):
-        child["@objects"] = []
-    child["@objects"].extend(objects)
+    if not hasattr(child, "@elements"):
+        child["@elements"] = []
+    child["@elements"].extend(objects)
 
     return base
 
@@ -307,7 +311,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
     clean_meshes: BoolProperty(name="Clean Meshes", default=False)
 
     #receive_mode: EnumProperty(items=RECEIVE_MODES, name="Receive Type", default="replace", description="The behaviour of the recieve operation")
-    instances_setting: EnumProperty(items=INSTANCES_SETTINGS, name="Receive Instances As", default="collection_instance", description="How to receive speckle Instances")
+    receive_instances_as: EnumProperty(items=INSTANCES_SETTINGS, name="Receive Instances As", default="collection_instance", description="How to receive speckle Instances")
     
 
     def draw(self, context):
@@ -315,7 +319,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
         col = layout.column()
         col.prop(self, "clean_meshes")
         #col.prop(self, "receive_mode")
-        col.prop(self, "instances_setting")
+        col.prop(self, "receive_instances_as")
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
@@ -397,12 +401,15 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         context.window_manager.progress_begin(0, commit_object.totalChildrenCount or 1)
 
+        set_convert_instances_as(self.receive_instances_as) #HACK: we need a better way to pass settings down to the converter
+
         """
         Create or get Collection for stream objects
         """
         collections = get_objects_collections(commit_object)
 
         if not collections:
+            print("Unusual commit structure - did not correctly create collections")
             return {"CANCELLED"}
 
         # name = ""
