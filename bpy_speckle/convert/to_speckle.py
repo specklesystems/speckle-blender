@@ -2,6 +2,7 @@ from typing import Dict, Iterable, Optional, Tuple
 import bpy
 from bpy.types import Depsgraph, Material, MeshPolygon, Object
 from deprecated import deprecated
+from mathutils.geometry import interpolate_bezier
 from mathutils import (
     Matrix as MMatrix,
     Vector as MVector,
@@ -161,17 +162,18 @@ def bezier_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, scale: float, n
         name=name,
         degree=degree,
         closed=spline.use_cyclic_u,
-        periodic=spline.use_cyclic_u,
+        periodic= not spline.use_endpoint_u,
         points=flattend_points,
         weights=[1] * num_points,
         knots=knots,
-        rational=False,
+        rational=True,
         area=0,
         volume=0,
         length=length,
         domain=domain,
         units=UNITS,
         bbox=Box(area=0.0, volume=0.0),
+        displayValue = bezier_to_speckle_polyline(matrix, spline, scale, length),
     )
 
 
@@ -235,6 +237,41 @@ def nurbs_to_speckle_polyline(matrix: MMatrix, spline: bpy.types.Spline, scale: 
         points.append(scaled_point.y)
         points.append(scaled_point.z)
         
+    length = length or spline.calc_length()
+    domain = Interval(start=0, end=length, totalChildrenCount=0)
+    return Polyline(value=points, closed = spline.use_cyclic_u, domain=domain, area=0, len=length)
+
+
+#Inspired by https://blender.stackexchange.com/a/689 (CC BY-SA 3.0) 
+def bezier_to_speckle_polyline(matrix: MMatrix, spline: bpy.types.Spline, scale: float, length: Optional[float] = None) -> Optional[Polyline]:
+    """
+    Samples a Bézier curve with resolution_u creating a polyline
+    """
+    segments = len(spline.bezier_points)
+    if segments < 2: return None
+
+    R = spline.resolution_u + 1
+
+    points = []
+    if not spline.use_cyclic_u:
+        segments -= 1
+    
+    points: List[float] = []
+    for i in range(segments):
+        inext = (i + 1) % len(spline.bezier_points)
+
+        knot1 = spline.bezier_points[i].co
+        handle1 = spline.bezier_points[i].handle_right
+        handle2 = spline.bezier_points[inext].handle_left
+        knot2 = spline.bezier_points[inext].co
+
+        _points = interpolate_bezier(knot1, handle1, handle2, knot2, R)
+        for p in _points:
+            scaled_point = matrix @ p * scale
+            points.append(scaled_point.x)
+            points.append(scaled_point.y)
+            points.append(scaled_point.z)
+
     length = length or spline.calc_length()
     domain = Interval(start=0, end=length, totalChildrenCount=0)
     return Polyline(value=points, closed = spline.use_cyclic_u, domain=domain, area=0, len=length)

@@ -37,8 +37,12 @@ loading a Blender file
 @persistent
 def load_handler(dummy):
     pass
-    #bpy.ops.speckle.users_load() #this is an expensive operation, one that forces the user to wait every time blender loads. Until we can do this non-blocking, we will make the user hit the refresh button each time.
-
+    # Calling users_load is an expensive operation, one that force users to wait a good 10s every time blender loads.
+    # Until we can do this non-blocking, we will make the user hit the refresh button each time.
+    #bpy.ops.speckle.users_load()
+    
+    # Instead, we shall just reset the user selection to an uninitiailised state
+    bpy.ops.speckle.users_reset()
 
 """
 Permanent handle on callbacks

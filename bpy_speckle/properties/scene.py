@@ -1,6 +1,7 @@
 """
 Scene properties
 """
+from typing import Optional
 import bpy
 from bpy.props import (
     StringProperty,
@@ -18,12 +19,13 @@ class SpeckleSceneObject(bpy.types.PropertyGroup):
 
 
 class SpeckleCommitObject(bpy.types.PropertyGroup):
-    id: StringProperty(default="abc")
-    message: StringProperty(default="A simple commit")
-    author_name: StringProperty(default="Author name")
-    author_id: StringProperty(default="Author ID")
-    created_at: StringProperty(default="Today")
-    source_application: StringProperty(default="Unknown")
+    id: StringProperty(default="")
+    message: StringProperty(default="")
+    author_name: StringProperty(default="")
+    author_id: StringProperty(default="")
+    created_at: StringProperty(default="")
+    source_application: StringProperty(default="")
+    referenced_object: StringProperty(default="")
 
 
 class SpeckleBranchObject(bpy.types.PropertyGroup):
@@ -42,6 +44,12 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
         description="Active commit",
         items=get_commits,
     )
+    
+    def get_active_commit(self) -> Optional[SpeckleCommitObject]:
+        selected_index = int(self.commit)
+        if 0 <= selected_index < len(self.commits): 
+            return self.commits[selected_index]
+        return None
 
 
 class SpeckleStreamObject(bpy.types.PropertyGroup):
@@ -66,6 +74,12 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
         items=get_branches,
     )
 
+    def get_active_branch(self) -> Optional[SpeckleBranchObject]:
+        selected_index = int(self.branch)
+        if 0 <= selected_index < len(self.branches): 
+            return self.branches[selected_index]
+        return None
+
 
 class SpeckleUserObject(bpy.types.PropertyGroup):
     server_name: StringProperty(default="SpeckleXYZ")
@@ -76,6 +90,11 @@ class SpeckleUserObject(bpy.types.PropertyGroup):
     streams: CollectionProperty(type=SpeckleStreamObject)
     active_stream: IntProperty(default=0)
 
+    def get_active_stream(self) -> Optional[SpeckleStreamObject]:
+        selected_index = int(self.active_stream)
+        if 0 <= selected_index < len(self.streams): 
+            return self.streams[selected_index]
+        return None
 
 class SpeckleSceneSettings(bpy.types.PropertyGroup):
     def get_scripts(self, context):
@@ -103,8 +122,8 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
 
     active_user: EnumProperty(
         items=get_users,
-        name="User",
-        description="Select user",
+        name="Account",
+        description="Select account",
         update=set_user,
         get=None,
         set=None,
@@ -131,3 +150,9 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
         description="Script to run when sending stream objects.",
         items=get_scripts,
     )
+
+    def get_active_user(self) -> Optional[SpeckleUserObject]:
+        selected_index = int(self.active_user)
+        if 0 < selected_index < len(self.users):
+            return self.users[selected_index]
+        return None

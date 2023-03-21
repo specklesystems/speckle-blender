@@ -422,3 +422,10 @@ def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[
         u += ustep
 
     return coord_array
+
+def link_object_to_collection_nested(obj: bpy.types.Object, col: bpy.types.Collection):
+    if obj.name not in col.objects:
+        col.objects.link(obj)
+
+    for child in obj.children:
+        link_object_to_collection_nested(child, col)

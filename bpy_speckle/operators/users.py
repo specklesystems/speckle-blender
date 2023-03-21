@@ -4,12 +4,35 @@ User account operators
 import bpy
 from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.properties.scene import SpeckleSceneSettings
+from bpy_speckle.properties.scene import SpeckleCommitObject, SpeckleSceneSettings
 from specklepy.api.client import SpeckleClient
 from specklepy.api.models import Stream, User
 from specklepy.api.credentials import get_local_accounts
 from datetime import datetime
 
+class ResetUsers(bpy.types.Operator):
+    """
+    Reset loaded users
+    """
+
+    bl_idname = "speckle.users_reset"
+    bl_label = "Reset users"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        self.reset_ui(context)
+
+        bpy.context.view_layer.update()
+        if context.area:
+            context.area.tag_redraw()
+        return {"FINISHED"}
+
+    @staticmethod
+    def reset_ui(context: bpy.types.Context):
+        speckle: SpeckleSceneSettings = context.scene.speckle
+
+        speckle.users.clear()
+        speckle_clients.clear()
 
 class LoadUsers(bpy.types.Operator):
     """
@@ -24,11 +47,10 @@ class LoadUsers(bpy.types.Operator):
 
         _report("Loading users...")
 
-        speckle : SpeckleSceneSettings = context.scene.speckle
+        speckle: SpeckleSceneSettings = context.scene.speckle
         users = speckle.users
 
-        speckle.users.clear()
-        speckle_clients.clear()
+        ResetUsers.reset_ui(context)
 
         profiles = get_local_accounts()
         active_user_index = 0
@@ -53,7 +75,7 @@ class LoadUsers(bpy.types.Operator):
             if profile.isDefault:
                 active_user_index = len(users) - 1
 
-        speckle.active_user_index = int(speckle.active_user)
+        #speckle.active_user_index = int(speckle.active_user) #TODO Wtf is this?
         speckle.active_user = str(active_user_index)
         bpy.context.view_layer.update()
 
@@ -80,13 +102,14 @@ def add_user_stream(user: User, stream: Stream):
             continue
 
         for c in b.commits.items:
-            commit = branch.commits.add()
+            commit: SpeckleCommitObject = branch.commits.add()
             commit.id = commit.name = c.id
             commit.message = c.message or ""
             commit.author_name = c.authorName
             commit.author_id = c.authorId
             commit.created_at = datetime.strftime(c.createdAt, "%Y-%m-%d %H:%M:%S.%f%Z")
             commit.source_application = str(c.sourceApplication)
+            commit.referenced_object = c.referencedObject
 
     if hasattr(s, "baseProperties"):
         s.units = stream.baseProperties.units

@@ -28,7 +28,6 @@ class UpdateObject(bpy.types.Operator):
     def execute(self, context):
         user = context.scene.speckle.users[int(context.scene.speckle.active_user)]
         client = speckle_clients[int(context.scene.speckle.active_user)]
-        stream = user.streams[user.active_stream]
 
         active = context.active_object
         _report(active)
