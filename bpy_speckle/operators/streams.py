@@ -279,7 +279,6 @@ def create_nested_hierarchy(base: Base, hierarchy: List[str], objects: Any):
             child.add_detachable_attrs({name})
         child = child[name]
 
-    # TODO: what do we call this attribute?
     if not hasattr(child, "@elements"):
         child["@elements"] = []
     child["@elements"].extend(objects)
