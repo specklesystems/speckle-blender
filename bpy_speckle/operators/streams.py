@@ -558,11 +558,6 @@ class SendStreamObjects(bpy.types.Operator):
 
             _report("Converting {}".format(obj.name))
 
-            # ngons = obj.get("speckle_ngons_as_polylines", False)
-
-            # if ngons:
-            #     converted = ngons_to_speckle_polylines(obj, scale)
-            # else:
             converted = convert_to_speckle(
                 obj,
                 scale,
