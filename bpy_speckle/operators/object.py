@@ -4,6 +4,7 @@ Object operators
 
 import bpy
 from bpy.props import BoolProperty, EnumProperty
+from deprecated import deprecated
 from bpy_speckle.convert.to_speckle import (
     convert_to_speckle,
     ngons_to_speckle_polylines,
@@ -126,7 +127,7 @@ class DeleteObject(bpy.types.Operator):
 
         return {"FINISHED"}
 
-
+@deprecated
 class UploadNgonsAsPolylines(bpy.types.Operator):
     """
     Upload mesh ngon faces as polyline outlines

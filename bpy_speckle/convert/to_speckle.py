@@ -84,12 +84,15 @@ def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh, scale: float =
 
         #Loop through each polygon, and map indicies to their new index in m_verts
     
+        mesh_area = 0
         m_verts: List[float] = []
         m_faces: List[int] = []
         m_texcoords: List[float] = []
         for face in submesh_data[i]:
             u_indices = face.vertices
             m_faces.append(len(u_indices))
+
+            mesh_area += face.area
             for u_index in u_indices:
                 if u_index not in index_mapping:
                     # Create mapping between index in blender mesh, and new index in speckle submesh
@@ -112,6 +115,7 @@ def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh, scale: float =
             colors=[],
             textureCoordinates=m_texcoords,
             units=UNITS,
+            area = mesh_area,
             bbox=Box(area=0.0, volume=0.0),
         )
         
@@ -344,7 +348,7 @@ def ngons_to_speckle_polylines(blender_object: Object, data: bpy.types.Mesh, sca
         poly = Polyline(
             name="{}_{}".format(blender_object.name, i),
             closed=True,
-            value=value,  # magic (flatten list of tuples)
+            value=value,
             length=0,
             domain=domain,
             bbox=Box(area=0.0, volume=0.0),

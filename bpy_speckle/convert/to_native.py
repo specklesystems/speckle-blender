@@ -48,7 +48,6 @@ def can_convert_to_native(speckle_object: Base) -> bool:
     _report(f"Could not convert unsupported Speckle object: {speckle_object}")
     return False
 
-
 def create_new_object(obj_data: Optional[bpy.types.ID], desired_name: str, counter: int = 0) -> bpy.types.Object:
     """
     Creates a new blender object with a unique name,
@@ -57,7 +56,9 @@ def create_new_object(obj_data: Optional[bpy.types.ID], desired_name: str, count
     """
     name = desired_name if counter == 0 else f"{desired_name[:OBJECT_NAME_MAX_LENGTH - 4]}.{counter:03d}"  # format counter as name.xxx, truncate to ensure we don't exceed the object name max length
 
-    if name in bpy.data.objects.keys():
+    #TODO: This is very slow, and gets slower the more objects you receive with the same name...
+    # We could use a binary/galloping search, and/or cache the name -> index within a receive.
+    if name in bpy.data.objects.keys(): 
         #Object already exists, increment counter and try again!
         return create_new_object(obj_data, desired_name, counter + 1)
 
@@ -93,8 +94,12 @@ def convert_to_native(speckle_object: Base) -> list[Object]:
         elif isinstance(speckle_object, Instance):
             if convert_instances_as == "linked_duplicates":
                 (obj_data, converted) = instance_to_native_object(speckle_object, scale)
-            else: # convert_instances_as == collection_instance
+            elif convert_instances_as != "collection_instance":
                 obj_data = instance_to_native_collection_instance(speckle_object, scale)
+            else:
+                _report(f"convert_instances_as = '{convert_instances_as}' is not implemented, Instances will be converted as collection instances!")
+                obj_data = instance_to_native_collection_instance(speckle_object, scale)
+
         else:
             _report(f"Unsupported type {speckle_type}")
             return []
@@ -263,9 +268,6 @@ def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) 
 
     if hasattr(scurve, "closed"):
         polyline.use_cyclic_u = scurve.closed
-
-    # if "closed" in scurve.keys():
-    #    polyline.use_cyclic_u = scurve["closed"]
 
     polyline.points.add(N - 1)
     for i in range(N):
@@ -504,12 +506,13 @@ def plane_to_native_transform(plane: Plane, fallback_scale:float = 1) -> MMatrix
     ty = (plane.origin.y * scale_factor)
     tz = (plane.origin.z * scale_factor)
 
+
     return MMatrix((
-        (plane.xdir.x,  plane.xdir.y,  plane.xdir.z , 0),
-        (plane.ydir.x,  plane.ydir.y,  plane.ydir.z , 0),
-        (plane.normal.x,  plane.normal.y,  plane.normal.z , 0),
-        (tx, ty, tz, 1)
-    )).transposed()
+        (plane.xdir.x,  plane.ydir.x,  plane.normal.x, tx),
+        (plane.xdir.y,  plane.ydir.y,  plane.normal.y, ty),
+        (plane.xdir.z,  plane.ydir.z,  plane.normal.z, tz),
+        (0,             0,             0,              1 )
+    ))
 
 
 """
