@@ -1,28 +1,117 @@
+"""
+Provides uniform and consistent path helpers for `specklepy`
+"""
+import os
+import sys
 from pathlib import Path
+from typing import Optional
 from importlib import import_module, invalidate_caches
 
-import bpy
-import sys
+_user_data_env_var = "SPECKLE_USERDATA_PATH"
 
-print("Starting Speckle Blender installation")
+
+def _path() -> Optional[Path]:
+    """Read the user data path override setting."""
+    path_override = os.environ.get(_user_data_env_var)
+    if path_override:
+        return Path(path_override)
+    return None
+
+
+_application_name = "Speckle"
+
+
+def override_application_name(application_name: str) -> None:
+    """Override the global Speckle application name."""
+    global _application_name
+    _application_name = application_name
+
+
+def override_application_data_path(path: Optional[str]) -> None:
+    """
+    Override the global Speckle application data path.
+
+    If the value of path is `None` the environment variable gets deleted.
+    """
+    if path:
+        os.environ[_user_data_env_var] = path
+    else:
+        os.environ.pop(_user_data_env_var, None)
+
+
+def _ensure_folder_exists(base_path: Path, folder_name: str) -> Path:
+    path = base_path.joinpath(folder_name)
+    path.mkdir(exist_ok=True, parents=True)
+    return path
+
+
+def user_application_data_path() -> Path:
+    """Get the platform specific user configuration folder path"""
+    path_override = _path()
+    if path_override:
+        return path_override
+
+    try:
+        if sys.platform.startswith("win"):
+            app_data_path = os.getenv("APPDATA")
+            if not app_data_path:
+                raise Exception(
+                    "Cannot get appdata path from environment."
+                )
+            return Path(app_data_path)
+        else:
+            # try getting the standard XDG_DATA_HOME value
+            # as that is used as an override
+            app_data_path = os.getenv("XDG_DATA_HOME")
+            if app_data_path:
+                return Path(app_data_path)
+            else:
+                return _ensure_folder_exists(Path.home(), ".config")
+    except Exception as ex:
+        raise Exception(
+            "Failed to initialize user application data path.", ex
+        )
+
+
+def user_speckle_folder_path() -> Path:
+    """Get the folder where the user's Speckle data should be stored."""
+    return _ensure_folder_exists(user_application_data_path(), _application_name)
+
+
+def user_speckle_connector_installation_path(host_application: str) -> Path:
+    """
+    Gets a connector specific installation folder.
+
+    In this folder we can put our connector installation and all python packages.
+    """
+    return _ensure_folder_exists(
+        _ensure_folder_exists(user_speckle_folder_path(), "connector_installations"),
+        host_application,
+    )
+
+
+
+
+
+
+print("Starting module dependency installation")
 print(sys.executable)
 
 PYTHON_PATH = sys.executable
 
 
 
-def modules_path() -> Path:
-    modules_path = Path(bpy.utils.script_path_user(), "addons", "modules")
-    modules_path.mkdir(exist_ok=True, parents=True)
+def connector_installation_path(host_application: str) -> Path:
+    connector_installation_path = user_speckle_connector_installation_path(host_application)
+    connector_installation_path.mkdir(exist_ok=True, parents=True)
 
     # set user modules path at beginning of paths for earlier hit
-    if sys.path[1] != modules_path:
-        sys.path.insert(1, str(modules_path))
+    if sys.path[0] != connector_installation_path:
+        sys.path.insert(0, str(connector_installation_path))
 
-    return modules_path
+    print(f"Using connector installation path {connector_installation_path}")
+    return connector_installation_path
 
-
-print(f"Found blender modules path {modules_path()}")
 
 
 def is_pip_available() -> bool:
@@ -34,7 +123,7 @@ def is_pip_available() -> bool:
 
 
 def ensure_pip() -> None:
-    print("Installing pip... "),
+    print("Installing pip... ")
 
     from subprocess import run
 
@@ -43,7 +132,7 @@ def ensure_pip() -> None:
     if completed_process.returncode == 0:
         print("Successfully installed pip")
     else:
-        raise Exception("Failed to install pip.")
+        raise Exception(f"Failed to install pip, got {completed_process.returncode} return code")
 
 
 def get_requirements_path() -> Path:
@@ -53,11 +142,11 @@ def get_requirements_path() -> Path:
     return path
 
 
-def install_requirements() -> None:
+def install_requirements(host_application: str) -> None:
     # set up addons/modules under the user
     # script path. Here we'll install the
     # dependencies
-    path = modules_path()
+    path = connector_installation_path(host_application)
     print(f"Installing Speckle dependencies to {path}")
 
     from subprocess import run
@@ -78,20 +167,16 @@ def install_requirements() -> None:
     )
 
     if completed_process.returncode != 0:
-        print("Please try manually installing speckle-blender")
-        raise Exception(
-            """
-            Failed to install speckle-blender.
-            See console for manual install instruction.
-            """
-        )
+        m = f"Failed to install dependenices through pip, got {completed_process.returncode} return code"
+        print(m)
+        raise Exception(m)
 
 
-def install_dependencies() -> None:
+def install_dependencies(host_application: str) -> None:
     if not is_pip_available():
         ensure_pip()
 
-    install_requirements()
+    install_requirements(host_application)
 
 
 def _import_dependencies() -> None:
@@ -110,19 +195,13 @@ def _import_dependencies() -> None:
     #     print(req)
     #     import_module("specklepy")
 
-
-def ensure_dependencies() -> None:
+def ensure_dependencies(host_application: str) -> None:
     try:
-        install_dependencies()
+        install_dependencies(host_application)
         invalidate_caches()
         _import_dependencies()
-        print("Found all dependencies, proceed with loading")
+        print("Successfully found dependencies")
     except ImportError:
-        raise Exception(
-            "Cannot automatically ensure Speckle dependencies. Please restart Blender!"
-        )
+        raise Exception(f"Cannot automatically ensure Speckle dependencies. Please try restarting the host application {host_application}!")
 
 
-
-if __name__ == "__main__":
-    ensure_dependencies()
