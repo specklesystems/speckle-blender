@@ -235,7 +235,7 @@ ignored_keys = {
     "_chunkable",
 }
 
-def get_blender_custom_properties(obj, max_depth=1000):
+def get_blender_custom_properties(obj, max_depth: int = 1000):
     if max_depth < 0:
         return obj
 

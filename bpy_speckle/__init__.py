@@ -1,7 +1,7 @@
 import bpy
 from bpy_speckle.installer import ensure_dependencies
 
-ensure_dependencies()
+ensure_dependencies(f"Blender {bpy.app.version[0]}.{bpy.app.version[1]}")
 
 from specklepy.logging import metrics
 

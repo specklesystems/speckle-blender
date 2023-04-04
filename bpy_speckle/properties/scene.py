@@ -153,6 +153,6 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
 
     def get_active_user(self) -> Optional[SpeckleUserObject]:
         selected_index = int(self.active_user)
-        if 0 < selected_index < len(self.users):
+        if 0 <= selected_index < len(self.users):
             return self.users[selected_index]
         return None
