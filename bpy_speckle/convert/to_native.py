@@ -520,7 +520,7 @@ Instances / Blocks
 """
 
 def _get_instance_name(instance: Instance) -> str:
-    name_prefix = _speckle_object_name(instance) or _speckle_object_name(instance.definition) or _simplified_speckle_name(instance.speckle_type)
+    name_prefix = _get_friendly_object_name(instance) or _get_friendly_object_name(instance.definition) or _simplified_speckle_type(instance.speckle_type)
     return f"{name_prefix}{OBJECT_NAME_SEPERATOR}{instance.id}"
 
 
@@ -623,7 +623,7 @@ def _instance_definition_to_native(definition: Union[Base, BlockDefinition]) -> 
 Object Naming
 """
 
-def _speckle_object_name(speckle_object: Base) -> Optional[str]:
+def _get_friendly_object_name(speckle_object: Base) -> Optional[str]:
     return (getattr(speckle_object, "name", None)
         or getattr(speckle_object, "Name", None)
         or getattr(speckle_object, "family", None)
@@ -637,23 +637,23 @@ OBJECT_NAME_MAX_LENGTH = 62
 SPECKLE_ID_LENGTH = 32
 OBJECT_NAME_SEPERATOR = " -- "
 
-def _truncate_name(name: str) -> str:
+def _truncate_object_name(name: str) -> str:
 
     MAX_NAME_LENGTH = OBJECT_NAME_MAX_LENGTH - SPECKLE_ID_LENGTH - len(OBJECT_NAME_SEPERATOR)
 
     return name[:MAX_NAME_LENGTH]
     
 
-def _simplified_speckle_name(speckle_type: str) -> str:
+def _simplified_speckle_type(speckle_type: str) -> str:
     return(speckle_type.rsplit('.')[-1]) #Take only the most specific object type name (without namespace)
 
 def _generate_object_name(speckle_object: Base) -> str:
     prefix: str
-    name = _speckle_object_name(speckle_object)
+    name = _get_friendly_object_name(speckle_object)
     if name:
-        prefix = _truncate_name(name)
+        prefix = _truncate_object_name(name)
     else:
-        prefix = _simplified_speckle_name(speckle_object.speckle_type)
+        prefix = _simplified_speckle_type(speckle_object.speckle_type)
 
     return f"{prefix}{OBJECT_NAME_SEPERATOR}{speckle_object.id}"
 

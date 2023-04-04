@@ -1,13 +1,15 @@
 from typing import Dict, Iterable, Optional, Tuple
 import bpy
-from bpy.types import Depsgraph, Material, MeshPolygon, Object
+from bpy.types import Depsgraph, MeshPolygon, Object
 from deprecated import deprecated
 from mathutils.geometry import interpolate_bezier
 from mathutils import (
     Matrix as MMatrix,
     Vector as MVector,
 )
-from specklepy.objects.geometry import Mesh, Curve, Interval, Box, Point, Polyline
+from specklepy.objects.geometry import (
+     Mesh, Curve, Interval, Box, Point, Polyline
+)
 from specklepy.objects.other import *
 from bpy_speckle.functions import _report
 from bpy_speckle.convert.util import (
@@ -22,17 +24,20 @@ UNITS = "m"
 CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY")
 
 
-def convert_to_speckle(blender_object: Object, scale: float, units: str, desgraph: Optional[Depsgraph]) -> Optional[list]:
+def convert_to_speckle(raw_blender_object: Object, scale: float, units: str, depsgraph: Optional[Depsgraph]) -> Optional[list]:
     global UNITS
     UNITS = units
-    blender_type = blender_object.type
+    
+    blender_type = raw_blender_object.type
     if blender_type not in CAN_CONVERT_TO_SPECKLE:
         return None
 
-    speckle_objects = []
-    # speckle_material = material_to_speckle_old(blender_object) #TODO: What about curves with materials...
-    if desgraph:
-        blender_object = blender_object.evaluated_get(desgraph)
+    blender_object: Object = (
+        raw_blender_object.evaluated_get(depsgraph)
+        if depsgraph
+        else raw_blender_object
+        )
+
     converted = None
     if blender_type == "MESH":
         converted = mesh_to_speckle(blender_object, blender_object.data, scale)
@@ -43,19 +48,20 @@ def convert_to_speckle(blender_object: Object, scale: float, units: str, desgrap
     if not converted:
         return None
 
+    speckle_objects = []
     if isinstance(converted, list):
         speckle_objects.extend([c for c in converted if c != None])
     else:
         speckle_objects.append(converted)
 
     for so in speckle_objects:
-        so.properties = get_blender_custom_properties(blender_object)
-        so.applicationId = so.properties.pop("applicationId", None)
+        so["properties"] = get_blender_custom_properties(raw_blender_object) #NOTE: Depsgraph copies don't have custom properties so we use the raw version
+        so["applicationId"] = so.properties.pop("applicationId", None)
 
 
         # Set object transform
-        if blender_type != "EMPTY":
-            so.properties["transform"] = transform_to_speckle(
+        if blender_type != "EMPTY": #TODO: this could be deprecated once we add proper instancing support
+            so["properties"]["transform"] = transform_to_speckle(
                 blender_object.matrix_world
             )
 
