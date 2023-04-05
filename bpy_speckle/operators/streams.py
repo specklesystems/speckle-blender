@@ -343,7 +343,6 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.mesh.remove_doubles()
         bpy.ops.mesh.dissolve_limited(angle_limit=radians(0.1))
 
         # Reset state to previous (not quite sure if this is 100% necessary)
