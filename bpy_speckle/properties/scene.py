@@ -84,6 +84,7 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
 class SpeckleUserObject(bpy.types.PropertyGroup):
     server_name: StringProperty(default="SpeckleXYZ")
     server_url: StringProperty(default="https://speckle.xyz")
+    id: StringProperty(default="")
     name: StringProperty(default="Speckle User")
     email: StringProperty(default="user@speckle.xyz")
     company: StringProperty(default="SpeckleSystems")
