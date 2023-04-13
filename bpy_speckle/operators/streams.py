@@ -386,7 +386,8 @@ class ReceiveStreamObjects(bpy.types.Operator):
             getattr(transport, "account", None), 
             custom_props={
                 "sourceHostApp": host_applications.get_host_app_from_string(commit.source_application).slug,
-                "sourceHostAppVersion": commit.source_application
+                "sourceHostAppVersion": commit.source_application,
+                "isMultiplayer": commit.author_id != user.id,
             },
         )
         commit_object = operations._untracked_receive(commit.referenced_object, transport)
