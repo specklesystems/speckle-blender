@@ -26,8 +26,8 @@ from .util import (
 )
 
 SUPPORTED_CURVES = (Line, Polyline, Curve, Arc, Polycurve, Ellipse, Circle)
-
 CAN_CONVERT_TO_NATIVE = (
+
     Mesh,
     *SUPPORTED_CURVES,
     Instance,
@@ -35,7 +35,7 @@ CAN_CONVERT_TO_NATIVE = (
 
 
 def _has_native_convesion(speckle_object: Base) -> bool: 
-    return any(isinstance(speckle_object, t) for t in CAN_CONVERT_TO_NATIVE)
+    return any(isinstance(speckle_object, t) for t in CAN_CONVERT_TO_NATIVE) or "View" in speckle_object.speckle_type #hack
 
 def _has_fallback_conversion(speckle_object: Base) -> bool: 
     return any(getattr(speckle_object, alias, None) for alias in DISPLAY_VALUE_PROPERTY_ALIASES)
@@ -91,6 +91,8 @@ def convert_to_native(speckle_object: Base) -> list[Object]:
             obj_data = mesh_to_native(speckle_object, object_name, scale)
         elif speckle_type in SUPPORTED_CURVES:
             obj_data = icurve_to_native(speckle_object, object_name, scale)
+        elif "View" in speckle_object.speckle_type:
+            obj_data = view_to_native(speckle_object, object_name, scale)
         elif isinstance(speckle_object, Instance):
             if convert_instances_as == "linked_duplicates":
                 (obj_data, converted) = instance_to_native_object(speckle_object, scale)
@@ -184,6 +186,34 @@ def element_to_native(speckle_object: Base, name: str, scale: float, combineMesh
 
     return (mesh, converted)
 
+
+
+def view_to_native(speckle_view, name: str, scale: float) -> bpy.types.Object:
+    native_cam: bpy.types.Camera
+    if name in bpy.data.cameras.keys():
+         native_cam = bpy.data.cameras[name]
+    else:
+        native_cam = bpy.data.cameras.new(name=name)
+        native_cam.lens = 18 # 90° horizontal fov
+
+    cam_obj = create_new_object(native_cam, name)
+
+    scale_factor = get_scale_factor(speckle_view, scale)
+    tx = (speckle_view.origin.x * scale_factor)
+    ty = (speckle_view.origin.y * scale_factor)
+    tz = (speckle_view.origin.z * scale_factor)
+
+    forward = MVector((speckle_view.forwardDirection.x, speckle_view.forwardDirection.y, speckle_view.forwardDirection.z))
+    up = MVector((speckle_view.upDirection.x, speckle_view.upDirection.y, speckle_view.upDirection.z))
+    right = forward.cross(up).normalized()
+
+    cam_obj.matrix_world = MMatrix((
+        (right.x,  up.x,  -forward.x, tx),
+        (right.y,  up.y,  -forward.y, ty),
+        (right.z,  up.z,  -forward.z, tz),
+        (0,          0,     0,       1 )
+    ))
+    return cam_obj
 
 def mesh_to_native(speckle_mesh: Mesh, name: str, scale: float) -> bpy.types.Mesh:
     return meshes_to_native(speckle_mesh, [speckle_mesh], name, scale)
@@ -389,18 +419,18 @@ def polycurve_to_native(scurve: Polycurve, bcurve: bpy.types.Curve, scale: float
             _report(f"Unsupported curve type: {speckle_type}")
 
     return curves
-
-def circle_to_native(circle: Circle, bcurve: bpy.types.Curve, units_scale: float) -> list[bpy.types.Spline]:
-    #HACK: violates typing, but it works...
-    circle["firstRadius"] = circle.radius
-    circle["secondRadius"] = circle.radius
-    return ellipse_to_native(circle, bcurve, units_scale)
  
-def ellipse_to_native(ellipse: Ellipse, bcurve: bpy.types.Curve, units_scale: float) -> list[bpy.types.Spline]:
-    plane = ellipse.plane
+def ellipse_to_native(ellipse: Union[Ellipse, Circle], bcurve: bpy.types.Curve, units_scale: float) -> list[bpy.types.Spline]:
 
-    radX = ellipse.firstRadius * units_scale
-    radY = ellipse.secondRadius * units_scale
+    radX: float
+    radY: float
+    if isinstance(ellipse, Ellipse):
+        radX = ellipse.firstRadius * units_scale
+        radY = ellipse.secondRadius * units_scale
+    else:
+        radX = ellipse.radius * units_scale
+        radY = ellipse.radius * units_scale
+
     
     D = 0.5522847498307936 # (4/3)*tan(pi/8)
 
@@ -424,7 +454,7 @@ def ellipse_to_native(ellipse: Ellipse, bcurve: bpy.types.Curve, units_scale: fl
         (-radX, 0.0,   0.0),
         (0.0,   -radY, 0.0),
     ]
-    transform = plane_to_native_transform(plane, units_scale)
+    transform = plane_to_native_transform(ellipse.plane, units_scale)
 
     spline = bcurve.splines.new("BEZIER")
     spline.bezier_points.add(len(points) - 1)
@@ -454,10 +484,8 @@ def icurve_to_native_spline(speckle_curve: Base, blender_curve: bpy.types.Curve,
         spline = polyline_to_native(speckle_curve, blender_curve, scale)
     elif isinstance(speckle_curve, Arc):
         spline =  arc_to_native(speckle_curve, blender_curve, scale)
-    elif isinstance(speckle_curve, Ellipse):
+    elif isinstance(speckle_curve, Ellipse) or isinstance(speckle_curve, Circle):
         spline =  ellipse_to_native(speckle_curve, blender_curve, scale)
-    elif isinstance(speckle_curve, Circle):
-        spline =  circle_to_native(speckle_curve, blender_curve, scale)
     else:
         raise TypeError(f"{speckle_curve} is not a supported curve type. Supported types: {SUPPORTED_CURVES}")
 
