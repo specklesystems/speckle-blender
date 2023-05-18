@@ -35,7 +35,7 @@ CAN_CONVERT_TO_NATIVE = (
 
 
 def _has_native_convesion(speckle_object: Base) -> bool: 
-    return any(isinstance(speckle_object, t) for t in CAN_CONVERT_TO_NATIVE) or "View" in speckle_object.speckle_type #hack
+    return any(isinstance(speckle_object, t) for t in CAN_CONVERT_TO_NATIVE) #or "View" in speckle_object.speckle_type #hack
 
 def _has_fallback_conversion(speckle_object: Base) -> bool: 
     return any(getattr(speckle_object, alias, None) for alias in DISPLAY_VALUE_PROPERTY_ALIASES)
@@ -44,8 +44,6 @@ def can_convert_to_native(speckle_object: Base) -> bool:
 
     if(_has_native_convesion(speckle_object) or _has_fallback_conversion(speckle_object)):
         return True
-
-    _report(f"Could not convert unsupported Speckle object: {speckle_object}")
     return False
 
 def create_new_object(obj_data: Optional[bpy.types.ID], desired_name: str, counter: int = 0) -> bpy.types.Object:
@@ -58,7 +56,7 @@ def create_new_object(obj_data: Optional[bpy.types.ID], desired_name: str, count
 
     #TODO: This is very slow, and gets slower the more objects you receive with the same name...
     # We could use a binary/galloping search, and/or cache the name -> index within a receive.
-    if name in bpy.data.objects.keys(): 
+    if name in bpy.data.objects.keys():
         #Object already exists, increment counter and try again!
         return create_new_object(obj_data, desired_name, counter + 1)
 
@@ -70,88 +68,94 @@ def set_convert_instances_as(value: str):
     global convert_instances_as
     convert_instances_as = value
     
-def convert_to_native(speckle_object: Base) -> list[Object]:
+    #TODO: Check usages handle exceptions
+
+def convert_to_native(speckle_object: Base) -> Object:
 
     speckle_type = type(speckle_object)
-    try:
-        object_name = _generate_object_name(speckle_object)
-        scale = get_scale_factor(speckle_object)
 
-        obj_data: Optional[Union[bpy.types.ID, bpy.types.Object]] = None
-        converted: list[Object] = []
+    object_name = _generate_object_name(speckle_object)
+    scale = get_scale_factor(speckle_object)
 
-        # convert elements/breps
-        if not _has_native_convesion(speckle_object):
-            (obj_data, converted) = element_to_native(speckle_object, object_name, scale)
-            if not obj_data and not converted:
-                _report(f"Unsupported type {speckle_object.speckle_type}")
+    converted: Union[bpy.types.ID, bpy.types.Object, None] = None
+    children: list[Object] = []
 
-        # convert supported geometry
-        elif isinstance(speckle_object, Mesh):
-            obj_data = mesh_to_native(speckle_object, object_name, scale)
-        elif speckle_type in SUPPORTED_CURVES:
-            obj_data = icurve_to_native(speckle_object, object_name, scale)
-        elif "View" in speckle_object.speckle_type:
-            obj_data = view_to_native(speckle_object, object_name, scale)
-        elif isinstance(speckle_object, Instance):
-            if convert_instances_as == "linked_duplicates":
-                (obj_data, converted) = instance_to_native_object(speckle_object, scale)
-            elif convert_instances_as != "collection_instance":
-                obj_data = instance_to_native_collection_instance(speckle_object, scale)
-            else:
-                _report(f"convert_instances_as = '{convert_instances_as}' is not implemented, Instances will be converted as collection instances!")
-                obj_data = instance_to_native_collection_instance(speckle_object, scale)
+    # convert elements/breps
+    if not _has_native_convesion(speckle_object):
+        (converted, children) = display_value_to_native(speckle_object, object_name, scale)
+        if not converted and not children:
+            raise Exception(f"Zero geometry converted from displayValues for {speckle_object}")
 
+    # convert supported geometry
+    elif isinstance(speckle_object, Mesh):
+        converted = mesh_to_native(speckle_object, object_name, scale)
+    elif speckle_type in SUPPORTED_CURVES:
+        converted = icurve_to_native(speckle_object, object_name, scale)
+    # elif "View" in speckle_object.speckle_type:
+    #     return view_to_native(speckle_object, object_name, scale)
+    elif isinstance(speckle_object, Instance):
+        if convert_instances_as == "linked_duplicates":
+           (converted, children) = instance_to_native_object(speckle_object, scale)
+        elif convert_instances_as == "collection_instance":
+            converted = instance_to_native_collection_instance(speckle_object, scale)
         else:
-            _report(f"Unsupported type {speckle_type}")
-            return []
-    except Exception as ex:  # conversion error
-        _report(f"Error converting {speckle_object} \n{ex}")
-        return []
+            _report(f"convert_instances_as = '{convert_instances_as}' is not implemented, Instances will be converted as collection instances!")
+            converted = instance_to_native_collection_instance(speckle_object, scale)
+    else:
+        raise Exception(f"Unsupported type {speckle_type}")
 
 
-    blender_object = obj_data if isinstance(obj_data, Object) else create_new_object(obj_data, object_name)
+    if not isinstance(converted, Object):
+        converted = create_new_object(converted, object_name)
     
-    blender_object.speckle.object_id = str(speckle_object.id)
-    blender_object.speckle.enabled = True
-    add_custom_properties(speckle_object, blender_object)
+    converted.speckle.object_id = str(speckle_object.id)
+    converted.speckle.enabled = True
+    add_custom_properties(speckle_object, converted)
 
-    for child in converted:
-        child.parent = blender_object
+    for child in children:
+        child.parent = converted
 
-    converted.append(blender_object)
-    _report(f"Successfully converted {object_name} as {blender_object.type}")
+    _report(f"Successfully converted {object_name} as {converted.type}")
     return converted
 
 
-DISPLAY_VALUE_PROPERTY_ALIASES = ["displayValue", "@displayValue", "displayMesh", "@displayMesh", "elements", "@elements"]
+DISPLAY_VALUE_PROPERTY_ALIASES = ["displayValue", "@displayValue"]
+ELEMENTS_PROPERTY_ALIASES = ["elements", "@elements"]
 
-def element_to_native(speckle_object: Base, name: str, scale: float, combineMeshes: bool = True) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
+
+def display_value_to_native(speckle_object: Base, name: str, scale: float) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
+    return _members_to_native(speckle_object, name, scale, DISPLAY_VALUE_PROPERTY_ALIASES, True)
+
+def elements_to_native(speckle_object: Base, name: str, scale: float) -> list[bpy.types.Object]:
+    (_, elements) = _members_to_native(speckle_object, name, scale, ELEMENTS_PROPERTY_ALIASES, False)
+    return elements
+
+def _members_to_native(speckle_object: Base, name: str, scale: float, members: List[str], combineMeshes: bool) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
     """
-    Converts a given speckle_object by converting displayValue properties (elements treated the same as displayValues)
+    Converts a given speckle_object by converting specified members
 
     if combineMeshes == True
-        Converts mesh displayValues as one mesh
-        Converts non-mesh displayValues as child Objects
+        Converts mesh members as one mesh
+        Converts non-mesh members as child Objects
     if combineMeshes == False
-        Converts all displayValues as child objects (first item of the returned tuple will be None)
+        Converts all members as child objects (first item of the returned tuple will be None)
+    :returns: converted mesh, and any other converted child objects (may happen if members contained non-meshes)
     """
     meshes: list[Mesh] = []
-    elements: list[Base] = []
+    others: list[Base] = []
 
-    #NOTE: raw Mesh elements will be treated like displayValues, which is not ideal, but no connector sends raw Mesh elements so it's fine
-    for alias in DISPLAY_VALUE_PROPERTY_ALIASES:
+    for alias in members:
         display = getattr(speckle_object, alias, None)
 
         count = 0
         MAX_DEPTH = 255 # some large value, to prevent infinite reccursion
         def seperate(value: Any) -> bool:
-            nonlocal meshes, elements, count, MAX_DEPTH
+            nonlocal meshes, others, count, MAX_DEPTH
 
             if combineMeshes and isinstance(value, Mesh):
                 meshes.append(value)
             elif isinstance(value, Base):
-                elements.append(value)
+                others.append(value)
             elif isinstance(value, list):
                 count += 1
                 if(count > MAX_DEPTH):
@@ -167,24 +171,20 @@ def element_to_native(speckle_object: Base, name: str, scale: float, combineMesh
             _report(f"Traversal of {speckle_object.speckle_type} {speckle_object.id} halted after traversal depth exceeds MAX_DEPTH={MAX_DEPTH}. Are there circular references object structure?")
 
 
-    converted: list[Object] = []
+    children: list[Object] = []
     mesh = None
 
     if meshes:
-        mesh = meshes_to_native(speckle_object, meshes, name, scale)
+        mesh = meshes_to_native(speckle_object, meshes, name, scale) #TODO: reconsider passing scale around...
 
-    for item in elements:
-        # add parent type here so we can use it as a blender custom prop
-        # not making it hidden, so it will get added on send as i think it might be helpful? can reconsider
-        item.parent_speckle_type = speckle_object.speckle_type #TODO: consider if this is still useful, as we now properly structure object parenting
-        blender_object = convert_to_native(item)
-        if isinstance(blender_object, list):
-            converted.extend(blender_object)
-        else:
-            add_custom_properties(speckle_object, blender_object)
-            converted.append(blender_object)
+    for item in others:
+        try:
+            blender_object = convert_to_native(item)
+            children.append(blender_object)
+        except Exception as ex:
+            _report(f"Failed to convert display value {item}: {ex}")
 
-    return (mesh, converted)
+    return (mesh, children)
 
 
 
@@ -483,20 +483,20 @@ def icurve_to_native_spline(speckle_curve: Base, blender_curve: bpy.types.Curve,
     elif isinstance(speckle_curve, Polyline):
         spline = polyline_to_native(speckle_curve, blender_curve, scale)
     elif isinstance(speckle_curve, Arc):
-        spline =  arc_to_native(speckle_curve, blender_curve, scale)
+        spline = arc_to_native(speckle_curve, blender_curve, scale)
     elif isinstance(speckle_curve, Ellipse) or isinstance(speckle_curve, Circle):
-        spline =  ellipse_to_native(speckle_curve, blender_curve, scale)
+        spline = ellipse_to_native(speckle_curve, blender_curve, scale)
     else:
         raise TypeError(f"{speckle_curve} is not a supported curve type. Supported types: {SUPPORTED_CURVES}")
 
     return [spline] if spline is not None else [] 
 
 
-def icurve_to_native(speckle_curve: Base, name: str, scale: float) -> Optional[bpy.types.Curve]:
+def icurve_to_native(speckle_curve: Base, name: str, scale: float) -> bpy.types.Curve:
     curve_type = type(speckle_curve)
     if curve_type not in SUPPORTED_CURVES:
-        _report(f"Unsupported curve type: {curve_type}")
-        return None
+        raise Exception(f"Unsupported curve type: {curve_type}")
+
     blender_curve = (
         bpy.data.curves[name]
         if name in bpy.data.curves.keys()
@@ -570,20 +570,20 @@ def instance_to_native_object(instance: Instance, scale: float) -> Tuple[bpy.typ
         native_instance = create_new_object(None, name) #Instance will be empty
         native_instance.empty_display_size = 0
         for geo in definition.geometry:
-            native_elements.append(convert_to_native(geo)[-1])
+            native_elements.append(convert_to_native(geo))
     else:
-        native_instance = convert_to_native(instance.definition)[-1] # Convert assuming that definition is convertable
+        native_instance = convert_to_native(instance.definition)
 
     instance_transform = transform_to_native(instance.transform, scale)
     instance_transform_inverted = instance_transform.inverted()
     native_instance.matrix_world = instance_transform
     
-    (_, elements_on_instance) = element_to_native(instance, name, scale)
+    elements_on_instance = elements_to_native(instance, name, scale)
     for c in elements_on_instance:
         c.matrix_world = instance_transform_inverted @ c.matrix_world #Undo the instance transform on elements
 
     native_elements.extend(elements_on_instance)
-    
+
     return (native_instance, native_elements) #TODO: need to double check that all child objects have custom props attached correctly
 
 def instance_to_native_collection_instance(instance: Instance, scale: float) -> bpy.types.Object:
@@ -603,7 +603,7 @@ def instance_to_native_collection_instance(instance: Instance, scale: float) -> 
     collection_def = _instance_definition_to_native(instance.definition)
 
     # Convert elements as children of collection instance object
-    (_, elements) = element_to_native(instance, name, scale, False)
+    elements = elements_to_native(instance, name, scale)
 
     instance_transform = transform_to_native(instance.transform, scale)
     instance_transform_inverted = instance_transform.inverted()
@@ -640,7 +640,7 @@ def _instance_definition_to_native(definition: Union[Base, BlockDefinition]) -> 
 
     for geo in geometry:
         if not geo: continue
-        converted = convert_to_native(geo)[-1] #NOTE: we assume the last item is the root converted item
+        converted = convert_to_native(geo) #NOTE: we assume the last item is the root converted item
         link_object_to_collection_nested(converted, native_def)
 
 

@@ -1,4 +1,7 @@
+from typing import Callable, List, Set
 from bpy_speckle.clients import speckle_clients
+from specklepy.objects.graph_traversal.traversal import GraphTraversal, TraversalRule
+from specklepy.objects.base import Base
 
 """
 Speckle functions
@@ -70,3 +73,30 @@ def _check_speckle_client_user_stream(scene):
         print("Account contains no streams.")
 
     return (user, stream)
+
+
+elements_aliases: List[str] = ["elements", "@elements"]
+ignore_props: Set[str] = {"@blockDefinition", "displayValue", "@displayValue", "units", "id", "applicationId"}
+
+def get_default_traversal_func(can_convert_to_native: Callable[[Base], bool]) -> GraphTraversal:
+    """
+    Traversal func for traversing a speckle commit object
+    """
+
+    convertable_rule = TraversalRule(
+    [can_convert_to_native],
+    lambda _: elements_aliases,
+    )
+
+    ignore_result_rule = TraversalRule(
+    [lambda o: "Objects.Structural.Results" in o.speckle_type, #Sadly, this one is nessasary to avoid double conversion...
+    lambda o: "Objects.BuiltElements.Revit.Parameter" in o.speckle_type], #This one is just for traversal performance of revit commits
+    lambda _: [],
+    )
+
+    default_rule = TraversalRule(
+    [lambda _: True],
+    lambda o: o.get_member_names(), #TODO: avoid deprecated members
+    )
+
+    return GraphTraversal([convertable_rule, ignore_result_rule, default_rule])
