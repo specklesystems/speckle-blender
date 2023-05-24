@@ -4,7 +4,7 @@ Stream operators
 from itertools import chain
 from math import radians
 from deprecated import deprecated
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union, cast
 import webbrowser
 import bpy
 from bpy.props import (
@@ -17,12 +17,14 @@ from bpy.types import (
     Object,
     Collection
 )
+from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
 from bpy_speckle.convert.to_native import (
     can_convert_to_native,
     convert_to_native,
     set_convert_instances_as,
 )
 from bpy_speckle.convert.to_speckle import (
+    ConversionSkippedException,
     convert_to_speckle,
 )
 from bpy_speckle.functions import (
@@ -386,30 +388,20 @@ class ReceiveStreamObjects(bpy.types.Operator):
         bpy.context.view_layer.objects.active = None
 
     def execute(self, context):
+        try:
+            self.receive(context)
+            return {"FINISHED"}
+        except Exception as ex:
+            _report(f"Failed to receive objects: {ex}")
+            return {"CANCELLED"}
+
+    def receive(self, context: Context):
         bpy.context.view_layer.objects.active = None
 
         speckle: SpeckleSceneSettings = context.scene.speckle
         
         #Get UI Selection
-        user = speckle.get_active_user()
-        if not user:
-            print("No user selected/found")
-            return {"CANCELLED"}
-
-        stream = user.get_active_stream()
-        if not stream:
-            print("No stream selected/found")
-            return {"CANCELLED"}
-
-        branch = stream.get_active_branch()
-        if not branch:
-            print("No branch selected/found")
-            return {"CANCELLED"}
-
-        commit = branch.get_active_commit()
-        if commit is None:
-            print("No commit selected/found")
-            return {"CANCELLED"}
+        (user, stream, branch, commit) = speckle.validate_commit_selection()
 
         #Get actual stream data
         client = speckle_clients[int(speckle.active_user)]
@@ -479,6 +471,10 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
 
         context.window_manager.progress_end()
+
+        if self.clean_meshes:
+            objects = {k: v for k, v in converted_objects.items() if isinstance(v, Object)}
+            self.clean_converted_meshes(context, objects)
 
         if on_complete_callback:
             on_complete_callback(context, converted_objects)
@@ -574,90 +570,113 @@ class SendStreamObjects(bpy.types.Operator):
         if len(context.scene.speckle.users) > 0:
             N = len(context.selected_objects)
             if N == 1:
-                self.commit_message = "Pushed {} element from Blender.".format(N)
+                self.commit_message = f"Pushed {N} element from Blender."
             else:
-                self.commit_message = "Pushed {} elements from Blender.".format(N)
+                self.commit_message = f"Pushed {N} elements from Blender."
             return wm.invoke_props_dialog(self)
 
         return {"CANCELLED"}
 
     def execute(self, context):
+        try:
+            self.send(context)
+            return {"FINISHED"}
+        except Exception as ex:
+            _report(f"Send failed: {ex}")
+            return {"CANCELLED"} 
+
+    def send(self, context: Context) -> str:
 
         selected = context.selected_objects
-
         if len(selected) < 1:
-            return {"CANCELLED"}
+            raise Exception("No objects are selected, sending canceled")
 
-        check = _check_speckle_client_user_stream(context.scene)
-        user, bstream = check
+        speckle = cast(SpeckleSceneSettings, context.scene.speckle)
+        (user, stream, branch) = speckle.validate_branch_selection()
 
-        if user is None:
-            return {"CANCELLED"}
+        client = speckle_clients[int(speckle.active_user)]
 
-        stream = user.streams[user.active_stream]
-        branch = stream.branches[int(stream.branch)]
-
-        client = speckle_clients[int(context.scene.speckle.active_user)]
-
+        #TODO: Check how units scalling should works
         # scale = context.scene.unit_settings.scale_length / get_scale_length(
         #     stream.units.lower()
         # )
-        
 
         scale = 1.0
 
         units = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
 
-        """
-        Get script from text editor for injection
-        """
+        # Get script from text editor for injection
         func = None
-        if context.scene.speckle.send_script in bpy.data.texts:
-            mod = bpy.data.texts[context.scene.speckle.send_script].as_module()
+        if speckle.send_script in bpy.data.texts:
+            mod = bpy.data.texts[speckle.send_script].as_module()
             if hasattr(mod, "execute"):
                 func = mod.execute
 
-        export = {}
+        num_converted = 0
+        context.window_manager.progress_begin(0, max(len(selected), 1))
 
+        depsgraph = bpy.context.evaluated_depsgraph_get() if self.apply_modifiers else None
+
+        commit_builder = BlenderCommitObjectBuilder()
         for obj in selected:
+            try:
+                # Run injected function
+                new_object = obj
+                if func:
+                    new_object = func(context.scene, obj)
 
-            # if obj.type != 'MESH':
-            #     continue
+                    if (new_object is None):
+                        raise ConversionSkippedException(f"Script '{func.__module__}' returned None.")
 
-            new_object = obj
+                converted = convert_to_speckle(
+                    obj,
+                    scale,
+                    units,
+                    depsgraph
+                )
 
-            """
-            Run injected function
-            """
-            if func:
-                new_object = func(context.scene, obj)
+                if not converted:
+                    raise Exception("Converter returned None")
 
-                if (
-                    new_object is None
-                ):  # Make sure that the injected function returned an object
-                    new_obj = obj
-                    _report("Script '{}' returned None.".format(func.__module__))
-                    continue
+                commit_builder.include_object(converted, obj)
 
-            _report("Converting {}".format(obj.name))
+                _report(f"Successfully converted '{obj.name_full}'\tas '{converted.speckle_type}'")
+            except ConversionSkippedException as ex:
+                _report(f"Skipped converting '{obj.name_full}': '{ex}'")
+            except Exception as ex:
+                _report(f"Failed to converted '{obj.name_full}': '{ex}'")
+                
+            num_converted += 1
+            context.window_manager.progress_update(num_converted)
 
-            converted = convert_to_speckle(
-                obj,
-                scale,
-                units,
-                bpy.context.evaluated_depsgraph_get()
-                if self.apply_modifiers
-                else None,
-            )
+        context.window_manager.progress_end()
 
-            if not converted:
-                continue
+        commit_object = Base()
+        commit_builder.build_commit_object(commit_object)
 
-            collection_name = obj.users_collection[0].name
-            if not export.get(collection_name):
-                export[collection_name] = []
+        _report(f"Sending data to {stream.name}")
+        transport = ServerTransport(stream.id, client)
+        OBJECT_ID = operations.send(
+            commit_object,
+            [transport],
+        )
 
-            export[collection_name].extend(converted)
+        COMMIT_ID = client.commit.create(
+            stream.id,
+            OBJECT_ID,
+            branch.name,
+            message=self.commit_message,
+            source_application="blender",
+        )
+        _report(f"Commit Created {user.server_url}/streams/{stream.id}/commits/{COMMIT_ID}")
+
+        bpy.ops.speckle.load_user_streams() # refresh loaded commits
+        context.view_layer.update()
+
+        if context.area:
+            context.area.tag_redraw()
+
+        return COMMIT_ID
 
         base = Base()
         for name, objects in export.items():

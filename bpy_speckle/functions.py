@@ -75,7 +75,7 @@ def _check_speckle_client_user_stream(scene):
     return (user, stream)
 
 
-elements_aliases: List[str] = ["elements", "@elements"]
+elements_aliases: Set[str] = {"elements", "@elements"}
 ignore_props: Set[str] = {"@blockDefinition", "displayValue", "@displayValue", "units", "id", "applicationId"}
 
 def get_default_traversal_func(can_convert_to_native: Callable[[Base], bool]) -> GraphTraversal:
@@ -85,7 +85,7 @@ def get_default_traversal_func(can_convert_to_native: Callable[[Base], bool]) ->
 
     convertable_rule = TraversalRule(
     [can_convert_to_native],
-    lambda _: elements_aliases,
+    lambda _: [i for i in elements_aliases if i not in ignore_props],
     )
 
     ignore_result_rule = TraversalRule(
