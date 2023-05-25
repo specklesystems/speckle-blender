@@ -640,7 +640,7 @@ class SendStreamObjects(bpy.types.Operator):
 
                 commit_builder.include_object(converted, obj)
 
-                _report(f"Successfully converted '{obj.name_full}'\tas '{converted.speckle_type}'")
+                _report(f"Successfully converted '{obj.name_full}' as '{converted.speckle_type}'")
             except ConversionSkippedException as ex:
                 _report(f"Skipped converting '{obj.name_full}': '{ex}'")
             except Exception as ex:
@@ -651,7 +651,7 @@ class SendStreamObjects(bpy.types.Operator):
 
         context.window_manager.progress_end()
 
-        commit_object = Base()
+        commit_object = commit_builder.ensure_collection(context.scene.collection)
         commit_builder.build_commit_object(commit_object)
 
         _report(f"Sending data to {stream.name}")

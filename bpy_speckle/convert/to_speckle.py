@@ -24,6 +24,7 @@ from bpy_speckle.convert.util import (
     nurb_make_curve,
     to_argb_int,
 )
+from bpy_speckle.functions import _report
 
 class ConversionSkippedException(Exception):
     pass
@@ -69,8 +70,6 @@ def convert_to_speckle(raw_blender_object: Object, units_scale: float, units: st
         raise Exception("Conversion returned None")
 
     converted["properties"] = get_blender_custom_properties(raw_blender_object) #NOTE: Depsgraph copies don't have custom properties so we use the raw version
-    #converted.applicationId = converted.properties.pop("applicationId", None) #NOTE: this is the old way, and violates round tripping!
-    converted.applicationId = raw_blender_object.name_full #TODO: check if this is ok?
 
     # Set object transform #TODO: this could be deprecated once we add proper geometry instancing support
     if blender_type != "EMPTY": 
@@ -126,7 +125,7 @@ def mesh_to_speckle_meshes(blender_object: Object, data: bpy.types.Mesh) -> List
                 
                 if data.uv_layers.active:
                     vt = data.uv_layers.active.data[index_counter]
-                    uv = cast(MVector, vt)
+                    uv = cast(MVector, vt.uv)
                     m_texcoords.extend([uv.x, uv.y])
 
                 m_faces.append(index_mapping[u_index])
@@ -437,15 +436,21 @@ def transform_to_speckle(blender_transform: Union[Iterable[Iterable[float]], MMa
 def block_def_to_speckle(blender_definition: bpy.types.Collection) -> BlockDefinition:
     geometry = []
     for geo in blender_definition.objects:
-        geometry.append(convert_to_speckle(geo, UnitsScale, Units, None))
+        try:
+            geometry.append(convert_to_speckle(geo, UnitsScale, Units, None))
+        except ConversionSkippedException as ex:
+            _report(f"Skipped converting '{geo.name_full}' inside collection instance: '{ex}")
+        except Exception as ex:
+            _report(f"Failed to converted '{geo.name_full}' inside collection instance: '{ex}'")
+
     block_def = BlockDefinition(
         units=Units,
         name=blender_definition.name,
         geometry=geometry,
         basePoint=Point(units=Units),
     )
-    blender_props = get_blender_custom_properties(blender_definition)
-    block_def.applicationId = blender_props.pop("applicationId", None)
+    # blender_props = get_blender_custom_properties(blender_definition)
+    # block_def.applicationId = blender_props.pop("applicationId", None) #TODO: remove?
     return block_def
 
 

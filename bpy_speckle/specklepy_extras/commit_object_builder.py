@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Collection, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import Any, Collection, Dict, Generic, Iterable, List, Optional, Tuple, TypeVar
 from attrs import define
 from specklepy.objects.base import Base
 
@@ -9,15 +9,15 @@ ROOT: str = "__Root"
 T = TypeVar('T')
 PARENT_INFO = Tuple[Optional[str], str]
 
-@define(slots=True, frozen=True)
+@define(slots=True)
 class CommitObjectBuilder(ABC, Generic[T]):
 
     converted: Dict[str, Base]
-    _parentInfos: Dict[str, Collection[PARENT_INFO]]
+    _parent_infos: Dict[str, Collection[PARENT_INFO]]
 
     def __init__(self) -> None:
         self.converted = {}
-        self._parentInfos = {}
+        self._parent_infos = {}
     
     @abstractmethod
     def include_object(self, conversion_result: Base, native_object: T) -> None:
@@ -31,9 +31,9 @@ class CommitObjectBuilder(ABC, Generic[T]):
         if not app_id:
             return
         
-        self._parentInfos[app_id] = parent_info
+        self._parent_infos[app_id] = parent_info
 
-    def apply_relationships(self, to_add: Collection[Base], root_commit_object: Base) -> None:
+    def apply_relationships(self, to_add: Iterable[Base], root_commit_object: Base) -> None:
         for c in to_add:
             try:
                 self.apply_relationship(c, root_commit_object)
@@ -43,15 +43,16 @@ class CommitObjectBuilder(ABC, Generic[T]):
     def apply_relationship(self, current: Base, root_commit_object: Base):
         if not current.applicationId: raise Exception(f"Expected applicationId to have been set") 
         
-        parents = self._parentInfos[current.applicationId]
-        for (parent_app_id, prop_name) in parents:
-            if not parent_app_id: continue
+        parents = self._parent_infos[current.applicationId]
+        
+        for (parent_id, prop_name) in parents:
+            if not parent_id: continue
 
             parent: Optional[Base]
-            if parent_app_id == ROOT:
+            if parent_id == ROOT:
                 parent = root_commit_object
             else:
-                parent = self.converted[parent_app_id] if parent_app_id in self.converted else None
+                parent = self.converted[parent_id] if parent_id in self.converted else None
             
             if not parent: continue
 
