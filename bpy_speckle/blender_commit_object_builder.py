@@ -2,6 +2,7 @@ from typing import Deque, Dict, List, Optional, Set, Tuple, Union
 import bpy
 from bpy.types import Object, Collection, ID
 from specklepy.objects.base import Base
+from bpy_speckle.functions import _report
 from bpy_speckle.specklepy_extras.commit_object_builder import CommitObjectBuilder, ROOT
 from specklepy.objects import Base
 from specklepy.objects.other import Collection as SCollection
@@ -94,15 +95,38 @@ class BlenderCommitObjectBuilder(CommitObjectBuilder[Object]):
         self.apply_relationships(objects_to_build, root_commit_object)
 
         # Kill unused collections
-        # useful_collections: Set[Collection] = set()
-        # stack = Deque[Collection]
+        assert(isinstance(root_commit_object, SCollection))
 
-        # stack.append(root_commit_object)
+        def should_remove_unuseful_collection(col: SCollection) -> bool: #TODO: this maybe could be optimised
+            elements = col.elements
+            if not elements: return True
 
+            should_remove_this_col = True
+
+            i = 0
+            while i < len(elements):
+                c = elements[i]
+                if not isinstance(c, SCollection): 
+                    # col has objects (c)
+                    should_remove_this_col = False
+                    i += 1
+                    continue
+
+                if should_remove_unuseful_collection(c):
+                    # c is not useful, kill it
+                    del elements[i]
+                else:
+                    # col has a child (c) with objects
+                    should_remove_this_col = False
+                    i += 1
+                    continue
         
+            return should_remove_this_col
+
+        if should_remove_unuseful_collection(root_commit_object):
+            _report("WARNING: Only empty collections have been converted!") #TODO: consider raising exception here, to halt the send operation
 
 
-        
 
 
     # def build_commit_object(self, root_commit_object: Base) -> None:
