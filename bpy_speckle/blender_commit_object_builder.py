@@ -12,7 +12,7 @@ ELEMENTS = "elements"
 
 def _id(natvive_object: ID) -> str:
     #NOTE: to avoid naming collisions, we prefix collections and objects differently
-    return f"{type(natvive_object).__name__}::{natvive_object.name_full}" 
+    return f"{type(natvive_object).__name__}:{natvive_object.name_full}" 
 
 def _try_id(natvive_object: Optional[Union[Collection, Object]]) -> Optional[str]:
     return _id(natvive_object) if natvive_object else None

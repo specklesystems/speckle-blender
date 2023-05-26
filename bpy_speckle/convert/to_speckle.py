@@ -18,6 +18,7 @@ from specklepy.objects.other import BlockInstance, BlockDefinition, RenderMateri
 from specklepy.objects.geometry import (
      Mesh, Curve, Interval, Box, Point, Polyline
 )
+from bpy_speckle.convert.to_native import OBJECT_NAME_SEPERATOR, SPECKLE_ID_LENGTH
 from bpy_speckle.convert.util import (
     get_blender_custom_properties,
     make_knots,
@@ -81,6 +82,7 @@ def convert_to_speckle(raw_blender_object: Object, units_scale: float, units: st
 
 def mesh_to_speckle(blender_object: Object, data: bpy.types.Mesh) -> Base:
     b = Base()
+    b["name"] = to_speckle_name(blender_object)
     b["@displayValue"] = mesh_to_speckle_meshes(blender_object, data)
     return b
 
@@ -301,6 +303,15 @@ def bezier_to_speckle_polyline(matrix: MMatrix, spline: bpy.types.Spline, length
     domain = Interval(start=0, end=length, totalChildrenCount=0)
     return Polyline(value=points, closed = spline.use_cyclic_u, domain=domain, area=0, len=length)
 
+_QUICK_TEST_NAME_LENGTH = SPECKLE_ID_LENGTH + len(OBJECT_NAME_SEPERATOR)
+
+def to_speckle_name(blender_object: bpy.types.ID) -> str:
+    does_name_contain_id = len(blender_object.name) > _QUICK_TEST_NAME_LENGTH and OBJECT_NAME_SEPERATOR in blender_object.name
+    if does_name_contain_id:
+        return blender_object.name.rsplit(OBJECT_NAME_SEPERATOR, 1)[0]
+    else:
+        return blender_object.name
+
 def poly_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, name: Optional[str] = None) -> Polyline:
     points = [tuple(matrix @ pt.co.xyz * UnitsScale) for pt in spline.points]
 
@@ -327,6 +338,7 @@ def curve_to_speckle(blender_object: Object, data: bpy.types.Curve) -> Base:
     if meshes:
         b["@displayValue"] = meshes
 
+    b["name"] = to_speckle_name(blender_object)
     b["@elements"] = curves
     return b
 
@@ -346,13 +358,13 @@ def curve_to_speckle_geometry(blender_object: Object, data: bpy.types.Curve) -> 
 
     for spline in data.splines:
         if spline.type == "BEZIER":
-            curves.append(bezier_to_speckle(matrix, spline, blender_object.name))
+            curves.append(bezier_to_speckle(matrix, spline, to_speckle_name(blender_object)))
 
         elif spline.type == "NURBS":
-            curves.append(nurbs_to_speckle(matrix, spline, blender_object.name))
+            curves.append(nurbs_to_speckle(matrix, spline, to_speckle_name(blender_object)))
 
         elif spline.type == "POLY":
-            curves.append(poly_to_speckle(matrix, spline, blender_object.name))
+            curves.append(poly_to_speckle(matrix, spline, to_speckle_name(blender_object)))
 
     return (meshes, curves)
 
@@ -445,7 +457,7 @@ def block_def_to_speckle(blender_definition: bpy.types.Collection) -> BlockDefin
 
     block_def = BlockDefinition(
         units=Units,
-        name=blender_definition.name,
+        name=to_speckle_name(blender_definition),
         geometry=geometry,
         basePoint=Point(units=Units),
     )
@@ -460,18 +472,23 @@ def block_instance_to_speckle(blender_instance: Object) -> BlockInstance:
             blender_instance.instance_collection
         ),
         transform=transform_to_speckle(blender_instance.matrix_world),
-        name=blender_instance.name,
+        name=to_speckle_name(blender_instance),
         units=Units,
     )
 
 
-def empty_to_speckle(blender_object: Object) -> Union[BlockInstance, Point]:
+def empty_to_speckle(blender_object: Object) -> Union[BlockInstance, Base]:
     # probably an instance collection (block) so let's try it
 
     if blender_object.instance_collection and blender_object.instance_type == "COLLECTION":
         return block_instance_to_speckle(blender_object)
     else:
-        return matrix_to_speckle_point(cast(MMatrix, blender_object.matrix_world))
+        #raise ConversionSkippedException("Sending non-collection instance empties are not currently supported")
+        wrapper = Base()
+        wrapper["@displayValue"] = matrix_to_speckle_point(cast(MMatrix, blender_object.matrix_world))
+        return wrapper
+        #TODO: we could do a Empty -> Point conversion here. However, the viewer (and likly  other apps) don't support a pont with "elements"
+        #return matrix_to_speckle_point(cast(MMatrix, blender_object.matrix_world))
 
 
 def matrix_to_speckle_point(matrix: MMatrix, units_scale: float = 1.0) -> Point:
