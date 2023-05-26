@@ -1,9 +1,10 @@
 """
 Commit operators
 """
+from typing import cast
 import bpy
 from bpy.props import BoolProperty
-from bpy_speckle.functions import _check_speckle_client_user_stream, _report
+from bpy_speckle.functions import _report, get_speckle
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.properties.scene import SpeckleSceneSettings
 
@@ -30,48 +31,37 @@ class DeleteCommit(bpy.types.Operator):
         col.prop(self, "are_you_sure")
 
     def invoke(self, context, event):
+        speckle = get_speckle(context)
         wm = context.window_manager
-        if len(context.scene.speckle.users) > 0:
+        if len(speckle.users) > 0:
             return wm.invoke_props_dialog(self)
 
         return {"CANCELLED"}
 
     def execute(self, context):
+        try:
+            self.delete_commit(context)
+            return {"FINISHED"}
+        except Exception as ex:
+            print(f"{self.bl_idname}: failed: {ex}")
+            return {"CANCELLED"}
+
+    def delete_commit(self, context: bpy.types.Context) -> None: 
 
         if not self.are_you_sure:
-            _report(f"{self.bl_idname}: cancelled by user")
-            return {"CANCELLED"}
+            raise Exception("Cancelled by user")
 
         self.are_you_sure = False
 
-        speckle: SpeckleSceneSettings = context.scene.speckle
+        speckle = get_speckle(context)
 
-        user = speckle.get_active_user()
-        if user is None:
-            print(f"{self.bl_idname}: failed - No user selected/found")
-            return {"CANCELLED"}
-
-        stream = user.get_active_stream()
-        if stream is None:
-            print(f"{self.bl_idname}: failed - No stream selected/found")
-            return {"CANCELLED"}
-
-        branch = stream.get_active_branch()
-        if branch is None:
-            print(f"{self.bl_idname}: failed - No branch selected/found")
-            return {"CANCELLED"}
-
-        commit = branch.get_active_commit()
-        if commit is None:
-            print(f"{self.bl_idname}: failed - No commit selected/found")
-            return {"CANCELLED"}
+        (_, stream, _, commit) = speckle.validate_commit_selection()
 
         client = speckle_clients[int(speckle.active_user)]
 
         deleted = client.commit.delete(stream_id=stream.id, commit_id=commit.id)
         if not deleted:
-            print(f"{self.bl_idname}: failed - Delete operation failed")
-            return {"CANCELLED"}
+            raise Exception("Delete operation failed")
 
         print(f"{self.bl_idname}: succeeded - commit {commit.id} ({commit.message}) has been deleted from stream {stream.id}")
-        return {"FINISHED"}
+

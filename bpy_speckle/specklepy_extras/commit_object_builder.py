@@ -38,7 +38,7 @@ class CommitObjectBuilder(ABC, Generic[T]):
             try:
                 self.apply_relationship(c, root_commit_object)
             except Exception as ex:
-                print(f"Failed to add object {type(c)} to commit object {ex}")
+                print(f"Failed to add object {type(c)} to commit object: {ex}")
 
     def apply_relationship(self, current: Base, root_commit_object: Base):
         if not current.applicationId: raise Exception(f"Expected applicationId to have been set") 

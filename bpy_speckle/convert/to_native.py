@@ -115,7 +115,6 @@ def convert_to_native(speckle_object: Base) -> Object:
     for child in children:
         child.parent = converted
 
-    _report(f"Successfully converted {object_name} as {converted.type}")
     return converted
 
 

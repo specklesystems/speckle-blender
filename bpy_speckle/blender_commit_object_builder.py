@@ -86,7 +86,9 @@ class BlenderCommitObjectBuilder(CommitObjectBuilder[Object]):
         assert(root_commit_object.applicationId in self.converted)
 
         # Create all collections
-        for col in bpy.data.collections:
+        root_col = self.ensure_collection(bpy.context.scene.collection)
+        root_col.collectionType = "Scene Collection"
+        for col in bpy.context.scene.collection.children_recursive:
             self.ensure_collection(col)
 
         objects_to_build = set(self.converted.values())
@@ -94,8 +96,8 @@ class BlenderCommitObjectBuilder(CommitObjectBuilder[Object]):
 
         self.apply_relationships(objects_to_build, root_commit_object)
 
-        # Kill unused collections
         assert(isinstance(root_commit_object, SCollection))
+        # Kill unused collections
 
         def should_remove_unuseful_collection(col: SCollection) -> bool: #TODO: this maybe could be optimised
             elements = col.elements

@@ -1,7 +1,10 @@
-from typing import Callable, List, Set
-from bpy_speckle.clients import speckle_clients
-from specklepy.objects.graph_traversal.traversal import GraphTraversal, TraversalRule
+from typing import Callable, Set
+
+import bpy
 from specklepy.objects.base import Base
+from bpy_speckle.properties.scene import SpeckleSceneSettings
+
+from bpy_speckle.specklepy_extras.traversal import GraphTraversal, TraversalRule
 
 """
 Speckle functions
@@ -47,34 +50,6 @@ def get_scale_length(units: str) -> float:
 Client, user, and stream functions
 """
 
-
-def _check_speckle_client_user_stream(scene):
-    """
-    Verify that there is a valid user and stream
-    """
-    speckle = scene.speckle
-
-    user = (
-        speckle.users[int(speckle.active_user)]
-        if len(speckle.users) > int(speckle.active_user)
-        else None
-    )
-
-    if user is None:
-        print("No users loaded.")
-
-    stream = (
-        user.streams[user.active_stream]
-        if len(user.streams) > user.active_stream
-        else None
-    )
-
-    if stream is None:
-        print("Account contains no streams.")
-
-    return (user, stream)
-
-
 elements_aliases: Set[str] = {"elements", "@elements"}
 ignore_props: Set[str] = {"@blockDefinition", "displayValue", "@displayValue", "units", "id", "applicationId"}
 
@@ -100,3 +75,7 @@ def get_default_traversal_func(can_convert_to_native: Callable[[Base], bool]) ->
     )
 
     return GraphTraversal([convertable_rule, ignore_result_rule, default_rule])
+
+
+def get_speckle(context: bpy.types.Context) -> 'SpeckleSceneSettings':
+    return context.scene.speckle #type: ignore

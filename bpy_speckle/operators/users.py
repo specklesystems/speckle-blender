@@ -1,14 +1,15 @@
 """
 User account operators
 """
+from typing import cast
 import bpy
-from bpy_speckle.functions import _report
+from bpy.types import Context
+from bpy_speckle.functions import _report, get_speckle
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.properties.scene import SpeckleCommitObject, SpeckleSceneSettings
+from bpy_speckle.properties.scene import SpeckleCommitObject, SpeckleSceneSettings, SpeckleUserObject
 from specklepy.api.client import SpeckleClient
-from specklepy.api.models import Stream, User
+from specklepy.api.models import Stream
 from specklepy.api.credentials import get_local_accounts
-from datetime import datetime
 
 class ResetUsers(bpy.types.Operator):
     """
@@ -28,8 +29,8 @@ class ResetUsers(bpy.types.Operator):
         return {"FINISHED"}
 
     @staticmethod
-    def reset_ui(context: bpy.types.Context):
-        speckle: SpeckleSceneSettings = context.scene.speckle
+    def reset_ui(context: Context):
+        speckle = get_speckle(context)
 
         speckle.users.clear()
         speckle_clients.clear()
@@ -47,7 +48,7 @@ class LoadUsers(bpy.types.Operator):
 
         _report("Loading users...")
 
-        speckle: SpeckleSceneSettings = context.scene.speckle
+        speckle = cast(SpeckleSceneSettings, context.scene.speckle) #type: ignore
         users = speckle.users
 
         ResetUsers.reset_ui(context)
@@ -64,9 +65,11 @@ class LoadUsers(bpy.types.Operator):
             user.email = profile.userInfo.email
             user.company = profile.userInfo.company or ""
             try:
+                url = profile.serverInfo.url
+                assert(url)
                 client = SpeckleClient(
-                    host=profile.serverInfo.url,
-                    use_ssl="https" in profile.serverInfo.url,
+                    host=url,
+                    use_ssl="https" in url,
                 )
                 client.authenticate_with_account(profile)
                 speckle_clients.append(client)
@@ -76,7 +79,6 @@ class LoadUsers(bpy.types.Operator):
             if profile.isDefault:
                 active_user_index = len(users) - 1
 
-        #speckle.active_user_index = int(speckle.active_user) #TODO Wtf is this?
         speckle.active_user = str(active_user_index)
         bpy.context.view_layer.update()
 
@@ -85,7 +87,7 @@ class LoadUsers(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def add_user_stream(user: User, stream: Stream):
+def add_user_stream(user: SpeckleUserObject, stream: Stream):
     s = user.streams.add()
     s.name = stream.name
     s.id = stream.id
@@ -108,12 +110,12 @@ def add_user_stream(user: User, stream: Stream):
             commit.message = c.message or ""
             commit.author_name = c.authorName
             commit.author_id = c.authorId
-            commit.created_at = datetime.strftime(c.createdAt, "%Y-%m-%d %H:%M:%S.%f%Z")
+            commit.created_at = c.createdAt.strftime("%Y-%m-%d %H:%M:%S.%f%Z") if c.createdAt else ""
             commit.source_application = str(c.sourceApplication)
             commit.referenced_object = c.referencedObject
 
     if hasattr(s, "baseProperties"):
-        s.units = stream.baseProperties.units
+        s.units = stream.baseProperties.units # type: ignore
     else:
         s.units = "Meters"
 
@@ -129,33 +131,40 @@ class LoadUserStreams(bpy.types.Operator):
     bl_description = "(Re)load all available user streams"
 
     def execute(self, context):
-        speckle = context.scene.speckle
-
-        if len(speckle.users) > 0:
-            user = speckle.users[int(context.scene.speckle.active_user)]
-            client = speckle_clients[int(context.scene.speckle.active_user)]
-
-            try:
-                streams = client.stream.list(stream_limit=20)
-            except Exception as e:
-                _report(f"Failed to retrieve streams: {e}")
-                return
-            if not streams:
-                _report("Failed to retrieve streams.")
-                return
-
-            user.streams.clear()
-
-            default_units = "Meters"
-
-            for s in streams:
-                sstream = client.stream.get(id=s.id, branch_limit=20)
-                add_user_stream(user, sstream)
-
-            bpy.context.view_layer.update()
-
+        try:
+            self.add_stream_from_url(context)
             return {"FINISHED"}
+        except Exception as ex:
+            _report(f"{self.bl_idname} failed: {ex}")
+            return {"CANCELLED"} 
+        
+    def add_stream_from_url(self, context: Context) -> None:
+        speckle = get_speckle(context)
+
+        user = speckle.validate_user_selection()
+
+        client = speckle_clients[int(speckle.active_user)]
+
+        try:
+            streams = client.stream.list(stream_limit=20)
+        except Exception as e:
+            _report(f"Failed to retrieve streams: {e}")
+            return
+        if not streams:
+            _report("Failed to retrieve streams.")
+            return
+
+        user.streams.clear()
+
+        default_units = "Meters"
+
+        for s in streams:
+            assert(s.id)
+            sstream = client.stream.get(id=s.id, branch_limit=20)
+            add_user_stream(user, sstream)
+
+        bpy.context.view_layer.update()
 
         if context.area:
             context.area.tag_redraw()
-        return {"CANCELLED"}
+

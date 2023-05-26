@@ -56,10 +56,15 @@ class GraphTraversal:
             active_rule = self._get_active_rule_or_default_rule(current)
             members_to_traverse = active_rule.get_members_to_traverse(current)
             for child_prop in members_to_traverse:
-                self._traverse_member_to_stack(
-                    stack, current[child_prop], child_prop, head
-                )
-
+                try:
+                    if child_prop in {"speckle_type", "units", "applicationId"}: continue #debug: to avoid noisy exceptions, explicitly avoid checking ones we know will fail, this is not exhaustive
+                    value = current[child_prop]
+                    self._traverse_member_to_stack(
+                        stack, value, child_prop, head
+                    )
+                except KeyError as ex:
+                    # Unset application ids, and class variables like SpeckleType will throw when __getitem__ is called
+                    pass
     @staticmethod
     def _traverse_member_to_stack(
         stack: List[TraversalContext],

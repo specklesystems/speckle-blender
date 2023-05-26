@@ -28,14 +28,13 @@ from bpy_speckle.convert.to_speckle import (
     convert_to_speckle,
 )
 from bpy_speckle.functions import (
-    _check_speckle_client_user_stream,
     get_default_traversal_func,
-    get_scale_length,
     _report,
+    get_speckle,
 )
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
-from bpy_speckle.properties.scene import SpeckleSceneSettings
+from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleUserObject
 from bpy_speckle.convert.util import link_object_to_collection_nested
 
 from specklepy.api.models import Commit
@@ -43,11 +42,12 @@ from specklepy.api import operations, host_applications
 from specklepy.api.wrapper import StreamWrapper
 from specklepy.api.resources.stream import Stream
 from specklepy.transports.server import ServerTransport
-from specklepy.objects.graph_traversal.traversal import TraversalContext
 from specklepy.objects import Base
 from specklepy.objects.other import Collection as SCollection
 from specklepy.logging.exceptions import SpeckleException
 from specklepy.logging import metrics
+
+from bpy_speckle.specklepy_extras.traversal import TraversalContext
 
 @deprecated
 def get_objects_collections(base: Base) -> Dict[str, list]:
@@ -116,24 +116,24 @@ ObjectCallback = Optional[Callable[[bpy.types.Context, Object, Base], Object]]
 ReceiveCompleteCallback = Optional[Callable[[bpy.types.Context, Dict[str, Union[Object, Collection]]], None]]
 
 def get_receive_funcs(speckle: SpeckleSceneSettings) -> tuple[ObjectCallback, ReceiveCompleteCallback]:
-        """
-        Fetches the injected callback functions from user specified "Receive Script"
-        """
+    """
+    Fetches the injected callback functions from user specified "Receive Script"
+    """
 
-        objectCallback: ObjectCallback = None
-        receiveCompleteCallback: ReceiveCompleteCallback = None
-        
-        if speckle.receive_script in bpy.data.texts:
-            mod = bpy.data.texts[speckle.receive_script].as_module()
-            if hasattr(mod, "execute_for_each"):
-                objectCallback = mod.execute_for_each
-            elif hasattr(mod, "execute"): 
-                objectCallback = lambda c, o, _ : mod.execute(c.scene, o)
+    objectCallback: ObjectCallback = None
+    receiveCompleteCallback: ReceiveCompleteCallback = None
+    
+    if speckle.receive_script in bpy.data.texts:
+        mod = bpy.data.texts[speckle.receive_script].as_module()
+        if hasattr(mod, "execute_for_each"):
+            objectCallback = mod.execute_for_each #type: ignore
+        elif hasattr(mod, "execute"): 
+            objectCallback = lambda c, o, _ : mod.execute(c.scene, o) #type: ignore
 
-            if hasattr(mod, "execute_for_all"):
-                receiveCompleteCallback = mod.execute_for_all
+        if hasattr(mod, "execute_for_all"):
+            receiveCompleteCallback = mod.execute_for_all #type: ignore
 
-        return (objectCallback, receiveCompleteCallback)
+    return (objectCallback, receiveCompleteCallback)
 
 @deprecated
 def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], scale: float, stream_id: str, func: ObjectCallback = None):
@@ -221,7 +221,7 @@ def base_to_native(context: bpy.types.Context,
             #col.objects.link(new_object)
 
 
-def _add_to_heirarchy(converted: Union[Object, Collection], traversalContext : TraversalContext, converted_objects: Dict[str, Union[Object, Collection]]):
+def _add_to_heirarchy(converted: Union[Object, Collection], traversalContext : TraversalContext, converted_objects: Dict[str, Union[Object, Collection]]) -> None:
     nextParent = traversalContext.parent
 
     # Traverse up the tree to find a direct parent object, and a containing collection
@@ -248,17 +248,16 @@ def _add_to_heirarchy(converted: Union[Object, Collection], traversalContext : T
         if parent_object:
             converted.parent = parent_object
         link_object_to_collection_nested(converted, parent_collection)
-    else: #isinstance(converted, Collection):
+    elif converted.name not in parent_collection.children.keys():
         parent_collection.children.link(converted)
     
 
 def collection_to_native(collection: SCollection) -> Collection: 
-    name = collection.name or collection.applicationId
-    
+    name = collection.name or f"{collection.collectionType} -- {collection.applicationId or collection.id}"  #TODO: consider consolidating name formatting with Rhino
     return get_or_create_collection(name)
 
 def get_or_create_collection(name: str, clear_collection: bool = True) -> Collection:
-    existing = bpy.data.collections.get(name)
+    existing = cast(Collection, bpy.data.collections.get(name))
     if existing:
         if clear_collection:
             for obj in existing.objects:
@@ -267,7 +266,7 @@ def get_or_create_collection(name: str, clear_collection: bool = True) -> Collec
     else:
         new_collection = bpy.data.collections.new(name)
 
-        #HACK: We want to not render revit "Rooms" collections by default.
+        #NOTE: We want to not render revit "Rooms" collections by default.
         if name == "Rooms":
             new_collection.hide_viewport = True
             new_collection.hide_render = True
@@ -276,7 +275,7 @@ def get_or_create_collection(name: str, clear_collection: bool = True) -> Collec
 
 
 
-def create_child_collections(parent_col: bpy.types.Collection, children_names: Iterable[str]):
+def create_child_collections(parent_col: bpy.types.Collection, children_names: Iterable[str]) -> None:
     for name in children_names:
         col = get_or_create_collection(name)
         parent_col.children.link(col)
@@ -392,18 +391,16 @@ class ReceiveStreamObjects(bpy.types.Operator):
             self.receive(context)
             return {"FINISHED"}
         except Exception as ex:
-            _report(f"Failed to receive objects: {ex}")
+            _report(f"Failed to receive objects: {type(ex)} {ex}")
             return {"CANCELLED"}
 
-    def receive(self, context: Context):
+    def receive(self, context: Context) -> None:
         bpy.context.view_layer.objects.active = None
 
-        speckle: SpeckleSceneSettings = context.scene.speckle
+        speckle = get_speckle(context)
         
-        #Get UI Selection
         (user, stream, branch, commit) = speckle.validate_commit_selection()
 
-        #Get actual stream data
         client = speckle_clients[int(speckle.active_user)]
 
         transport = ServerTransport(stream.id, client)
@@ -417,6 +414,8 @@ class ReceiveStreamObjects(bpy.types.Operator):
                 "isMultiplayer": commit.author_id != user.id,
             },
         )
+
+        # Fetch commit data
         commit_object = operations._untracked_receive(commit.referenced_object, transport)
         client.commit.received(
             stream.id,
@@ -425,6 +424,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
             message="received commit from Speckle Blender",
         )
 
+        # Convert received data
         context.window_manager.progress_begin(0, commit_object.totalChildrenCount or 1)
 
         set_convert_instances_as(self.receive_instances_as) #HACK: we need a better way to pass settings down to the converter
@@ -434,9 +434,18 @@ class ReceiveStreamObjects(bpy.types.Operator):
         converted_count: int = 0
         (object_converted_callback, on_complete_callback) = get_receive_funcs(speckle)
 
-        #HACK: ensure commit object has a name if not already
-        if not getattr(commit_object, "name", None):
-            commit_object["name"] = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id) # Matches Rhino "Create" naming
+        # older commits won't will have a non-collection root object
+        # for the sake of consistant behaviour, we will wrap anynon-collection commit objects in a collection
+        if not isinstance(commit_object, SCollection):
+            dummy_commit_object = SCollection()
+            dummy_commit_object.elements = [commit_object]
+            dummy_commit_object.name = getattr(commit_object, "name", None)
+            dummy_commit_object.id = dummy_commit_object.get_id()
+            commit_object = dummy_commit_object
+
+        # ensure commit object has a name if not already
+        if not commit_object.name:
+            commit_object.name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id) # Matches Rhino "Create" naming
 
         for item in traversalFunc.traverse(commit_object):
             
@@ -446,12 +455,16 @@ class ReceiveStreamObjects(bpy.types.Operator):
                     if not current or not current.id: raise Exception("{current} was an invalid speckle object")
 
                     #Convert the object!
+                    converted_data_type: str
                     converted: Union[Object, Collection, None]
                     if isinstance(current, SCollection):
+                        if(current.collectionType == "Scene Collection"): raise ConversionSkippedException()
                         converted = collection_to_native(current)
+                        converted_data_type = "COLLECTION"
                     else:
                         converted = convert_to_native(current)
-
+                        converted_data_type = "COLLECTION_INSTANCE" if converted.instance_collection else str(converted.type)
+                        
                         #Run the user specified callback function (AKA receive script)
                         if object_converted_callback:
                             converted = object_converted_callback(context, converted, current)
@@ -463,8 +476,11 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
                     _add_to_heirarchy(converted, item, converted_objects)
 
-                except Exception as ex: 
-                    _report(f"Conversion of {current.speckle_type} {current} failed: {ex}")
+                    _report(f"Successfully converted {type(current).__name__} {current.id} as '{converted_data_type}'")
+                except ConversionSkippedException as ex:
+                    _report(f"Skipped converting {type(current).__name__} {current.id}: {ex}")
+                except Exception as ex:
+                    _report(f"Failed to converted {type(current).__name__} {current.id}: {ex}")
 
             converted_count += 1
             context.window_manager.progress_update(converted_count) #NOTE: We don't expect to ever reach 100% since not every object will be traversed
@@ -478,68 +494,6 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         if on_complete_callback:
             on_complete_callback(context, converted_objects)
-
-        return {"FINISHED"}
-
-
-
-        """
-        Create or get Collection for stream objects
-        """
-        collections = get_objects_collections(commit_object)
-
-        if not collections:
-            print("Unusual commit structure - did not correctly create collections")
-            return {"CANCELLED"}
-
-        # name = ""
-        # if self.receive_mode == "create":
-        name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id) # Matches Rhino "Create" naming
-        # else:
-        #     name = stream.name # Doesn't quite match rhino's Update layer naming, but is close enough no? 
-
-        col = get_or_create_collection(name)
-        col.speckle.stream_id = stream.id
-        col.speckle.units = commit_object.units or "m"
-            
-        if col.name not in bpy.context.scene.collection.children:
-            bpy.context.scene.collection.children.link(col)
-
-        for child_col in collections.keys():
-            try:
-                col.children.link(bpy.data.collections[child_col])
-            except:
-                pass
-        """
-        Set conversion scale from stream units
-        """
-        scale = (
-            get_scale_length(col.speckle.units)
-            / context.scene.unit_settings.scale_length
-        )
-
-        """
-        Get script from text editor for injection
-        """
-        created_objects = {}
-        (func, on_complete) = get_receive_funcs(context, created_objects)
-        
-
-        """
-        Iterate through retrieved resources
-        """
-
-        bases_to_native(context, collections, scale, stream.id, func)
-        context.window_manager.progress_end()
-
-        if self.clean_meshes:
-            self.clean_converted_meshes(context, created_objects)
-
-        if on_complete:
-            on_complete(context, created_objects)
-
-
-        return {"FINISHED"}
 
 
 
@@ -567,15 +521,15 @@ class SendStreamObjects(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
-        if len(context.scene.speckle.users) > 0:
-            N = len(context.selected_objects)
-            if N == 1:
-                self.commit_message = f"Pushed {N} element from Blender."
-            else:
-                self.commit_message = f"Pushed {N} elements from Blender."
-            return wm.invoke_props_dialog(self)
+        if len(context.scene.speckle.users) <= 0: return {"CANCELLED"}
 
-        return {"CANCELLED"}
+        N = len(context.selected_objects)
+        if N == 1:
+            self.commit_message = f"Pushed {N} element from Blender."
+        else:
+            self.commit_message = f"Pushed {N} elements from Blender."
+        return wm.invoke_props_dialog(self)
+
 
     def execute(self, context):
         try:
@@ -585,13 +539,13 @@ class SendStreamObjects(bpy.types.Operator):
             _report(f"Send failed: {ex}")
             return {"CANCELLED"} 
 
-    def send(self, context: Context) -> str:
+    def send(self, context: Context) -> None:
 
         selected = context.selected_objects
         if len(selected) < 1:
             raise Exception("No objects are selected, sending canceled")
 
-        speckle = cast(SpeckleSceneSettings, context.scene.speckle)
+        speckle = get_speckle(context)
         (user, stream, branch) = speckle.validate_branch_selection()
 
         client = speckle_clients[int(speckle.active_user)]
@@ -610,7 +564,7 @@ class SendStreamObjects(bpy.types.Operator):
         if speckle.send_script in bpy.data.texts:
             mod = bpy.data.texts[speckle.send_script].as_module()
             if hasattr(mod, "execute"):
-                func = mod.execute
+                func = mod.execute #type: ignore
 
         num_converted = 0
         context.window_manager.progress_begin(0, max(len(selected), 1))
@@ -676,38 +630,6 @@ class SendStreamObjects(bpy.types.Operator):
         if context.area:
             context.area.tag_redraw()
 
-        return COMMIT_ID
-
-        base = Base()
-        for name, objects in export.items():
-            collection = bpy.data.collections.get(name)
-            hierarchy = get_collection_hierarchy(collection)
-            create_nested_hierarchy(base, hierarchy, objects)
-
-        transport = ServerTransport(stream.id, client)
-
-        _report(f"Sending to {stream}")
-        obj_id = operations.send(
-            base,
-            [transport],
-        )
-
-        commitId = client.commit.create(
-            stream.id,
-            obj_id,
-            branch.name,
-            message=self.commit_message,
-            source_application="blender",
-        )
-        _report(f"Commit Created {user.server_url}/streams/{stream.id}/commits/{commitId}")
-
-        bpy.ops.speckle.load_user_streams()
-
-        context.view_layer.update()
-
-        if context.area:
-            context.area.tag_redraw()
-        return {"FINISHED"}
 
 
 class ViewStreamDataApi(bpy.types.Operator):
@@ -717,15 +639,20 @@ class ViewStreamDataApi(bpy.types.Operator):
     bl_description = "View the stream in the web browser"
 
     def execute(self, context):
+        try:
+            self.view_stream_data_api(context)
+            return {"FINISHED"}
+        except Exception as ex:
+            _report(f"{self.bl_idname} failed: {ex}")
+            return {"CANCELLED"} 
 
-        if len(context.scene.speckle.users) > 0:
-            user = context.scene.speckle.users[int(context.scene.speckle.active_user)]
-            if len(user.streams) > 0:
-                stream = user.streams[user.active_stream]
+    def view_stream_data_api(self, context: Context) -> None:
+        speckle = get_speckle(context)
 
-                webbrowser.open("%s/streams/%s" % (user.server_url, stream.id), new=2)
-                return {"FINISHED"}
-        return {"CANCELLED"}
+        (user, stream) = speckle.validate_stream_selection()
+        
+        if not webbrowser.open("%s/streams/%s" % (user.server_url, stream.id), new=2):
+            raise Exception("Failed to open stream in browser")
 
 
 class AddStreamFromURL(bpy.types.Operator):
@@ -748,13 +675,22 @@ class AddStreamFromURL(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
-        if len(context.scene.speckle.users) > 0:
+        speckle = get_speckle(context)
+        if len(speckle.users) > 0:
             return wm.invoke_props_dialog(self)
 
         return {"CANCELLED"}
 
     def execute(self, context):
-        speckle = context.scene.speckle
+        try:
+            self.add_stream_from_url(context)
+            return {"FINISHED"}
+        except Exception as ex:
+            _report(f"{self.bl_idname} failed: {ex}")
+            return {"CANCELLED"} 
+        
+    def add_stream_from_url(self, context: Context) -> None:
+        speckle = get_speckle(context)
 
         wrapper = StreamWrapper(self.stream_url)
         user_index = next(
@@ -762,9 +698,10 @@ class AddStreamFromURL(bpy.types.Operator):
             None,
         )
         if user_index is None:
-            return {"CANCELLED"}
+            raise Exception("Unable to find user stream server")
+        
         speckle.active_user = str(user_index)
-        user = speckle.users[user_index]
+        user = cast(SpeckleUserObject, speckle.users[user_index])
 
         client = speckle_clients[user_index]
         stream = client.stream.get(wrapper.stream_id, branch_limit=20)
@@ -803,8 +740,6 @@ class AddStreamFromURL(bpy.types.Operator):
         if context.area:
             context.area.tag_redraw()
 
-        return {"FINISHED"}
-
 
 class CreateStream(bpy.types.Operator):
     """
@@ -829,23 +764,31 @@ class CreateStream(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
-        if len(context.scene.speckle.users) > 0:
+        speckle = get_speckle(context)
+        if len(speckle.users) > 0:
             return wm.invoke_props_dialog(self)
 
         return {"CANCELLED"}
 
     def execute(self, context):
+        try:
+            self.create_stream(context)
+            return {"FINISHED"}
+        except Exception as ex:
+            _report(f"{self.bl_idname} failed: {ex}")
+            return {"CANCELLED"} 
+        
+    def create_stream(self, context: Context) -> None:
+        speckle = get_speckle(context)
 
-        check = _check_speckle_client_user_stream(context.scene)
-        if check is None:
-            return {"CANCELLED"}
+        user = speckle.validate_user_selection()
 
-        user, bstream = check
-
-        client = speckle_clients[int(context.scene.speckle.active_user)]
+        client = speckle_clients[int(speckle.active_user)]
 
         client.stream.create(
-            name=self.stream_name, description=self.stream_description, is_public=True
+            name=self.stream_name, 
+            description=self.stream_description, 
+            is_public=True
         )
 
         bpy.ops.speckle.load_user_streams()
@@ -856,8 +799,6 @@ class CreateStream(bpy.types.Operator):
 
         if context.area:
             context.area.tag_redraw()
-
-        return {"FINISHED"}
 
 
 class DeleteStream(bpy.types.Operator):
@@ -885,24 +826,30 @@ class DeleteStream(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
-        if len(context.scene.speckle.users) > 0:
+        speckle = get_speckle(context)
+        if len(speckle.users) > 0:
             return wm.invoke_props_dialog(self)
 
         return {"CANCELLED"}
 
     def execute(self, context):
+        try:
+            self.delete_stream(context)
+            return {"FINISHED"}
+        except Exception as ex:
+            _report(f"{self.bl_idname} failed: {ex}")
+            return {"CANCELLED"} 
 
+    def delete_stream(self, context: Context) -> None:
         if not self.are_you_sure:
-            return {"CANCELLED"}
+            raise Exception("Cancled by user")
 
         self.are_you_sure = False
 
-        check = _check_speckle_client_user_stream(context.scene)
-        if check is None:
-            return {"CANCELLED"}
+        speckle = get_speckle(context)
+        (_, stream) = speckle.validate_stream_selection()
 
-        user, stream = check
-        client = speckle_clients[int(context.scene.speckle.active_user)]
+        client = speckle_clients[int(speckle.active_user)]
 
         client.stream.delete(id=stream.id)
 
@@ -917,7 +864,6 @@ class DeleteStream(bpy.types.Operator):
 
         if context.area:
             context.area.tag_redraw()
-        return {"FINISHED"}
 
 
 class SelectOrphanObjects(bpy.types.Operator):
@@ -946,7 +892,7 @@ class SelectOrphanObjects(bpy.types.Operator):
 
         return {"FINISHED"}
 
-
+@deprecated
 class UpdateGlobal(bpy.types.Operator):
     """
     DEPRECATED
@@ -966,7 +912,7 @@ class UpdateGlobal(bpy.types.Operator):
         label = row.label(text="Update everything.")
 
     def execute(self, context):
-
+        
         client = context.scene.speckle.client
 
         profiles = client.load_local_profiles()
@@ -994,16 +940,18 @@ class CopyStreamId(bpy.types.Operator):
     bl_description = "Copy stream ID to clipboard"
 
     def execute(self, context):
-        speckle = context.scene.speckle
+        try:
+            self.copy_stream_id(context)
+            return {"FINISHED"}
+        except Exception as ex:
+            _report(f"{self.bl_idname} failed: {ex}")
+            return {"CANCELLED"} 
+        
+    def copy_stream_id(self, context) -> None:
+        speckle = get_speckle(context)
 
-        if len(speckle.users) < 1:
-            return {"CANCELLED"}
-        user = speckle.users[int(speckle.active_user)]
-        if len(user.streams) < 1:
-            return {"CANCELLED"}
-        stream = user.streams[user.active_stream]
+        (_, stream) = speckle.validate_stream_selection()
         bpy.context.window_manager.clipboard = stream.id
-        return {"FINISHED"}
 
 
 class CopyCommitId(bpy.types.Operator):
@@ -1017,22 +965,18 @@ class CopyCommitId(bpy.types.Operator):
     bl_description = "Copy commit ID to clipboard"
 
     def execute(self, context):
-        speckle = context.scene.speckle
+        try:
+            self.copy_commit_id(context)
+            return {"FINISHED"}
+        except Exception as ex:
+            _report(f"{self.bl_idname} failed: {ex}")
+            return {"CANCELLED"} 
+        
+    def copy_commit_id(self, context) -> None:
+        speckle = get_speckle(context)
 
-        if len(speckle.users) < 1:
-            return {"CANCELLED"}
-        user = speckle.users[int(speckle.active_user)]
-        if len(user.streams) < 1:
-            return {"CANCELLED"}
-        stream = user.streams[user.active_stream]
-        if len(stream.branches) < 1:
-            return {"CANCELLED"}
-        branch = stream.branches[int(stream.branch)]
-        if len(branch.commits) < 1:
-            return {"CANCELLED"}
-        commit = branch.commits[int(branch.commit)]
+        (_, _, _, commit) = speckle.validate_commit_selection()
         bpy.context.window_manager.clipboard = commit.id
-        return {"FINISHED"}
 
 
 class CopyBranchName(bpy.types.Operator):
@@ -1046,16 +990,16 @@ class CopyBranchName(bpy.types.Operator):
     bl_description = "Copy branch name to clipboard"
 
     def execute(self, context):
-        speckle = context.scene.speckle
+        try:
+            self.copy_branch_id(context)
+            return {"FINISHED"}
+        except Exception as ex:
+            _report(f"{self.bl_idname} failed: {ex}")
+            return {"CANCELLED"} 
+        
+    def copy_branch_id(self, context) -> None:
+        speckle = get_speckle(context)
 
-        if len(speckle.users) < 1:
-            return {"CANCELLED"}
-        user = speckle.users[int(speckle.active_user)]
-        if len(user.streams) < 1:
-            return {"CANCELLED"}
-        stream = user.streams[user.active_stream]
-        if len(stream.branches) < 1:
-            return {"CANCELLED"}
-        branch = stream.branches[int(stream.branch)]
+        (_, _, branch) = speckle.validate_branch_selection()
+
         bpy.context.window_manager.clipboard = branch.name
-        return {"FINISHED"}
