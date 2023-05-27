@@ -449,6 +449,7 @@ def block_def_to_speckle(blender_definition: bpy.types.Collection) -> BlockDefin
     geometry = []
     for geo in blender_definition.objects:
         try:
+            #TODO: right now, geometry will be a flat list of objects. Eventually we will want to preseve the parent relationship
             geometry.append(convert_to_speckle(geo, UnitsScale, Units, None))
         except ConversionSkippedException as ex:
             _report(f"Skipped converting '{geo.name_full}' inside collection instance: '{ex}")

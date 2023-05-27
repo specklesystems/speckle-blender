@@ -254,8 +254,6 @@ def meshes_to_native(element: Base, meshes: Collection[Mesh], name: str, scale: 
         add_colors(mesh, bm)
         add_uv_coords(mesh, bm)
 
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-
     bm.to_mesh(blender_mesh)
     bm.free()  
 
