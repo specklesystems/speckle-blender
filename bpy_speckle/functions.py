@@ -1,4 +1,10 @@
-from bpy_speckle.clients import speckle_clients
+from typing import Callable, Set
+
+import bpy
+from specklepy.objects.base import Base
+from bpy_speckle.properties.scene import SpeckleSceneSettings
+
+from bpy_speckle.specklepy_extras.traversal import GraphTraversal, TraversalRule
 
 """
 Speckle functions
@@ -44,29 +50,32 @@ def get_scale_length(units: str) -> float:
 Client, user, and stream functions
 """
 
+elements_aliases: Set[str] = {"elements", "@elements"}
+ignore_props: Set[str] = {"@blockDefinition", "displayValue", "@displayValue", "units", "id", "applicationId"}
 
-def _check_speckle_client_user_stream(scene):
+def get_default_traversal_func(can_convert_to_native: Callable[[Base], bool]) -> GraphTraversal:
     """
-    Verify that there is a valid user and stream
+    Traversal func for traversing a speckle commit object
     """
-    speckle = scene.speckle
 
-    user = (
-        speckle.users[int(speckle.active_user)]
-        if len(speckle.users) > int(speckle.active_user)
-        else None
+    convertable_rule = TraversalRule(
+    [can_convert_to_native],
+    lambda _: [i for i in elements_aliases if i not in ignore_props],
     )
 
-    if user is None:
-        print("No users loaded.")
-
-    stream = (
-        user.streams[user.active_stream]
-        if len(user.streams) > user.active_stream
-        else None
+    ignore_result_rule = TraversalRule(
+    [lambda o: "Objects.Structural.Results" in o.speckle_type, #Sadly, this one is nessasary to avoid double conversion...
+    lambda o: "Objects.BuiltElements.Revit.Parameter" in o.speckle_type], #This one is just for traversal performance of revit commits
+    lambda _: [],
     )
 
-    if stream is None:
-        print("Account contains no streams.")
+    default_rule = TraversalRule(
+    [lambda _: True],
+    lambda o: o.get_member_names(), #TODO: avoid deprecated members
+    )
 
-    return (user, stream)
+    return GraphTraversal([convertable_rule, ignore_result_rule, default_rule])
+
+
+def get_speckle(context: bpy.types.Context) -> 'SpeckleSceneSettings':
+    return context.scene.speckle #type: ignore

@@ -1,7 +1,7 @@
 """
 Scene properties
 """
-from typing import Optional
+from typing import Optional, Tuple
 import bpy
 from bpy.props import (
     StringProperty,
@@ -157,3 +157,38 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
         if 0 <= selected_index < len(self.users):
             return self.users[selected_index]
         return None
+    
+
+    def validate_user_selection(self) -> SpeckleUserObject:
+        user = self.get_active_user()
+        if not user:
+            raise SelectionException("No user selected/found")
+        return user
+        
+    def validate_stream_selection(self) -> Tuple[SpeckleUserObject, SpeckleStreamObject]:
+        user = self.validate_user_selection()
+
+        stream = user.get_active_stream()
+        if not stream:
+            raise SelectionException("No stream selected/found")
+
+        return (user, stream)
+    
+    def validate_branch_selection(self) -> Tuple[SpeckleUserObject, SpeckleStreamObject, SpeckleBranchObject]:
+        (user, stream) = self.validate_stream_selection()
+
+        branch = stream.get_active_branch()
+        if not branch:
+            raise SelectionException("No branch selected/found")
+        return (user, stream, branch)
+    
+    def validate_commit_selection(self) ->Tuple[SpeckleUserObject, SpeckleStreamObject, SpeckleBranchObject, SpeckleCommitObject]:
+        (user, stream, branch) = self.validate_branch_selection()
+        commit = branch.get_active_commit()
+        if commit is None:
+            raise SelectionException("No commit selected/found")
+        
+        return (user, stream, branch, commit)
+    
+class SelectionException(Exception):
+    pass
