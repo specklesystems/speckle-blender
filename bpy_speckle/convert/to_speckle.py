@@ -405,20 +405,26 @@ def material_to_speckle(blender_mat: bpy.types.Material) -> RenderMaterial:
     speckle_mat = RenderMaterial()
     speckle_mat.name = blender_mat.name
 
-    if blender_mat.use_nodes is True and blender_mat.node_tree.nodes.get(
-        "Principled BSDF"
-    ):
-        inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
-        speckle_mat.diffuse = to_argb_int(inputs["Base Color"].default_value)
-        speckle_mat.emissive = to_argb_int(inputs["Emission"].default_value)
-        speckle_mat.roughness = inputs["Roughness"].default_value
-        speckle_mat.metalness = inputs["Metallic"].default_value
-        speckle_mat.opacity = inputs["Alpha"].default_value
+    if blender_mat.use_nodes:
+        if blender_mat.node_tree.nodes.get("Principled BSDF"):
+            inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
+            speckle_mat.diffuse = to_argb_int(inputs["Base Color"].default_value)
+            speckle_mat.emissive = to_argb_int(inputs["Emission"].default_value)
+            speckle_mat.roughness = inputs["Roughness"].default_value
+            speckle_mat.metalness = inputs["Metallic"].default_value
+            speckle_mat.opacity = inputs["Alpha"].default_value
+            return speckle_mat
+        elif blender_mat.node_tree.nodes.get("Diffuse BSDF"):
+            inputs = blender_mat.node_tree.nodes["Diffuse BSDF"].inputs
+            speckle_mat.diffuse = to_argb_int(inputs["Color"].default_value)
+            speckle_mat.roughness = inputs["Roughness"].default_value
+            return speckle_mat
+        #TODO: Support more shaders
 
-    else:
-        speckle_mat.diffuse = to_argb_int(blender_mat.diffuse_color)
-        speckle_mat.metalness = blender_mat.metallic
-        speckle_mat.roughness = blender_mat.roughness
+    # fallback to standard material props
+    speckle_mat.diffuse = to_argb_int(blender_mat.diffuse_color)
+    speckle_mat.metalness = blender_mat.metallic
+    speckle_mat.roughness = blender_mat.roughness
 
     return speckle_mat
 
