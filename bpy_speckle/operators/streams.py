@@ -30,6 +30,7 @@ from bpy_speckle.convert.to_speckle import (
 from bpy_speckle.functions import (
     get_default_traversal_func,
     _report,
+    get_scale_length,
     get_speckle,
 )
 from bpy_speckle.clients import speckle_clients
@@ -550,14 +551,9 @@ class SendStreamObjects(bpy.types.Operator):
 
         client = speckle_clients[int(speckle.active_user)]
 
-        #TODO: Check how units scalling should works
-        # scale = context.scene.unit_settings.scale_length / get_scale_length(
-        #     stream.units.lower()
-        # )
-
-        scale = 1.0
-
         units = "m" if bpy.context.scene.unit_settings.system == "METRIC" else "ft"
+
+        units_scale = context.scene.unit_settings.scale_length / get_scale_length(units)
 
         # Get script from text editor for injection
         func = None
@@ -584,7 +580,7 @@ class SendStreamObjects(bpy.types.Operator):
 
                 converted = convert_to_speckle(
                     obj,
-                    scale,
+                    units_scale,
                     units,
                     depsgraph
                 )
