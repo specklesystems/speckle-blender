@@ -35,7 +35,7 @@ CAN_CONVERT_TO_NATIVE = (
 
 
 def _has_native_convesion(speckle_object: Base) -> bool: 
-    return any(isinstance(speckle_object, t) for t in CAN_CONVERT_TO_NATIVE) #or "View" in speckle_object.speckle_type #hack
+    return any(isinstance(speckle_object, t) for t in CAN_CONVERT_TO_NATIVE) or "View" in speckle_object.speckle_type #hack
 
 def _has_fallback_conversion(speckle_object: Base) -> bool: 
     return any(getattr(speckle_object, alias, None) for alias in DISPLAY_VALUE_PROPERTY_ALIASES)
@@ -91,8 +91,8 @@ def convert_to_native(speckle_object: Base) -> Object:
         converted = mesh_to_native(speckle_object, object_name, scale)
     elif speckle_type in SUPPORTED_CURVES:
         converted = icurve_to_native(speckle_object, object_name, scale)
-    # elif "View" in speckle_object.speckle_type:
-    #     return view_to_native(speckle_object, object_name, scale)
+    elif "View" in speckle_object.speckle_type:
+         return view_to_native(speckle_object, object_name, scale)
     elif isinstance(speckle_object, Instance):
         if convert_instances_as == "linked_duplicates":
            (converted, children) = instance_to_native_object(speckle_object, scale)
@@ -200,7 +200,7 @@ def view_to_native(speckle_view, name: str, scale: float) -> bpy.types.Object:
     scale_factor = get_scale_factor(speckle_view, scale)
     tx = (speckle_view.origin.x * scale_factor)
     ty = (speckle_view.origin.y * scale_factor)
-    tz = (speckle_view.origin.z * scale_factor)
+    tz = (speckle_view.origin.z * scale_factor) #TODO: do these need to be scaled?
 
     forward = MVector((speckle_view.forwardDirection.x, speckle_view.forwardDirection.y, speckle_view.forwardDirection.z))
     up = MVector((speckle_view.upDirection.x, speckle_view.upDirection.y, speckle_view.upDirection.z))

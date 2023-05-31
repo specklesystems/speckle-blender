@@ -6,6 +6,7 @@ from bpy.types import (
     Object, 
     Curve as NCurve,
     Mesh as NMesh,
+    Camera as NCamera,
 )
 from deprecated import deprecated
 from mathutils.geometry import interpolate_bezier
@@ -16,7 +17,7 @@ from mathutils import (
 from specklepy.objects import Base
 from specklepy.objects.other import BlockInstance, BlockDefinition, RenderMaterial, Transform
 from specklepy.objects.geometry import (
-     Mesh, Curve, Interval, Box, Point, Polyline
+     Mesh, Curve, Interval, Box, Point, Vector, Polyline,
 )
 from bpy_speckle.convert.to_native import OBJECT_NAME_SEPERATOR, SPECKLE_ID_LENGTH
 from bpy_speckle.convert.util import (
@@ -33,7 +34,7 @@ class ConversionSkippedException(Exception):
 Units: str = "m" # The desired final units to send
 UnitsScale: float = 1 # The scale factor conversions need to apply to position data to get to the desired units
 
-CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY")
+CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY", "CAMERA")
 
 
 def convert_to_speckle(raw_blender_object: Object, units_scale: float, units: str, depsgraph: Optional[Depsgraph]) -> Base:
@@ -66,7 +67,8 @@ def convert_to_speckle(raw_blender_object: Object, units_scale: float, units: st
         converted = curve_to_speckle(blender_object, cast(NCurve, blender_object.data))
     elif blender_type == "EMPTY":
         converted = empty_to_speckle(blender_object)
-
+    elif blender_type == "CAMERA":
+        converted = camera_to_speckle_view(blender_object, cast(NCamera, blender_object.data))
     if not converted:
         raise Exception("Conversion returned None")
 
@@ -428,18 +430,40 @@ def material_to_speckle(blender_mat: bpy.types.Material) -> RenderMaterial:
 
     return speckle_mat
 
-@deprecated
-def material_to_speckle_old(blender_object: Object) -> Optional[RenderMaterial]:
-    """Create and return a render material from a blender object"""
-    if not getattr(blender_object.data, "materials", None):
-        return None
+def camera_to_speckle_view(blender_object: Object, data: NCamera) -> Base:
+    if data.type != 'PERSP':
+        raise Exception(f"Cameras of type {data.type} are not currently supported")
+    
+    matrix = cast(MMatrix, blender_object.matrix_world)
+    up = matrix.col[1].xyz
+    forwards = -matrix.col[2].xyz
+    translation = matrix.translation
 
-    blender_mat: bpy.types.Material = blender_object.data.materials[0]
-    if not blender_mat:
-        return None
+    view = Base.of_type("Objects.BuiltElements.View:Objects.BuiltElements.View3D") #HACK: views are not in specklepy yet!
+    view.name = to_speckle_name(blender_object)
+    view.origin = vector_to_speckle_point(translation)
+    view.upDirection = vector_to_speckle(up)
+    view.forwardDirection = vector_to_speckle(forwards)
+    view.target = vector_to_speckle_point(forwards) #TODO: do these need to be scaled?
+    view.units = Units
+    view.isOrthogonal = False
+    return view
 
-    return material_to_speckle(blender_mat)
+def vector_to_speckle_point(xyz: MVector) -> Point:
+    return Point(
+        x = xyz.x * UnitsScale,
+        y = xyz.y * UnitsScale,
+        z = xyz.z * UnitsScale,
+        units = Units,
+        )
 
+def vector_to_speckle(xyz: MVector) -> Vector:
+    return Vector(
+        x = xyz.x * UnitsScale,
+        y = xyz.y * UnitsScale,
+        z = xyz.z * UnitsScale,
+        units = Units,
+        )
 
 def transform_to_speckle(blender_transform: Union[Iterable[Iterable[float]], MMatrix]) -> Transform:
     iterable_transform = cast(Iterable[Iterable[float]], blender_transform) #NOTE: Matrix are itterable, even if type hinting says they are not
