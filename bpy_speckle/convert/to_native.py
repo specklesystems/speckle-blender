@@ -1,5 +1,6 @@
 import math
-from typing import Tuple, Union, Collection
+from typing import Iterable, Tuple, Union, Collection
+from bpy_speckle.convert.constants import DISPLAY_VALUE_PROPERTY_ALIASES, ELEMENTS_PROPERTY_ALIASES
 from bpy_speckle.functions import get_scale_length, _report
 from mathutils import (
     Matrix as MMatrix,
@@ -118,9 +119,6 @@ def convert_to_native(speckle_object: Base) -> Object:
     return converted
 
 
-DISPLAY_VALUE_PROPERTY_ALIASES = ["displayValue", "@displayValue"]
-ELEMENTS_PROPERTY_ALIASES = ["elements", "@elements"]
-
 
 def display_value_to_native(speckle_object: Base, name: str, scale: float) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
     return _members_to_native(speckle_object, name, scale, DISPLAY_VALUE_PROPERTY_ALIASES, True)
@@ -129,7 +127,7 @@ def elements_to_native(speckle_object: Base, name: str, scale: float) -> list[bp
     (_, elements) = _members_to_native(speckle_object, name, scale, ELEMENTS_PROPERTY_ALIASES, False)
     return elements
 
-def _members_to_native(speckle_object: Base, name: str, scale: float, members: List[str], combineMeshes: bool) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
+def _members_to_native(speckle_object: Base, name: str, scale: float, members: Iterable[str], combineMeshes: bool) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
     """
     Converts a given speckle_object by converting specified members
 
@@ -633,6 +631,7 @@ def _instance_definition_to_native(definition: Union[Base, BlockDefinition]) -> 
     native_def["applicationId"] = definition.applicationId
 
     #TODO could maybe replace BlockDefinition awareness with a single traverse member call
+    
     geometry = definition.geometry if isinstance(definition, BlockDefinition) else [definition]
 
     for geo in geometry:

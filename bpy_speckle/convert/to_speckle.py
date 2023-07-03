@@ -19,6 +19,7 @@ from specklepy.objects.other import BlockInstance, BlockDefinition, RenderMateri
 from specklepy.objects.geometry import (
      Mesh, Curve, Interval, Box, Point, Vector, Polyline,
 )
+from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
 from bpy_speckle.convert.to_native import OBJECT_NAME_SEPERATOR, SPECKLE_ID_LENGTH
 from bpy_speckle.convert.util import (
     get_blender_custom_properties,
@@ -476,20 +477,23 @@ def transform_to_speckle(blender_transform: Union[Iterable[Iterable[float]], MMa
 
 
 def block_def_to_speckle(blender_definition: bpy.types.Collection) -> BlockDefinition:
-    geometry = []
+    geometryBuilder = BlenderCommitObjectBuilder()
     for geo in blender_definition.objects:
         try:
-            #TODO: right now, geometry will be a flat list of objects. Eventually we will want to preseve the parent relationship
-            geometry.append(convert_to_speckle(geo, UnitsScale, Units, None))
+            c = convert_to_speckle(geo, UnitsScale, Units, None)
+            geometryBuilder.include_object(c, geo)
         except ConversionSkippedException as ex:
             _report(f"Skipped converting '{geo.name_full}' inside collection instance: '{ex}")
         except Exception as ex:
             _report(f"Failed to converted '{geo.name_full}' inside collection instance: '{ex}'")
 
+    dummyRoot = Base()
+    geometryBuilder.apply_relationships(geometryBuilder.converted.values(), dummyRoot)
+
     block_def = BlockDefinition(
         units=Units,
         name=to_speckle_name(blender_definition),
-        geometry=geometry,
+        geometry=dummyRoot["@elements"],
         basePoint=Point(units=Units),
     )
     # blender_props = get_blender_custom_properties(blender_definition)

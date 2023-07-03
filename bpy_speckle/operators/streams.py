@@ -255,7 +255,13 @@ def _add_to_heirarchy(converted: Union[Object, Collection], traversalContext : T
 
 def collection_to_native(collection: SCollection) -> Collection: 
     name = collection.name or f"{collection.collectionType} -- {collection.applicationId or collection.id}"  #TODO: consider consolidating name formatting with Rhino
-    return get_or_create_collection(name)
+    ret =  get_or_create_collection(name)
+    
+    color = getattr(collection, "colorTag", None)
+    if color:
+        ret.color_tag = color
+
+    return ret
 
 def get_or_create_collection(name: str, clear_collection: bool = True) -> Collection:
     existing = cast(Collection, bpy.data.collections.get(name))

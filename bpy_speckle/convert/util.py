@@ -6,23 +6,10 @@ import bpy, struct, idprop
 from specklepy.objects.base import Base
 from specklepy.objects.geometry import Circle, Mesh, Ellipse
 from specklepy.objects.other import RenderMaterial
+from bpy_speckle.convert.constants import IGNORED_PROPERTY_KEYS
 from bpy_speckle.functions import _report
 from bpy.types import Material, Object
 
-IGNORED_PROPERTY_KEYS = {
-    "id",
-    "elements",
-    "displayMesh",
-    "displayValue",
-    "speckle_type",
-    "parameters",
-    "faces",
-    "colors",
-    "vertices",
-    "renderMaterial",
-    "textureCoordinates",
-    "totalChildrenCount"
-}
 
 
 def to_rgba(argb_int: int) -> Tuple[float, float, float, float]:
