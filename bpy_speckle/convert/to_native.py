@@ -570,36 +570,45 @@ def _get_instance_name(instance: Instance) -> str:
     return f"{name_prefix}{OBJECT_NAME_SEPERATOR}{instance.id}"
 
 
-def instance_to_native_object(instance: Instance, scale: float) -> bpy.types.Object:
+def instance_to_native_object(instance: Instance, scale: float) -> Object:
     """
     Converts Instance to a unique object with (potentially) shared data (linked duplicate)
     """
     if not instance.definition: raise Exception("Instance is missing a definition")
     if not instance.transform: raise Exception("Instance is missing a transform")
+    definition = instance.definition
+    if not definition.id: raise Exception("Instance is missing a valid definition")
 
     name = _get_instance_name(instance)
-    definition = instance.definition
 
     native_instance: Optional[Object] = None
-    converted_objects = {}
+    converted_objects: Dict[str, Union[Object, BCollection]] = {}
     traversal_root: Base = definition
     
-    if isinstance(definition, BlockDefinition): #NOTE: We have to handle BlockDefinitions specially here, since they don't follow normal traversal rules
-        native_instance = create_new_object(None, name) #Blocks will become empties
+    if not can_convert_to_native(definition):
+        # Non-convertable (like all blocks, and some revit instances) will not be converted as part of the deep_traversal.
+        # so we explicitly convert them as empties.
+        native_instance = create_new_object(None, name) 
         native_instance.empty_display_size = 0
 
-        #Block Definitions become empties, 
         converted_objects["__ROOT"] = native_instance # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertable
         traversal_root = Base(elements=definition, id="__ROOT")
 
-    
     #Convert definition + "elements" on definition
     _deep_conversion(traversal_root, converted_objects, False)
 
-    if native_instance:
-        assert(isinstance(definition, RevitFamilyS):)
+    if not native_instance:
+        assert(can_convert_to_native(definition))
 
-    native_instance = native_instance or converted_objects[definition.id]
+        if not definition.id in converted_objects:
+            raise Exception("Definition was not converted")
+
+        converted = converted_objects[definition.id]
+
+        if not isinstance(converted, Object):
+            raise Exception("Definition was not converted to an Object")
+        
+        native_instance = converted
 
     instance_transform = transform_to_native(instance.transform, scale)
     native_instance.matrix_world = instance_transform
