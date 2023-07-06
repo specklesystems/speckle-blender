@@ -1,9 +1,7 @@
 """
 Stream operators
 """
-from itertools import chain
 from math import radians
-from deprecated import deprecated
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union, cast
 import webbrowser
 import bpy
@@ -20,11 +18,11 @@ from bpy.types import (
 from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
 from bpy_speckle.convert.to_native import (
     can_convert_to_native,
+    collection_to_native,
     convert_to_native,
     set_convert_instances_as,
 )
 from bpy_speckle.convert.to_speckle import (
-    ConversionSkippedException,
     convert_to_speckle,
 )
 from bpy_speckle.functions import (
@@ -36,8 +34,7 @@ from bpy_speckle.functions import (
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
 from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleUserObject
-from bpy_speckle.convert.util import link_object_to_collection_nested
-
+from bpy_speckle.convert.util import ConversionSkippedException, add_to_heirarchy
 from specklepy.api.models import Commit
 from specklepy.api import operations, host_applications
 from specklepy.api.wrapper import StreamWrapper
@@ -49,69 +46,6 @@ from specklepy.logging.exceptions import SpeckleException
 from specklepy.logging import metrics
 
 from bpy_speckle.specklepy_extras.traversal import TraversalContext
-
-@deprecated
-def get_objects_collections(base: Base) -> Dict[str, list]:
-    """Create collections based on the dynamic members on a root commit object"""
-    collections = {}
-    for name in base.get_dynamic_member_names():
-        value = base[name]
-        if isinstance(value, list):
-            col = get_or_create_collection(name)
-            collections[name] = get_objects_nested_lists(value, col)
-        if isinstance(value, Base):
-            col = get_or_create_collection(name)
-            collections[name] = get_objects_collections_recursive(value, col)
-
-    return collections
-
-@deprecated
-def get_objects_nested_lists(items: list, parent_col: Optional[bpy.types.Collection] = None) -> List:
-    """For handling the weird nested lists that come from Grasshopper"""
-    objects = []
-    if not items:
-        return objects
-
-    if isinstance(items[0], list):
-        items = list(chain.from_iterable(items))
-        objects.extend(get_objects_nested_lists(items, parent_col))
-    else:
-        objects = [
-            get_objects_collections_recursive(item, parent_col)
-            for item in items
-            if isinstance(item, Base)
-        ]
-
-    return objects
-
-@deprecated
-def get_objects_collections_recursive(base: Base, parent_col: Optional[bpy.types.Collection] = None) -> List:
-    """Recursively create collections based on the dynamic members on nested `Base` objects within the root commit object"""
-    # if it's a convertable (registered) class and not just a plain `Base`, return the object itself
-    if can_convert_to_native(base):
-        return [base]
-
-    # if it's an unknown type, try to drill further down to find convertable objects
-    objects = []
-
-    for name in base.get_dynamic_member_names():
-        value = base[name]
-        if isinstance(value, list):
-            objects.extend(item for item in value if isinstance(item, Base))
-        if isinstance(value, Base):
-            col = parent_col.children.get(name)
-            if not col:
-                col = get_or_create_collection(name)
-                try:
-                    parent_col.children.link(col)
-                except:
-                    _report(
-                        f"Problem linking collection {col.name} to parent {parent_col.name}; skipping"
-                    )
-            objects.append({name: get_objects_collections_recursive(value, col)})
-
-    return objects
-
 
 ObjectCallback = Optional[Callable[[bpy.types.Context, Object, Base], Object]]
 ReceiveCompleteCallback = Optional[Callable[[bpy.types.Context, Dict[str, Union[Object, Collection]]], None]]
@@ -135,198 +69,6 @@ def get_receive_funcs(speckle: SpeckleSceneSettings) -> tuple[ObjectCallback, Re
             receiveCompleteCallback = mod.execute_for_all #type: ignore
 
     return (objectCallback, receiveCompleteCallback)
-
-@deprecated
-def bases_to_native(context: bpy.types.Context, collections: Dict[str, list], scale: float, stream_id: str, func: ObjectCallback = None):
-    for col_name, objects in collections.items():
-        col = bpy.data.collections[col_name]
-        existing = get_existing_collection_objs(col)
-        if isinstance(objects, dict):
-            bases_to_native(context, objects, scale, stream_id)
-        elif isinstance(objects, list):
-            for obj in objects:
-                if isinstance(obj, dict):
-                    bases_to_native(context, obj, scale, stream_id, func)
-                elif isinstance(obj, list): #FIXME: wtf are these nested if statement, can this not be a recursive call?
-                    for item in obj:
-                        if isinstance(item, dict):
-                            bases_to_native(context, item, scale, stream_id, func)
-                        elif isinstance(item, Base):
-                            base_to_native(
-                                context, item, scale, stream_id, col, existing, func
-                            )
-                elif isinstance(obj, Base):
-                    base_to_native(context, obj, scale, stream_id, col, existing, func)
-
-                else:
-                    _report(
-                        f"Something went wrong when receiving collection: {col_name}" #FIXME: undescript report message
-                    )
-
-            bpy.context.view_layer.update()
-
-            if context.area:
-                context.area.tag_redraw()
-
-
-@deprecated
-def base_to_native(context: bpy.types.Context,
-    base: Base,
-    scale: float,
-    stream_id: str,
-    col: bpy.types.Collection,
-    existing: Dict[str, Object],
-    func: ObjectCallback = None
-    ):
-
-    new_objects = convert_to_native(base)
-
-    #NOTE: this code is ancient, and in testing does nothing, so we are removing it.
-    # if hasattr(base, "properties") and base.properties is not None: 
-    #     new_objects.extend(get_speckle_subobjects(base.properties, scale, base.id))
-    # elif isinstance(base, dict) and "properties" in base.keys():
-    #     new_objects.extend(
-    #          get_speckle_subobjects(base["properties"], scale, base["id"])
-    #      )
- 
-    """
-    Set object Speckle settings
-    """
-    for new_object in new_objects:
-        if new_object is None:
-            continue
-
-        """
-        Run injected function
-        """
-        if func:
-            new_object = func(context, new_object, base) #this base object isn't always the right one for hosted elements! #TODO: may be it now, need to double check!
-
-        if (
-            new_object is None
-        ):  # If the injected function returned None, then we should ignore this object.
-            _report(f"Script '{func.__module__}' returned None.")
-            continue
-
-        new_object.speckle.stream_id = stream_id
-        new_object.speckle.send_or_receive = "receive"
-
-        if new_object.speckle.object_id in existing.keys():
-            name = existing[new_object.speckle.object_id].name
-            existing[new_object.speckle.object_id].name = f"{name}__deleted"
-            new_object.name = name
-            col.objects.unlink(existing[new_object.speckle.object_id])
-
-        link_object_to_collection_nested(new_object, col)
-        #if new_object.name not in col.objects:
-            #col.objects.link(new_object)
-
-
-def _add_to_heirarchy(converted: Union[Object, Collection], traversalContext : TraversalContext, converted_objects: Dict[str, Union[Object, Collection]]) -> None:
-    nextParent = traversalContext.parent
-
-    # Traverse up the tree to find a direct parent object, and a containing collection
-    parent_collection: Optional[Collection] = None
-    parent_object: Optional[Object] = None
-
-    while nextParent:
-        if nextParent.current.id in converted_objects:
-            c = converted_objects[nextParent.current.id]
-
-            if isinstance(c, Collection):
-                parent_collection = c
-                break
-            else: #isinstance(c, Object):
-                parent_object = parent_object or c
-
-        nextParent = nextParent.parent
-
-    # If no containing collection is found, fall back to the scene collection
-    if not parent_collection:
-        parent_collection = bpy.context.scene.collection
-
-    if isinstance(converted, Object):
-        if parent_object:
-            converted.parent = parent_object
-        link_object_to_collection_nested(converted, parent_collection)
-    elif converted.name not in parent_collection.children.keys():
-        parent_collection.children.link(converted)
-    
-
-def collection_to_native(collection: SCollection) -> Collection: 
-    name = collection.name or f"{collection.collectionType} -- {collection.applicationId or collection.id}"  #TODO: consider consolidating name formatting with Rhino
-    ret =  get_or_create_collection(name)
-    
-    color = getattr(collection, "colorTag", None)
-    if color:
-        ret.color_tag = color
-
-    return ret
-
-def get_or_create_collection(name: str, clear_collection: bool = True) -> Collection:
-    existing = cast(Collection, bpy.data.collections.get(name))
-    if existing:
-        if clear_collection:
-            for obj in existing.objects:
-                existing.objects.unlink(obj)
-        return existing
-    else:
-        new_collection = bpy.data.collections.new(name)
-
-        #NOTE: We want to not render revit "Rooms" collections by default.
-        if name == "Rooms":
-            new_collection.hide_viewport = True
-            new_collection.hide_render = True
-
-        return new_collection
-
-
-
-def create_child_collections(parent_col: bpy.types.Collection, children_names: Iterable[str]) -> None:
-    for name in children_names:
-        col = get_or_create_collection(name)
-        parent_col.children.link(col)
-
-@deprecated
-def get_existing_collection_objs(col: bpy.types.Collection) -> Dict[str, bpy.types.Object]:
-    return {
-        obj.speckle.object_id: obj for obj in col.objects if obj.speckle.object_id != ""
-    }
-
-
-def get_collection_parents(collection: bpy.types.Collection, names: list[str]) -> None:
-    for parent in bpy.data.collections:
-        if collection.name in parent.children.keys():
-            # TODO: this should be rethought to make it clear when this is an IFC delim so we know to replace it
-            # with `/` again on receive
-            names.append(parent.name.replace("/", "::").replace(".", "::"))
-            get_collection_parents(parent, names)
-
-
-def get_collection_hierarchy(collection: Optional[bpy.types.Collection]) -> list[str]:
-    if not collection:
-        return []
-    names = [collection.name.replace("/", "::").replace(".", "::")]
-    get_collection_parents(collection, names)
-
-    return names
-
-
-def create_nested_hierarchy(base: Base, hierarchy: List[str], objects: Any):
-    child = base
-
-    while hierarchy:
-        name = hierarchy.pop()
-        if not hasattr(child, name):
-            child[name] = Base()
-            child.add_detachable_attrs({name})
-        child = child[name]
-
-    if not hasattr(child, "@elements"):
-        child["@elements"] = []
-    child["@elements"].extend(objects)
-
-    return base
 
 #RECEIVE_MODES = [#TODO: modes
 #    ("create", "Create", "Add new geometry, without removing any existing objects"),
@@ -441,8 +183,8 @@ class ReceiveStreamObjects(bpy.types.Operator):
         converted_count: int = 0
         (object_converted_callback, on_complete_callback) = get_receive_funcs(speckle)
 
-        # older commits won't will have a non-collection root object
-        # for the sake of consistant behaviour, we will wrap anynon-collection commit objects in a collection
+        # older commits will have a non-collection root object
+        # for the sake of consistant behaviour, we will wrap any non-collection commit objects in a collection
         if not isinstance(commit_object, SCollection):
             dummy_commit_object = SCollection()
             dummy_commit_object.elements = [commit_object]
@@ -459,7 +201,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
             current: Base = item.current
             if can_convert_to_native(current) or isinstance(current, SCollection):
                 try:
-                    if not current or not current.id: raise Exception("{current} was an invalid speckle object")
+                    if not current or not current.id: raise Exception(f"{current} was an invalid speckle object")
 
                     #Convert the object!
                     converted_data_type: str
@@ -481,7 +223,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
                         
                     converted_objects[current.id] = converted
 
-                    _add_to_heirarchy(converted, item, converted_objects)
+                    add_to_heirarchy(converted, item, converted_objects, True)
 
                     _report(f"Successfully converted {type(current).__name__} {current.id} as '{converted_data_type}'")
                 except ConversionSkippedException as ex:
@@ -893,43 +635,6 @@ class SelectOrphanObjects(bpy.types.Operator):
                 o.select = False
 
         return {"FINISHED"}
-
-@deprecated
-class UpdateGlobal(bpy.types.Operator):
-    """
-    DEPRECATED
-    Update all Speckle objects
-    """
-
-    bl_idname = "speckle.update_global"
-    bl_label = "Update Global"
-    bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Update all Speckle objects"
-
-    client = None
-
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        label = row.label(text="Update everything.")
-
-    def execute(self, context):
-        
-        client = context.scene.speckle.client
-
-        profiles = client.load_local_profiles()
-        if len(profiles) < 1:
-            raise ValueError("No profiles found.")
-        client.use_existing_profile(sorted(profiles.keys())[0])
-        context.scene.speckle.user = sorted(profiles.keys())[0]
-
-        for obj in context.scene.objects:
-            if obj.speckle.enabled:
-                UpdateObject(context.scene.speckle_client, obj)
-
-        context.scene.update()
-        return {"FINISHED"}
-
 
 class CopyStreamId(bpy.types.Operator):
     """
