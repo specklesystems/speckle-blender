@@ -13,7 +13,6 @@ from bpy.props import (
     PointerProperty,
 )
 
-
 class SpeckleSceneObject(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(default="")
 
@@ -192,3 +191,6 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
     
 class SelectionException(Exception):
     pass
+
+def get_speckle(context: bpy.types.Context) -> SpeckleSceneSettings:
+    return context.scene.speckle #type: ignore

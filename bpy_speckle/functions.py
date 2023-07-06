@@ -1,13 +1,8 @@
-from typing import Callable, Dict, Optional, Set, Union
-import bpy
-
-from bpy.types import Object, Context, Collection as BCollection
+from typing import Callable
 from specklepy.objects.base import Base
-from specklepy.objects.other import Instance
 from bpy_speckle.convert.constants import ELEMENTS_PROPERTY_ALIASES
-from bpy_speckle.properties.scene import SpeckleSceneSettings
 
-from bpy_speckle.specklepy_extras.traversal import GraphTraversal, TraversalContext, TraversalRule
+from bpy_speckle.specklepy_extras.traversal import GraphTraversal, TraversalRule
 
 """
 Speckle functions
@@ -79,6 +74,3 @@ def get_default_traversal_func(can_convert_to_native: Callable[[Base], bool]) ->
     )
 
     return GraphTraversal([ignore_rule, convertable_rule, default_rule])
-
-def get_speckle(context: Context) -> 'SpeckleSceneSettings':
-    return context.scene.speckle #type: ignore

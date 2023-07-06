@@ -1,8 +1,8 @@
 import math
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, Collection, cast
+from typing import Any, Dict, Iterable, List, Optional, Union, Collection, cast
 from bpy_speckle.convert.constants import DISPLAY_VALUE_PROPERTY_ALIASES, ELEMENTS_PROPERTY_ALIASES, OBJECT_NAME_MAX_LENGTH, OBJECT_NAME_SEPERATOR, SPECKLE_ID_LENGTH
-from bpy_speckle.convert.to_speckle import ConversionSkippedException
 from bpy_speckle.functions import get_default_traversal_func, get_scale_length, _report
+from bpy_speckle.convert.util import ConversionSkippedException
 from mathutils import (
     Matrix as MMatrix,
     Vector as MVector,

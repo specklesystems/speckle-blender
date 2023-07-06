@@ -1,5 +1,5 @@
 import math
-from typing import Any, Dict, Optional, Tuple, Union, cast
+from typing import Any, Dict, Optional, Tuple, Union
 from bmesh.types import BMesh
 import bpy, struct, idprop
 
@@ -9,7 +9,6 @@ from specklepy.objects.other import RenderMaterial
 from bpy_speckle.convert.constants import IGNORED_PROPERTY_KEYS
 from bpy_speckle.functions import _report
 from bpy.types import Material, Object, Collection as BCollection
-from mathutils import Matrix as MMatrix
 
 from bpy_speckle.specklepy_extras.traversal import TraversalContext
 
@@ -421,7 +420,7 @@ def link_object_to_collection_nested(obj: Object, col: BCollection):
     for child in obj.children: #type: ignore
         link_object_to_collection_nested(child, col)
 
-def add_to_heirarchy(converted: Union[Object, BCollection], traversalContext : TraversalContext, converted_objects: Dict[str, Union[Object, BCollection]], preserve_transform: bool) -> None:
+def add_to_heirarchy(converted: Union[Object, BCollection], traversalContext : 'TraversalContext', converted_objects: Dict[str, Union[Object, BCollection]], preserve_transform: bool) -> None:
     nextParent = traversalContext.parent
 
     # Traverse up the tree to find a direct parent object, and a containing collection

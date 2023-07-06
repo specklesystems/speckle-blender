@@ -2,7 +2,7 @@
 Stream operators
 """
 from math import radians
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union, cast
+from typing import Callable, Dict, Optional, Union, cast
 import webbrowser
 import bpy
 from bpy.props import (
@@ -29,11 +29,10 @@ from bpy_speckle.functions import (
     get_default_traversal_func,
     _report,
     get_scale_length,
-    get_speckle,
 )
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
-from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleUserObject
+from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleUserObject, get_speckle
 from bpy_speckle.convert.util import ConversionSkippedException, add_to_heirarchy
 from specklepy.api.models import Commit
 from specklepy.api import operations, host_applications
@@ -44,8 +43,6 @@ from specklepy.objects import Base
 from specklepy.objects.other import Collection as SCollection
 from specklepy.logging.exceptions import SpeckleException
 from specklepy.logging import metrics
-
-from bpy_speckle.specklepy_extras.traversal import TraversalContext
 
 ObjectCallback = Optional[Callable[[bpy.types.Context, Object, Base], Object]]
 ReceiveCompleteCallback = Optional[Callable[[bpy.types.Context, Dict[str, Union[Object, Collection]]], None]]

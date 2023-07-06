@@ -4,9 +4,9 @@ User account operators
 from typing import cast
 import bpy
 from bpy.types import Context
-from bpy_speckle.functions import _report, get_speckle
+from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.properties.scene import SpeckleCommitObject, SpeckleSceneSettings, SpeckleUserObject
+from bpy_speckle.properties.scene import SpeckleCommitObject, SpeckleSceneSettings, SpeckleUserObject, get_speckle
 from specklepy.api.client import SpeckleClient
 from specklepy.api.models import Stream
 from specklepy.api.credentials import get_local_accounts
