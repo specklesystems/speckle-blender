@@ -1,8 +1,6 @@
-from typing import Callable, Set
-
-import bpy
+from typing import Callable
 from specklepy.objects.base import Base
-from bpy_speckle.properties.scene import SpeckleSceneSettings
+from bpy_speckle.convert.constants import ELEMENTS_PROPERTY_ALIASES
 
 from bpy_speckle.specklepy_extras.traversal import GraphTraversal, TraversalRule
 
@@ -10,7 +8,7 @@ from bpy_speckle.specklepy_extras.traversal import GraphTraversal, TraversalRule
 Speckle functions
 """
 
-unit_scale = {
+UNIT_SCALE = {
     "meters": 1.0,
     "centimeters": 0.01,
     "millimeters": 0.001,
@@ -40,8 +38,8 @@ def _report(msg):
 
 
 def get_scale_length(units: str) -> float:
-    if units.lower() in unit_scale.keys():
-        return unit_scale[units]
+    if units.lower() in UNIT_SCALE.keys():
+        return UNIT_SCALE[units]
     _report("Units <{}> are not supported.".format(units))
     return 1.0
 
@@ -50,32 +48,29 @@ def get_scale_length(units: str) -> float:
 Client, user, and stream functions
 """
 
-elements_aliases: Set[str] = {"elements", "@elements"}
-ignore_props: Set[str] = {"@blockDefinition", "displayValue", "@displayValue", "units", "id", "applicationId"}
 
 def get_default_traversal_func(can_convert_to_native: Callable[[Base], bool]) -> GraphTraversal:
     """
     Traversal func for traversing a speckle commit object
     """
+    
+    ignore_rule = TraversalRule(
+    [
+        lambda o: "Objects.Structural.Results" in o.speckle_type, #Sadly, this one is nessasary to avoid double conversion...
+        lambda o: "Objects.BuiltElements.Revit.Parameter" in o.speckle_type, #This one is just for traversal performance of revit commits
+    ], 
+    lambda _: [],
+    )
 
     convertable_rule = TraversalRule(
     [can_convert_to_native],
-    lambda _: [i for i in elements_aliases if i not in ignore_props],
+    lambda _: ELEMENTS_PROPERTY_ALIASES,
     )
 
-    ignore_result_rule = TraversalRule(
-    [lambda o: "Objects.Structural.Results" in o.speckle_type, #Sadly, this one is nessasary to avoid double conversion...
-    lambda o: "Objects.BuiltElements.Revit.Parameter" in o.speckle_type], #This one is just for traversal performance of revit commits
-    lambda _: [],
-    )
 
     default_rule = TraversalRule(
     [lambda _: True],
     lambda o: o.get_member_names(), #TODO: avoid deprecated members
     )
 
-    return GraphTraversal([convertable_rule, ignore_result_rule, default_rule])
-
-
-def get_speckle(context: bpy.types.Context) -> 'SpeckleSceneSettings':
-    return context.scene.speckle #type: ignore
+    return GraphTraversal([ignore_rule, convertable_rule, default_rule])

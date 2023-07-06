@@ -1,4 +1,4 @@
-from typing import Deque, Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 import bpy
 from bpy.types import Object, Collection, ID
 from specklepy.objects.base import Base
@@ -20,6 +20,11 @@ def _try_id(natvive_object: Optional[Union[Collection, Object]]) -> Optional[str
 def convert_collection_to_speckle(col: Collection) -> SCollection:
     convered_collection = SCollection(name = col.name_full, collectionType = "Blender Collection", elements = [])
     convered_collection.applicationId = _id(col)
+
+    color_tag = col.color_tag
+    if color_tag and color_tag != "NONE":
+        convered_collection["colorTag"] = col.color_tag
+
     return convered_collection
 
 @define(slots=True)
@@ -127,24 +132,3 @@ class BlenderCommitObjectBuilder(CommitObjectBuilder[Object]):
 
         if should_remove_unuseful_collection(root_commit_object):
             _report("WARNING: Only empty collections have been converted!") #TODO: consider raising exception here, to halt the send operation
-
-
-
-
-    # def build_commit_object(self, root_commit_object: Base) -> None:
-
-    #     convertedObjects = [x for x in self.converted.values()] # Converted objects, but no collections!
-    #     for (id, col) in self._collections.items():
-    #         self.converted[id] = col
-        
-    #     # Apply relationships for all non-collection objects
-    #     self.apply_relationships(convertedObjects, root_commit_object)
-
-    #     # Remove empty collections
-    #     for (id, col) in self._collections.items(): #TODO: XXX: How to ensure empty collections are avoided! Potentially need to traverse from root object down...
-    #         if not col.elements:
-    #             self.converted.pop(id)
-
-    #     self.apply_relationships(convertedObjects, root_commit_object)
-
-    #     return

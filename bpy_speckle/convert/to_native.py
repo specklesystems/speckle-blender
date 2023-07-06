@@ -1,6 +1,8 @@
 import math
-from typing import Tuple, Union, Collection
-from bpy_speckle.functions import get_scale_length, _report
+from typing import Any, Dict, Iterable, List, Optional, Union, Collection, cast
+from bpy_speckle.convert.constants import DISPLAY_VALUE_PROPERTY_ALIASES, ELEMENTS_PROPERTY_ALIASES, OBJECT_NAME_MAX_LENGTH, OBJECT_NAME_SEPERATOR, SPECKLE_ID_LENGTH
+from bpy_speckle.functions import get_default_traversal_func, get_scale_length, _report
+from bpy_speckle.convert.util import ConversionSkippedException
 from mathutils import (
     Matrix as MMatrix,
     Vector as MVector,
@@ -8,15 +10,18 @@ from mathutils import (
 )
 import bpy, bmesh
 from specklepy.objects.other import (
+    Collection as SCollection,
     Instance,
     Transform,
     BlockDefinition,
 )
-from specklepy.objects.geometry import *
-from bpy.types import Object
+from specklepy.objects.base import Base
+from specklepy.objects.geometry import Mesh, Line, Polyline, Curve, Arc, Polycurve, Ellipse, Circle, Plane
+from bpy.types import Object, Collection as BCollection
+
 from .util import (
+    add_to_heirarchy,
     get_render_material,
-    link_object_to_collection_nested,
     render_material_to_native,
     add_custom_properties,
     add_vertices,
@@ -35,7 +40,7 @@ CAN_CONVERT_TO_NATIVE = (
 
 
 def _has_native_convesion(speckle_object: Base) -> bool: 
-    return any(isinstance(speckle_object, t) for t in CAN_CONVERT_TO_NATIVE) #or "View" in speckle_object.speckle_type #hack
+    return any(isinstance(speckle_object, t) for t in CAN_CONVERT_TO_NATIVE) or "View" in speckle_object.speckle_type #hack
 
 def _has_fallback_conversion(speckle_object: Base) -> bool: 
     return any(getattr(speckle_object, alias, None) for alias in DISPLAY_VALUE_PROPERTY_ALIASES)
@@ -91,11 +96,11 @@ def convert_to_native(speckle_object: Base) -> Object:
         converted = mesh_to_native(speckle_object, object_name, scale)
     elif speckle_type in SUPPORTED_CURVES:
         converted = icurve_to_native(speckle_object, object_name, scale)
-    # elif "View" in speckle_object.speckle_type:
-    #     return view_to_native(speckle_object, object_name, scale)
+    elif "View" in speckle_object.speckle_type:
+         return view_to_native(speckle_object, object_name, scale)
     elif isinstance(speckle_object, Instance):
         if convert_instances_as == "linked_duplicates":
-           (converted, children) = instance_to_native_object(speckle_object, scale)
+           converted = instance_to_native_object(speckle_object, scale)
         elif convert_instances_as == "collection_instance":
             converted = instance_to_native_collection_instance(speckle_object, scale)
         else:
@@ -108,18 +113,15 @@ def convert_to_native(speckle_object: Base) -> Object:
     if not isinstance(converted, Object):
         converted = create_new_object(converted, object_name)
     
-    converted.speckle.object_id = str(speckle_object.id)
-    converted.speckle.enabled = True
+    converted.speckle.object_id = str(speckle_object.id) # type: ignore
+    converted.speckle.enabled = True # type: ignore
     add_custom_properties(speckle_object, converted)
 
-    for child in children:
-        child.parent = converted
+    for c in children:
+        c.parent = converted
 
     return converted
 
-
-DISPLAY_VALUE_PROPERTY_ALIASES = ["displayValue", "@displayValue"]
-ELEMENTS_PROPERTY_ALIASES = ["elements", "@elements"]
 
 
 def display_value_to_native(speckle_object: Base, name: str, scale: float) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
@@ -129,7 +131,7 @@ def elements_to_native(speckle_object: Base, name: str, scale: float) -> list[bp
     (_, elements) = _members_to_native(speckle_object, name, scale, ELEMENTS_PROPERTY_ALIASES, False)
     return elements
 
-def _members_to_native(speckle_object: Base, name: str, scale: float, members: List[str], combineMeshes: bool) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
+def _members_to_native(speckle_object: Base, name: str, scale: float, members: Iterable[str], combineMeshes: bool) -> tuple[Optional[bpy.types.Mesh], list[bpy.types.Object]]:
     """
     Converts a given speckle_object by converting specified members
 
@@ -200,7 +202,7 @@ def view_to_native(speckle_view, name: str, scale: float) -> bpy.types.Object:
     scale_factor = get_scale_factor(speckle_view, scale)
     tx = (speckle_view.origin.x * scale_factor)
     ty = (speckle_view.origin.y * scale_factor)
-    tz = (speckle_view.origin.z * scale_factor)
+    tz = (speckle_view.origin.z * scale_factor) #TODO: do these need to be scaled?
 
     forward = MVector((speckle_view.forwardDirection.x, speckle_view.forwardDirection.y, speckle_view.forwardDirection.z))
     up = MVector((speckle_view.upDirection.x, speckle_view.upDirection.y, speckle_view.upDirection.z))
@@ -220,7 +222,6 @@ def mesh_to_native(speckle_mesh: Mesh, name: str, scale: float) -> bpy.types.Mes
 def meshes_to_native(element: Base, meshes: Collection[Mesh], name: str, scale: float) -> bpy.types.Mesh:
     if name in bpy.data.meshes.keys():
         return bpy.data.meshes[name]
-
     blender_mesh = bpy.data.meshes.new(name=name)
 
     fallback_material = get_render_material(element)
@@ -237,6 +238,8 @@ def meshes_to_native(element: Base, meshes: Collection[Mesh], name: str, scale: 
     # Second pass, add face data
     offset = 0
     for i, mesh in enumerate(meshes):
+        if not mesh.vertices: continue
+
         add_faces(mesh, bm, offset, i)
 
         render_material = get_render_material(mesh) or fallback_material
@@ -264,7 +267,7 @@ def meshes_to_native(element: Base, meshes: Collection[Mesh], name: str, scale: 
 Curves
 """
 
-def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
+def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: float) -> List[bpy.types.Spline]:
     if not speckle_curve.end: return []
 
     line = blender_curve.splines.new("POLY")
@@ -287,14 +290,14 @@ def line_to_native(speckle_curve: Line, blender_curve: bpy.types.Curve, scale: f
     return [line]
 
 
-def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
+def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) -> List[bpy.types.Spline]:
     if not (value := scurve.value): return []
     N = len(value) // 3
 
     polyline = bcurve.splines.new("POLY")
 
     if hasattr(scurve, "closed"):
-        polyline.use_cyclic_u = scurve.closed
+        polyline.use_cyclic_u = scurve.closed or False
 
     polyline.points.add(N - 1)
     for i in range(N):
@@ -309,15 +312,17 @@ def polyline_to_native(scurve: Polyline, bcurve: bpy.types.Curve, scale: float) 
     
 
 
-def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
+def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> List[bpy.types.Spline]:
     if not (points := scurve.points): return []
+    if not scurve.degree: raise Exception("curve is missing degree")
+    if not scurve.weights: raise Exception("curve is missing weights")
 
     # Closed curves from rhino will have n + degree points. We ignore the extras
     num_points = len(points) // 3 - scurve.degree if (scurve.closed) else (
         len(points) // 3)   
     
     nurbs = bcurve.splines.new("NURBS")
-    nurbs.use_cyclic_u = scurve.closed
+    nurbs.use_cyclic_u = scurve.closed or False
     nurbs.use_endpoint_u = not scurve.periodic
     
     nurbs.points.add(num_points - 1)
@@ -339,6 +344,9 @@ def nurbs_to_native(scurve: Curve, bcurve: bpy.types.Curve, scale: float) -> lis
 
 def arc_to_native(rcurve: Arc, bcurve: bpy.types.Curve, scale: float) -> Optional[bpy.types.Spline]:
     # TODO: improve Blender representation of arc - check autocad test stream
+    if not rcurve.radius: raise Exception("curve is missing radius")
+    if not rcurve.startAngle: raise Exception("curve is missing startAngle")
+    if not rcurve.endAngle: raise Exception("curve is missing endAngle")
 
     plane = rcurve.plane
     if not plane:
@@ -350,8 +358,8 @@ def arc_to_native(rcurve: Arc, bcurve: bpy.types.Curve, scale: float) -> Optiona
     startAngle = rcurve.startAngle
     endAngle = rcurve.endAngle
 
-    startQuat = MQuaternion(normal, startAngle)
-    endQuat = MQuaternion(normal, endAngle)
+    startQuat = MQuaternion(normal, startAngle) # type: ignore
+    endQuat = MQuaternion(normal, endAngle) # type: ignore
 
     # Get start and end vectors, centre point, angles, etc.
     r1 = MVector([plane.xdir.x, plane.xdir.y, plane.xdir.z])
@@ -376,7 +384,7 @@ def arc_to_native(rcurve: Arc, bcurve: bpy.types.Curve, scale: float) -> Optiona
 
     Ndiv = max(int(math.floor(angle / 0.3)), 2)
     step = angle / float(Ndiv)
-    stepQuat = MQuaternion(normal, step)
+    stepQuat = MQuaternion(normal, step) # type: ignore
     tan = math.tan(step / 2) * radius
 
     arc.points.add(Ndiv + 1)
@@ -403,11 +411,11 @@ def polycurve_to_native(scurve: Polycurve, bcurve: bpy.types.Curve, scale: float
     """
     Convert Polycurve object
     """
-    segments = scurve.segments
+    if not scurve.segments: raise Exception("curve is missing segments")
 
     curves = []
 
-    for seg in segments:
+    for seg in scurve.segments:
         speckle_type = type(seg)
 
         if speckle_type in SUPPORTED_CURVES:
@@ -417,14 +425,20 @@ def polycurve_to_native(scurve: Polycurve, bcurve: bpy.types.Curve, scale: float
 
     return curves
  
-def ellipse_to_native(ellipse: Union[Ellipse, Circle], bcurve: bpy.types.Curve, units_scale: float) -> list[bpy.types.Spline]:
+def ellipse_to_native(ellipse: Union[Ellipse, Circle], bcurve: bpy.types.Curve, units_scale: float) -> List[bpy.types.Spline]:
+    if not ellipse.plane: raise Exception("curve is missing plane")
 
     radX: float
     radY: float
     if isinstance(ellipse, Ellipse):
+        if not ellipse.firstRadius: raise Exception("curve is missing firstRadius")
+        if not ellipse.secondRadius: raise Exception("curve is missing secondRadius")
+
         radX = ellipse.firstRadius * units_scale
         radY = ellipse.secondRadius * units_scale
     else:
+        if not ellipse.radius: raise Exception("curve is missing radius")
+
         radX = ellipse.radius * units_scale
         radY = ellipse.radius * units_scale
 
@@ -457,9 +471,9 @@ def ellipse_to_native(ellipse: Union[Ellipse, Circle], bcurve: bpy.types.Curve, 
     spline.bezier_points.add(len(points) - 1)
 
     for i in range(len(points)):
-        spline.bezier_points[i].co = transform @ MVector(points[i])
-        spline.bezier_points[i].handle_left = transform @ MVector(left_handles[i])
-        spline.bezier_points[i].handle_right = transform @ MVector(right_handles[i])
+        spline.bezier_points[i].co = transform @ MVector(points[i]) # type: ignore
+        spline.bezier_points[i].handle_left = transform @ MVector(left_handles[i]) # type: ignore
+        spline.bezier_points[i].handle_right = transform @ MVector(right_handles[i]) # type: ignore
 
     spline.use_cyclic_u = True
     
@@ -467,26 +481,28 @@ def ellipse_to_native(ellipse: Union[Ellipse, Circle], bcurve: bpy.types.Curve, 
     return [spline]
 
 
-def icurve_to_native_spline(speckle_curve: Base, blender_curve: bpy.types.Curve, scale: float) -> list[bpy.types.Spline]:
+def icurve_to_native_spline(speckle_curve: Base, blender_curve: bpy.types.Curve, scale: float) -> List[bpy.types.Spline]:
     # polycurves
     if isinstance(speckle_curve, Polycurve):
         return polycurve_to_native(speckle_curve, blender_curve, scale)
 
+    splines: List[bpy.types.Spline]
     # single curves
     if isinstance(speckle_curve, Line):
-        spline = line_to_native(speckle_curve, blender_curve, scale)
+        splines = line_to_native(speckle_curve, blender_curve, scale)
     elif isinstance(speckle_curve, Curve):
-        spline = nurbs_to_native(speckle_curve, blender_curve, scale)
+        splines = nurbs_to_native(speckle_curve, blender_curve, scale)
     elif isinstance(speckle_curve, Polyline):
-        spline = polyline_to_native(speckle_curve, blender_curve, scale)
+        splines = polyline_to_native(speckle_curve, blender_curve, scale)
     elif isinstance(speckle_curve, Arc):
         spline = arc_to_native(speckle_curve, blender_curve, scale)
+        splines = [spline] if spline else []
     elif isinstance(speckle_curve, Ellipse) or isinstance(speckle_curve, Circle):
-        spline = ellipse_to_native(speckle_curve, blender_curve, scale)
+        splines = ellipse_to_native(speckle_curve, blender_curve, scale)
     else:
         raise TypeError(f"{speckle_curve} is not a supported curve type. Supported types: {SUPPORTED_CURVES}")
 
-    return [spline] if spline is not None else [] 
+    return splines
 
 
 def icurve_to_native(speckle_curve: Base, name: str, scale: float) -> bpy.types.Curve:
@@ -522,7 +538,7 @@ def transform_to_native(transform: Transform, scale: float) -> MMatrix:
     )
     # scale the translation
     for i in range(3):
-        mat[i][3] *= scale
+        mat[i][3] *= scale # type: ignore
     return mat
 
 def plane_to_native_transform(plane: Plane, fallback_scale:float = 1) -> MMatrix:
@@ -545,43 +561,59 @@ Instances / Blocks
 """
 
 def _get_instance_name(instance: Instance) -> str:
-    name_prefix = _get_friendly_object_name(instance) or _get_friendly_object_name(instance.definition) or _simplified_speckle_type(instance.speckle_type)
+    if not instance.definition: raise Exception("Instance is missing a definition")
+    name_prefix = (
+        _get_friendly_object_name(instance) 
+        or _get_friendly_object_name(instance.definition) 
+        or _simplified_speckle_type(instance.speckle_type)
+    )
     return f"{name_prefix}{OBJECT_NAME_SEPERATOR}{instance.id}"
 
 
-def instance_to_native_object(instance: Instance, scale: float) -> Tuple[bpy.types.Object, List[bpy.types.Object]]:
+def instance_to_native_object(instance: Instance, scale: float) -> Object:
     """
     Converts Instance to a unique object with (potentially) shared data (linked duplicate)
     """
-    if not instance.definition: raise Exception(f"Instance is missing a definition")
-    if not instance.transform: raise Exception(f"Instance is missing a transform")
+    if not instance.definition: raise Exception("Instance is missing a definition")
+    if not instance.transform: raise Exception("Instance is missing a transform")
+    definition = instance.definition
+    if not definition.id: raise Exception("Instance is missing a valid definition")
 
     name = _get_instance_name(instance)
-    definition = instance.definition
 
-    native_instance: Object
-    native_elements: List[Object] = []
-    elements_on_instance: List[Object] = []
-
-    if isinstance(definition, BlockDefinition): #NOTE: We have to handle BlockDefinitions specially here, since they don't follow normal traversal rules
-        native_instance = create_new_object(None, name) #Instance will be empty
+    native_instance: Optional[Object] = None
+    converted_objects: Dict[str, Union[Object, BCollection]] = {}
+    traversal_root: Base = definition
+    
+    if not can_convert_to_native(definition):
+        # Non-convertable (like all blocks, and some revit instances) will not be converted as part of the deep_traversal.
+        # so we explicitly convert them as empties.
+        native_instance = create_new_object(None, name) 
         native_instance.empty_display_size = 0
-        for geo in definition.geometry:
-            native_elements.append(convert_to_native(geo))
-    else:
-        native_instance = convert_to_native(instance.definition)
+
+        converted_objects["__ROOT"] = native_instance # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertable
+        traversal_root = Base(elements=definition, id="__ROOT")
+
+    #Convert definition + "elements" on definition
+    _deep_conversion(traversal_root, converted_objects, False)
+
+    if not native_instance:
+        assert(can_convert_to_native(definition))
+
+        if not definition.id in converted_objects:
+            raise Exception("Definition was not converted")
+
+        converted = converted_objects[definition.id]
+
+        if not isinstance(converted, Object):
+            raise Exception("Definition was not converted to an Object")
+        
+        native_instance = converted
 
     instance_transform = transform_to_native(instance.transform, scale)
-    instance_transform_inverted = instance_transform.inverted()
     native_instance.matrix_world = instance_transform
-    
-    elements_on_instance = elements_to_native(instance, name, scale)
-    for c in elements_on_instance:
-        c.matrix_world = instance_transform_inverted @ c.matrix_world #Undo the instance transform on elements
 
-    native_elements.extend(elements_on_instance)
-
-    return (native_instance, native_elements) #TODO: need to double check that all child objects have custom props attached correctly
+    return native_instance
 
 def instance_to_native_collection_instance(instance: Instance, scale: float) -> bpy.types.Object:
     """
@@ -591,19 +623,15 @@ def instance_to_native_collection_instance(instance: Instance, scale: float) -> 
     The definition collection won't be linked to the current scene
     Any Elements on the instance object will also be converted (and spacially transformed)
     """
-    if not instance.definition: raise Exception(f"Instance is missing a definition")
-    if not instance.transform: raise Exception(f"Instance is missing a transform")
+    if not instance.definition: raise Exception("Instance is missing a definition")
+    if not instance.transform: raise Exception("Instance is missing a transform")
 
     name = _get_instance_name(instance)
 
     # Get/Convert definition collection
     collection_def = _instance_definition_to_native(instance.definition)
 
-    # Convert elements as children of collection instance object
-    elements = elements_to_native(instance, name, scale)
-
     instance_transform = transform_to_native(instance.transform, scale)
-    instance_transform_inverted = instance_transform.inverted()
 
     native_instance = bpy.data.objects.new(name, None)
 
@@ -612,12 +640,8 @@ def instance_to_native_collection_instance(instance: Instance, scale: float) -> 
     native_instance.empty_display_size = 0
     native_instance.instance_collection = collection_def
     native_instance.instance_type = "COLLECTION"
-    native_instance.matrix_world =instance_transform
-
-    for c in elements:
-        c.matrix_world = instance_transform_inverted @ c.matrix_world #Undo the instance transform on elements
-        c.parent = native_instance #TODO: need to double check that all child objects have custom props attached correctly
-
+    native_instance.matrix_world = instance_transform
+        
     return native_instance 
 
 def _instance_definition_to_native(definition: Union[Base, BlockDefinition]) -> bpy.types.Collection:
@@ -632,17 +656,76 @@ def _instance_definition_to_native(definition: Union[Base, BlockDefinition]) -> 
     native_def = bpy.data.collections.new(name)
     native_def["applicationId"] = definition.applicationId
 
-    #TODO could maybe replace BlockDefinition awareness with a single traverse member call
-    geometry = definition.geometry if isinstance(definition, BlockDefinition) else [definition]
+    converted_objects = {}
+    converted_objects["__ROOT"] = native_def # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertable
+    dummyRoot = Base(elements=definition, id="__ROOT")
 
-    for geo in geometry:
-        if not geo: continue
-        converted = convert_to_native(geo) #NOTE: we assume the last item is the root converted item
-        link_object_to_collection_nested(converted, native_def)
-
+    _deep_conversion(dummyRoot, converted_objects, True)
 
     return native_def
 
+def _deep_conversion(root: Base, converted_objects: Dict[str, Union[Object, BCollection]], preserve_transform: bool):
+    traversal_func = get_default_traversal_func(can_convert_to_native)
+
+    for item in traversal_func.traverse(root):
+        
+        current: Base = item.current
+        if can_convert_to_native(current) or isinstance(current, SCollection):
+            try:
+                if not current or not current.id: raise Exception(f"{current} was an invalid speckle object")
+
+                #Convert the object!
+                converted_data_type: str
+                converted: Union[Object, BCollection, None]
+                if isinstance(current, SCollection):
+                    if(current.collectionType == "Scene Collection"): raise ConversionSkippedException()
+                    converted = collection_to_native(current)
+                    converted_data_type = "COLLECTION"
+                else:
+                    converted = convert_to_native(current)
+                    converted_data_type = "COLLECTION_INSTANCE" if converted.instance_collection else str(converted.type)
+                
+                if converted is None:
+                    raise Exception("Conversion returned None")
+                    
+                converted_objects[current.id] = converted
+
+                add_to_heirarchy(converted, item, converted_objects, preserve_transform)
+
+                _report(f"Successfully converted {type(current).__name__} {current.id} as '{converted_data_type}'")
+            except ConversionSkippedException as ex:
+                _report(f"Skipped converting {type(current).__name__} {current.id}: {ex}")
+            except Exception as ex:
+                _report(f"Failed to converted {type(current).__name__} {current.id}: {ex}")
+
+def collection_to_native(collection: SCollection) -> BCollection: 
+    name = collection.name or f"{collection.collectionType} -- {collection.applicationId or collection.id}"  #TODO: consider consolidating name formatting with Rhino
+    ret =  get_or_create_collection(name)
+
+    color = getattr(collection, "colorTag", None)
+    if color:
+        ret.color_tag = color
+
+    return ret
+
+def get_or_create_collection(name: str, clear_collection: bool = True) -> BCollection:
+    existing = cast(BCollection, bpy.data.collections.get(name))
+    if existing:
+        if clear_collection:
+            for obj in existing.objects:
+                existing.objects.unlink(obj)
+        return existing
+    else:
+        new_collection = bpy.data.collections.new(name)
+
+        #NOTE: We want to not render revit "Rooms" collections by default.
+        if name == "Rooms":
+            new_collection.hide_viewport = True
+            new_collection.hide_render = True
+
+        return new_collection
+    
+    
 
 """
 Object Naming
@@ -658,9 +741,7 @@ def _get_friendly_object_name(speckle_object: Base) -> Optional[str]:
 # Blender object names must not exceed 62 characters
 # We need to ensure the complete ID is included in the name (to prevent identity collisions)
 # So we if the name is too long, we need to truncate
-OBJECT_NAME_MAX_LENGTH = 62
-SPECKLE_ID_LENGTH = 32
-OBJECT_NAME_SEPERATOR = " -- "
+
 
 def _truncate_object_name(name: str) -> str:
 

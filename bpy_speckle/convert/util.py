@@ -1,29 +1,19 @@
 import math
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 from bmesh.types import BMesh
 import bpy, struct, idprop
 
 from specklepy.objects.base import Base
-from specklepy.objects.geometry import Circle, Mesh, Ellipse
+from specklepy.objects.geometry import Mesh
 from specklepy.objects.other import RenderMaterial
+from bpy_speckle.convert.constants import IGNORED_PROPERTY_KEYS
 from bpy_speckle.functions import _report
-from bpy.types import Material, Object
+from bpy.types import Material, Object, Collection as BCollection
 
-IGNORED_PROPERTY_KEYS = {
-    "id",
-    "elements",
-    "displayMesh",
-    "displayValue",
-    "speckle_type",
-    "parameters",
-    "faces",
-    "colors",
-    "vertices",
-    "renderMaterial",
-    "textureCoordinates",
-    "totalChildrenCount"
-}
+from bpy_speckle.specklepy_extras.traversal import TraversalContext
 
+class ConversionSkippedException(Exception):
+    pass
 
 def to_rgba(argb_int: int) -> Tuple[float, float, float, float]:
     """Converts the int representation of a colour into a percent RGBA tuple"""
@@ -97,11 +87,11 @@ def render_material_to_native(speckle_mat: RenderMaterial) -> Material:
         blender_mat.use_nodes = True
         inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
 
-        inputs["Base Color"].default_value = to_rgba(speckle_mat.diffuse)
-        inputs["Emission"].default_value = to_rgba(speckle_mat.emissive)
-        inputs["Roughness"].default_value = speckle_mat.roughness
-        inputs["Metallic"].default_value = speckle_mat.metalness
-        inputs["Alpha"].default_value = speckle_mat.opacity
+        inputs["Base Color"].default_value = to_rgba(speckle_mat.diffuse) # type: ignore
+        inputs["Emission"].default_value = to_rgba(speckle_mat.emissive) # type: ignore
+        inputs["Roughness"].default_value = speckle_mat.roughness # type: ignore
+        inputs["Metallic"].default_value = speckle_mat.metalness # type: ignore
+        inputs["Alpha"].default_value = speckle_mat.opacity # type: ignore
 
     if speckle_mat.opacity < 1.0:
         blender_mat.blend_method = "BLEND"
@@ -151,7 +141,7 @@ def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, indexOffset: int, materia
             i += 1
             try:
                 f = blender_mesh.faces.new(
-                    [blender_mesh.verts[x + indexOffset] for x in sfaces[i : i + n]]
+                    [blender_mesh.verts[x + indexOffset] for x in sfaces[i : i + n]] # type: ignore
                 )
                 f.material_index = materialIndex
                 f.smooth = smooth
@@ -183,10 +173,10 @@ def add_colors(speckle_mesh: Mesh, blender_mesh: BMesh):
                 )
 
         # Make vertex colors
-        if len(scolors) == len(blender_mesh.verts):
+        if len(scolors) == len(blender_mesh.verts): # type: ignore
             color_layer = blender_mesh.loops.layers.color.new("Col")
 
-            for face in blender_mesh.faces:
+            for face in blender_mesh.faces: # type: ignore
                 for loop in face.loops:
                     loop[color_layer] = colors[loop.vert.index]
 
@@ -198,21 +188,21 @@ def add_uv_coords(speckle_mesh: Mesh, blender_mesh: BMesh):
     try:
         uv = []
 
-        if len(s_uvs) // 2 == len(blender_mesh.verts):
+        if len(s_uvs) // 2 == len(blender_mesh.verts): # type: ignore
             uv.extend(
                 (float(s_uvs[i]), float(s_uvs[i + 1]))
                 for i in range(0, len(s_uvs), 2)
             )
         else:
             _report(
-                f"Failed to match UV coordinates to vert data. Blender mesh verts: {len(blender_mesh.verts)}, Speckle UVs: {len(s_uvs) // 2}"
+                f"Failed to match UV coordinates to vert data. Blender mesh verts: {len(blender_mesh.verts)}, Speckle UVs: {len(s_uvs) // 2}" # type: ignore
             )
             return
 
         # Make UVs
         uv_layer = blender_mesh.loops.layers.uv.verify()
 
-        for f in blender_mesh.faces:
+        for f in blender_mesh.faces: # type: ignore
             for l in f.loops:
                 luv = l[uv_layer]
                 luv.uv = uv[l.vert.index]
@@ -248,7 +238,7 @@ def get_blender_custom_properties(obj, max_depth: int = 200):
         }
 
     if isinstance(obj, (list, tuple, idprop.types.IDPropertyArray)):
-        return [get_blender_custom_properties(o, max_depth - 1) for o in obj]
+        return [get_blender_custom_properties(o, max_depth - 1) for o in obj] # type: ignore
     
     return obj
 
@@ -304,7 +294,7 @@ def basis_nurb(t: float, order: int, point_count: int, knots: list[float], basis
     i1 = i2 = 0
     orderpluspnts = order + point_count
     opp2 = orderpluspnts - 1
-
+    
     # this is for float inaccuracy
     if t < knots[0]:
         t = knots[0]
@@ -329,7 +319,7 @@ def basis_nurb(t: float, order: int, point_count: int, knots: list[float], basis
         else:
             basis[i] = 0.0
 
-    basis[i] = 0.0
+    basis[i] = 0.0 #type: ignore
 
     # this is order 2, 3, ...
     for j in range(2, order + 1):
@@ -393,14 +383,14 @@ def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[
             else:
                 pt_index += 1
 
-            sum_array[sum_index] = basisu[i] * nu.points[pt_index].co[3]
+            sum_array[sum_index] = basisu[i] * nu.points[pt_index].co[3] #type: ignore
             sumdiv += sum_array[sum_index]
             sum_index += 1
 
         if (sumdiv != 0.0) and (sumdiv < 1.0 - EPS or sumdiv > 1.0 + EPS):
             sum_index = 0
             for i in range(istart, iend + 1):
-                sum_array[sum_index] /= sumdiv
+                sum_array[sum_index] /= sumdiv #type: ignore
                 sum_index += 1
 
         coord_array[coord_index: coord_index + 3] = (0.0, 0.0, 0.0)
@@ -423,9 +413,48 @@ def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[
 
     return coord_array
 
-def link_object_to_collection_nested(obj: bpy.types.Object, col: bpy.types.Collection):
-    if obj.name not in col.objects:
+def link_object_to_collection_nested(obj: Object, col: BCollection):
+    if obj.name not in col.objects: #type: ignore
         col.objects.link(obj)
 
-    for child in obj.children:
+    for child in obj.children: #type: ignore
         link_object_to_collection_nested(child, col)
+
+def add_to_heirarchy(converted: Union[Object, BCollection], traversalContext : 'TraversalContext', converted_objects: Dict[str, Union[Object, BCollection]], preserve_transform: bool) -> None:
+    nextParent = traversalContext.parent
+
+    # Traverse up the tree to find a direct parent object, and a containing collection
+    parent_collection: Optional[BCollection] = None
+    parent_object: Optional[Object] = None
+
+    while nextParent:
+        if nextParent.current.id in converted_objects:
+            c = converted_objects[nextParent.current.id]
+
+            if isinstance(c, BCollection):
+                parent_collection = c
+                break
+            else: #isinstance(c, Object):
+                parent_object = parent_object or c
+
+        nextParent = nextParent.parent
+
+    # If no containing collection is found, fall back to the scene collection
+    if not parent_collection:
+        parent_collection = bpy.context.scene.collection
+
+    if isinstance(converted, Object):
+        if parent_object:
+            set_parent(converted, parent_object, preserve_transform)
+        link_object_to_collection_nested(converted, parent_collection)
+    elif converted.name not in parent_collection.children.keys():
+        parent_collection.children.link(converted)
+
+
+def set_parent(child: Object, parent: Object, preserve_transform: bool = False) -> None:
+    if preserve_transform :
+        previous = child.matrix_world.copy() # type: ignore
+        child.parent = parent
+        child.matrix_world = previous
+    else:
+        child.parent = parent

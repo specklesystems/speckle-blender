@@ -6,6 +6,7 @@ from bpy.types import (
     Object, 
     Curve as NCurve,
     Mesh as NMesh,
+    Camera as NCamera,
 )
 from deprecated import deprecated
 from mathutils.geometry import interpolate_bezier
@@ -16,10 +17,12 @@ from mathutils import (
 from specklepy.objects import Base
 from specklepy.objects.other import BlockInstance, BlockDefinition, RenderMaterial, Transform
 from specklepy.objects.geometry import (
-     Mesh, Curve, Interval, Box, Point, Polyline
+     Mesh, Curve, Interval, Box, Point, Vector, Polyline,
 )
-from bpy_speckle.convert.to_native import OBJECT_NAME_SEPERATOR, SPECKLE_ID_LENGTH
+from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
+from bpy_speckle.convert.constants import OBJECT_NAME_SEPERATOR, SPECKLE_ID_LENGTH
 from bpy_speckle.convert.util import (
+    ConversionSkippedException,
     get_blender_custom_properties,
     make_knots,
     nurb_make_curve,
@@ -27,13 +30,11 @@ from bpy_speckle.convert.util import (
 )
 from bpy_speckle.functions import _report
 
-class ConversionSkippedException(Exception):
-    pass
 
 Units: str = "m" # The desired final units to send
 UnitsScale: float = 1 # The scale factor conversions need to apply to position data to get to the desired units
 
-CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY")
+CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY", "CAMERA")
 
 
 def convert_to_speckle(raw_blender_object: Object, units_scale: float, units: str, depsgraph: Optional[Depsgraph]) -> Base:
@@ -66,7 +67,8 @@ def convert_to_speckle(raw_blender_object: Object, units_scale: float, units: st
         converted = curve_to_speckle(blender_object, cast(NCurve, blender_object.data))
     elif blender_type == "EMPTY":
         converted = empty_to_speckle(blender_object)
-
+    elif blender_type == "CAMERA":
+        converted = camera_to_speckle_view(blender_object, cast(NCamera, blender_object.data))
     if not converted:
         raise Exception("Conversion returned None")
 
@@ -97,7 +99,7 @@ def mesh_to_speckle_meshes(blender_object: Object, data: bpy.types.Mesh) -> List
         submesh_data[p.material_index].append(p)
 
     transform = cast(MMatrix, blender_object.matrix_world)
-    scaled_vertices = [tuple(transform @ x.co * UnitsScale) for x in data.vertices]
+    scaled_vertices = [tuple(transform @ x.co * UnitsScale) for x in data.vertices] # type: ignore
 
     # Create Speckle meshes for each material
     submeshes = []
@@ -158,17 +160,17 @@ def bezier_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, name: Optional[
     points: List[Tuple[MVector]] = []
     for i, bp in enumerate(spline.bezier_points):
         if i > 0:
-            points.append(tuple(matrix @ bp.handle_left * UnitsScale))
-        points.append(tuple(matrix @ bp.co * UnitsScale))
+            points.append(tuple(matrix @ bp.handle_left * UnitsScale)) # type: ignore
+        points.append(tuple(matrix @ bp.co * UnitsScale)) # type: ignore
         if i < len(spline.bezier_points) - 1:
-            points.append(tuple(matrix @ bp.handle_right * UnitsScale))
+            points.append(tuple(matrix @ bp.handle_right * UnitsScale)) # type: ignore
 
     if closed:
         points.extend(
             (
-                tuple(matrix @ spline.bezier_points[-1].handle_right * UnitsScale),
-                tuple(matrix @ spline.bezier_points[0].handle_left * UnitsScale),
-                tuple(matrix @ spline.bezier_points[0].co * UnitsScale),
+                tuple(matrix @ spline.bezier_points[-1].handle_right * UnitsScale), # type: ignore
+                tuple(matrix @ spline.bezier_points[0].handle_left * UnitsScale), # type: ignore
+                tuple(matrix @ spline.bezier_points[0].co * UnitsScale), # type: ignore
             )
         )
     
@@ -215,7 +217,7 @@ def nurbs_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, name: Optional[s
     weights = [pt.weight for pt in spline.points]
     is_rational = all(w == weights[0] for w in weights)
 
-    points = [tuple(matrix @ pt.co.xyz * UnitsScale) for pt in spline.points]
+    points = [tuple(matrix @ pt.co.xyz * UnitsScale) for pt in spline.points] # type: ignore
 
     flattend_points = []
     for row in points: flattend_points.extend(row)
@@ -252,13 +254,13 @@ def nurbs_to_speckle_polyline(matrix: MMatrix, spline: bpy.types.Spline, length:
     """
     Samples a nurbs curve with resolution_u creating a polyline
     """
-    points = []
+    points: List[float] = []
     sampled_points = nurb_make_curve(spline, spline.resolution_u, 3)
     for i in range(0, len(sampled_points), 3):
-        scaled_point = matrix @ MVector((
+        scaled_point = cast(Vector, matrix @ MVector((
         sampled_points[i + 0],
         sampled_points[i + 1],
-        sampled_points[i + 2])) * UnitsScale
+        sampled_points[i + 2])) * UnitsScale)
 
         points.append(scaled_point.x)
         points.append(scaled_point.y)
@@ -313,7 +315,7 @@ def to_speckle_name(blender_object: bpy.types.ID) -> str:
         return blender_object.name
 
 def poly_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, name: Optional[str] = None) -> Polyline:
-    points = [tuple(matrix @ pt.co.xyz * UnitsScale) for pt in spline.points]
+    points = [tuple(matrix @ pt.co.xyz * UnitsScale) for pt in spline.points] # type: ignore
 
     flattend_points = []
     for row in points: flattend_points.extend(row)
@@ -382,7 +384,7 @@ def ngons_to_speckle_polylines(blender_object: Object, data: bpy.types.Mesh) -> 
     for i, poly in enumerate(data.polygons):
         value = []
         for v in poly.vertices:
-            value.extend(mat @ verts[v].co * UnitsScale)
+            value.extend(mat @ verts[v].co * UnitsScale) # type: ignore
 
         domain = Interval(start=0, end=1)
         poly = Polyline(
@@ -408,38 +410,60 @@ def material_to_speckle(blender_mat: bpy.types.Material) -> RenderMaterial:
     if blender_mat.use_nodes:
         if blender_mat.node_tree.nodes.get("Principled BSDF"):
             inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
-            speckle_mat.diffuse = to_argb_int(inputs["Base Color"].default_value)
-            speckle_mat.emissive = to_argb_int(inputs["Emission"].default_value)
-            speckle_mat.roughness = inputs["Roughness"].default_value
-            speckle_mat.metalness = inputs["Metallic"].default_value
-            speckle_mat.opacity = inputs["Alpha"].default_value
+            speckle_mat.diffuse = to_argb_int(inputs["Base Color"].default_value) # type: ignore
+            speckle_mat.emissive = to_argb_int(inputs["Emission"].default_value) # type: ignore
+            speckle_mat.roughness = inputs["Roughness"].default_value # type: ignore
+            speckle_mat.metalness = inputs["Metallic"].default_value # type: ignore
+            speckle_mat.opacity = inputs["Alpha"].default_value # type: ignore
             return speckle_mat
         elif blender_mat.node_tree.nodes.get("Diffuse BSDF"):
             inputs = blender_mat.node_tree.nodes["Diffuse BSDF"].inputs
-            speckle_mat.diffuse = to_argb_int(inputs["Color"].default_value)
-            speckle_mat.roughness = inputs["Roughness"].default_value
+            speckle_mat.diffuse = to_argb_int(inputs["Color"].default_value) # type: ignore
+            speckle_mat.roughness = inputs["Roughness"].default_value # type: ignore
             return speckle_mat
         #TODO: Support more shaders
 
     # fallback to standard material props
-    speckle_mat.diffuse = to_argb_int(blender_mat.diffuse_color)
+    speckle_mat.diffuse = to_argb_int(blender_mat.diffuse_color) # type: ignore
     speckle_mat.metalness = blender_mat.metallic
     speckle_mat.roughness = blender_mat.roughness
 
     return speckle_mat
 
-@deprecated
-def material_to_speckle_old(blender_object: Object) -> Optional[RenderMaterial]:
-    """Create and return a render material from a blender object"""
-    if not getattr(blender_object.data, "materials", None):
-        return None
+def camera_to_speckle_view(blender_object: Object, data: NCamera) -> Base:
+    if data.type != 'PERSP':
+        raise Exception(f"Cameras of type {data.type} are not currently supported")
+    
+    matrix = cast(MMatrix, blender_object.matrix_world)
+    up = matrix.col[1].xyz # type: ignore
+    forwards = -matrix.col[2].xyz # type: ignore
+    translation = matrix.translation
 
-    blender_mat: bpy.types.Material = blender_object.data.materials[0]
-    if not blender_mat:
-        return None
+    view = Base.of_type("Objects.BuiltElements.View:Objects.BuiltElements.View3D") #HACK: views are not in specklepy yet!
+    view.name = to_speckle_name(blender_object)
+    view.origin = vector_to_speckle_point(translation)
+    view.upDirection = vector_to_speckle(up)
+    view.forwardDirection = vector_to_speckle(forwards)
+    view.target = vector_to_speckle_point(forwards) #TODO: do these need to be scaled?
+    view.units = Units
+    view.isOrthogonal = False
+    return view
 
-    return material_to_speckle(blender_mat)
+def vector_to_speckle_point(xyz: MVector) -> Point:
+    return Point(
+        x = xyz.x * UnitsScale,
+        y = xyz.y * UnitsScale,
+        z = xyz.z * UnitsScale,
+        units = Units,
+        )
 
+def vector_to_speckle(xyz: MVector) -> Vector:
+    return Vector(
+        x = xyz.x * UnitsScale,
+        y = xyz.y * UnitsScale,
+        z = xyz.z * UnitsScale,
+        units = Units,
+        )
 
 def transform_to_speckle(blender_transform: Union[Iterable[Iterable[float]], MMatrix]) -> Transform:
     iterable_transform = cast(Iterable[Iterable[float]], blender_transform) #NOTE: Matrix are itterable, even if type hinting says they are not
@@ -452,20 +476,23 @@ def transform_to_speckle(blender_transform: Union[Iterable[Iterable[float]], MMa
 
 
 def block_def_to_speckle(blender_definition: bpy.types.Collection) -> BlockDefinition:
-    geometry = []
+    geometryBuilder = BlenderCommitObjectBuilder()
     for geo in blender_definition.objects:
         try:
-            #TODO: right now, geometry will be a flat list of objects. Eventually we will want to preseve the parent relationship
-            geometry.append(convert_to_speckle(geo, UnitsScale, Units, None))
+            c = convert_to_speckle(geo, UnitsScale, Units, None)
+            geometryBuilder.include_object(c, geo)
         except ConversionSkippedException as ex:
             _report(f"Skipped converting '{geo.name_full}' inside collection instance: '{ex}")
         except Exception as ex:
             _report(f"Failed to converted '{geo.name_full}' inside collection instance: '{ex}'")
 
+    dummyRoot = Base()
+    geometryBuilder.apply_relationships(geometryBuilder.converted.values(), dummyRoot)
+
     block_def = BlockDefinition(
         units=Units,
         name=to_speckle_name(blender_definition),
-        geometry=geometry,
+        geometry=dummyRoot["@elements"],
         basePoint=Point(units=Units),
     )
     # blender_props = get_blender_custom_properties(blender_definition)

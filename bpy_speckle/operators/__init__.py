@@ -15,7 +15,6 @@ from .streams import (
     SelectOrphanObjects,
 )
 from .streams import (
-    UpdateGlobal,
     AddStreamFromURL,
     CreateStream,
     CopyStreamId,
@@ -54,7 +53,6 @@ operator_classes.extend(
         ViewStreamDataApi,
         DeleteStream,
         SelectOrphanObjects,
-        UpdateGlobal,
         AddStreamFromURL,
         CreateStream,
         OpenSpeckleGuide,

@@ -1,12 +1,10 @@
 """
 Commit operators
 """
-from typing import cast
 import bpy
 from bpy.props import BoolProperty
-from bpy_speckle.functions import _report, get_speckle
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.properties.scene import SpeckleSceneSettings
+from bpy_speckle.properties.scene import get_speckle
 
 
 class DeleteCommit(bpy.types.Operator):
