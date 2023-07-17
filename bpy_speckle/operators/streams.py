@@ -196,6 +196,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
         for item in traversalFunc.traverse(commit_object):
             
             current: Base = item.current
+
             if can_convert_to_native(current) or isinstance(current, SCollection):
                 try:
                     if not current or not current.id: raise Exception(f"{current} was an invalid speckle object")

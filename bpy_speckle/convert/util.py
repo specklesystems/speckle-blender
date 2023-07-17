@@ -1,14 +1,14 @@
 import math
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, cast
 from bmesh.types import BMesh
-import bpy, struct, idprop
+import bpy, idprop
 
 from specklepy.objects.base import Base
 from specklepy.objects.geometry import Mesh
 from specklepy.objects.other import RenderMaterial
 from bpy_speckle.convert.constants import IGNORED_PROPERTY_KEYS
 from bpy_speckle.functions import _report
-from bpy.types import Material, Object, Collection as BCollection
+from bpy.types import Material, Object, Collection as BCollection, Node, ShaderNodeVertexColor
 
 from bpy_speckle.specklepy_extras.traversal import TraversalContext
 
@@ -98,18 +98,42 @@ def render_material_to_native(speckle_mat: RenderMaterial) -> Material:
 
     return blender_mat
 
+_vertex_color_material: Optional[Material] = None
+
+def get_vertex_color_material() -> Material:
+    global _vertex_color_material
+    
+    #see https://stackoverflow.com/a/69807985
+    if not _vertex_color_material:
+        _vertex_color_material = bpy.data.materials.new("Vertex Color Material")
+        _vertex_color_material.use_nodes = True
+        nodes = _vertex_color_material.node_tree.nodes
+        principled_bsdf_node = cast(Node, nodes.get("Principled BSDF"))
+    
+        if not "VERTEX_COLOR" in [node.type for node in nodes]:
+            vertex_color_node = cast(ShaderNodeVertexColor, nodes.new(type = "ShaderNodeVertexColor"))
+        else:
+            vertex_color_node = cast(ShaderNodeVertexColor, nodes.get("Vertex Color"))
+        vertex_color_node.layer_name = "Col"
+
+        links = _vertex_color_material.node_tree.links
+        link = links.new(vertex_color_node.outputs[0], principled_bsdf_node.inputs[0])
+
+    return _vertex_color_material
+
 def get_render_material(speckle_object: Base) -> Optional[RenderMaterial]:
-    """Trys to get a RenderMaterial on given speckle_object and convert it to a blender material"""
+    """Trys to get a RenderMaterial on given speckle_object"""
 
     speckle_mat = getattr(
         speckle_object,
         "renderMaterial",
         getattr(speckle_object, "@renderMaterial", None),
     )
-    if not isinstance(speckle_mat, RenderMaterial):
-        return None
 
-    return speckle_mat
+    if isinstance(speckle_mat, RenderMaterial):
+        return speckle_mat
+
+    return None
     
 
 
@@ -159,10 +183,8 @@ def add_colors(speckle_mesh: Mesh, blender_mesh: BMesh):
         if len(scolors) > 0:
 
             for i in range(len(scolors)):
-                col = int(scolors[i])
-                (a, r, g, b) = [
-                    int(x) for x in struct.unpack("!BBBB", struct.pack("!i", col))
-                ]
+                argb = int(scolors[i])
+                (a, r, g, b) = argb_split(argb)
                 colors.append(
                     (
                         float(r) / 255.0,
@@ -180,6 +202,13 @@ def add_colors(speckle_mesh: Mesh, blender_mesh: BMesh):
                 for loop in face.loops:
                     loop[color_layer] = colors[loop.vert.index]
 
+def argb_split(argb: int) -> Tuple[int, int, int, int]:
+    alpha = (argb >> 24) & 0xFF
+    red = (argb >> 16) & 0xFF
+    green = (argb >> 8) & 0xFF
+    blue = argb & 0xFF
+
+    return (alpha, red, green, blue)
 
 def add_uv_coords(speckle_mesh: Mesh, blender_mesh: BMesh):
     s_uvs = speckle_mesh.textureCoordinates
