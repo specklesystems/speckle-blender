@@ -22,6 +22,7 @@ from bpy.types import Object, Collection as BCollection
 from .util import (
     add_to_heirarchy,
     get_render_material,
+    get_vertex_color_material,
     render_material_to_native,
     add_custom_properties,
     add_vertices,
@@ -219,6 +220,8 @@ def view_to_native(speckle_view, name: str, scale: float) -> bpy.types.Object:
 def mesh_to_native(speckle_mesh: Mesh, name: str, scale: float) -> bpy.types.Mesh:
     return meshes_to_native(speckle_mesh, [speckle_mesh], name, scale)
 
+
+
 def meshes_to_native(element: Base, meshes: Collection[Mesh], name: str, scale: float) -> bpy.types.Mesh:
     if name in bpy.data.meshes.keys():
         return bpy.data.meshes[name]
@@ -242,10 +245,16 @@ def meshes_to_native(element: Base, meshes: Collection[Mesh], name: str, scale: 
 
         add_faces(mesh, bm, offset, i)
 
-        render_material = get_render_material(mesh) or fallback_material
-        if render_material is not None:
-            native_material = render_material_to_native(render_material)
-            blender_mesh.materials.append(native_material)
+        try:
+            render_material = get_render_material(mesh) or fallback_material
+            if render_material is not None:
+                native_material = render_material_to_native(render_material)
+                blender_mesh.materials.append(native_material)
+            elif mesh.colors:
+                native_material = get_vertex_color_material()
+                blender_mesh.materials.append(native_material)
+        except Exception as ex:
+            _report(f"Failed converting render material for {name}: {ex}")
 
         offset += len(mesh.vertices) // 3
 
@@ -254,8 +263,15 @@ def meshes_to_native(element: Base, meshes: Collection[Mesh], name: str, scale: 
 
     # Third pass, add vertex instance data
     for mesh in meshes:
-        add_colors(mesh, bm)
-        add_uv_coords(mesh, bm)
+        try:
+            add_colors(mesh, bm)
+        except Exception as ex:
+            _report(f"Skipping converting vertex colors for {name}: {ex}")
+            
+        try:
+            add_uv_coords(mesh, bm)
+        except Exception as ex:
+            _report(f"Skipping converting uv coordinates for {name}: {ex}")
 
     bm.to_mesh(blender_mesh)
     bm.free()  
