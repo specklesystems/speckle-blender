@@ -73,20 +73,6 @@ class BlenderCommitObjectBuilder(CommitObjectBuilder[Object]):
 
         return convered_collection
 
-    # def find_collection_parent(self, col: Collection) -> Optional[Collection]:
-    #     for p in bpy.data.collections:
-    #         if col.name in p.children.keys():
-    #             return p
-    #     return None
-
-    #TODO: I've started an approach that will not work
-    # Goal #1 get all collections sending
-    # Sync with Claire, ask how we handle this in Rhino with partial selection of layers (proably how I'm expecting it works, but good to double check)
-    # Goal #2 Figure out how to send collections
-    # - all collections
-    # - all collections that contain a child collection that has geometry...
-    # - only collections explicitly selected
-
     def build_commit_object(self, root_commit_object: Base) -> None:
         assert(root_commit_object.applicationId in self.converted)
 
