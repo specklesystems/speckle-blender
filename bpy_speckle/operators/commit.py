@@ -5,6 +5,7 @@ import bpy
 from bpy.props import BoolProperty
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.properties.scene import get_speckle
+from specklepy.logging import metrics
 
 
 class DeleteCommit(bpy.types.Operator):
@@ -58,6 +59,15 @@ class DeleteCommit(bpy.types.Operator):
         client = speckle_clients[int(speckle.active_user)]
 
         deleted = client.commit.delete(stream_id=stream.id, commit_id=commit.id)
+
+        metrics.track(
+            "Connector Action",
+            client.account, 
+            custom_props={
+                "name": "delete_commit"
+            },
+        )
+        
         if not deleted:
             raise Exception("Delete operation failed")
 

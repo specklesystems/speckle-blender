@@ -7,9 +7,10 @@ from bpy.types import Context
 from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.properties.scene import SpeckleCommitObject, SpeckleSceneSettings, SpeckleUserObject, get_speckle
-from specklepy.api.client import SpeckleClient
-from specklepy.api.models import Stream
-from specklepy.api.credentials import get_local_accounts
+from specklepy.core.api.client import SpeckleClient
+from specklepy.core.api.models import Stream
+from specklepy.core.api.credentials import get_local_accounts
+from specklepy.logging import metrics
 
 class ResetUsers(bpy.types.Operator):
     """
@@ -22,6 +23,14 @@ class ResetUsers(bpy.types.Operator):
 
     def execute(self, context):
         self.reset_ui(context)
+
+        metrics.track(
+            "Connector Action",
+            None, 
+            custom_props={
+                "name": "ResetUsers"
+            },
+        )
 
         bpy.context.view_layer.update()
         if context.area:
@@ -55,6 +64,14 @@ class LoadUsers(bpy.types.Operator):
 
         profiles = get_local_accounts()
         active_user_index = 0
+
+        metrics.track(
+            "Connector Action",
+            None, 
+            custom_props={
+                "name": "LoadUsers",
+            },
+        )
 
         for profile in profiles:
             user = users.add()
@@ -144,7 +161,6 @@ class LoadUserStreams(bpy.types.Operator):
         user = speckle.validate_user_selection()
 
         client = speckle_clients[int(speckle.active_user)]
-
         try:
             streams = client.stream.list(stream_limit=20)
         except Exception as e:
@@ -156,8 +172,6 @@ class LoadUserStreams(bpy.types.Operator):
 
         user.streams.clear()
 
-        default_units = "Meters"
-
         for s in streams:
             assert(s.id)
             sstream = client.stream.get(id=s.id, branch_limit=20)
@@ -167,4 +181,13 @@ class LoadUserStreams(bpy.types.Operator):
 
         if context.area:
             context.area.tag_redraw()
+                
+        metrics.track(
+            "Connector Action",
+            client.account, 
+            custom_props={
+                "name": "LoadUserStreams"
+            },
+        )
+
 

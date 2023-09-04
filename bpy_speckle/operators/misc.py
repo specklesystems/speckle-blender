@@ -1,5 +1,6 @@
 import bpy
 import webbrowser
+from specklepy.logging import metrics 
 
 
 class OpenSpeckleGuide(bpy.types.Operator):
@@ -10,6 +11,13 @@ class OpenSpeckleGuide(bpy.types.Operator):
 
     def execute(self, context):
         webbrowser.open("https://speckle.guide/user/blender.html")
+        metrics.track(
+            "Connector Action",
+            None, 
+            custom_props={
+                "name": "OpenSpeckleGuide"
+            },
+        )
         return {"FINISHED"}
 
 
@@ -21,6 +29,13 @@ class OpenSpeckleTutorials(bpy.types.Operator):
 
     def execute(self, context):
         webbrowser.open("https://speckle.systems/tutorials/")
+        metrics.track(
+            "Connector Action",
+            None, 
+            custom_props={
+                "name": "OpenSpeckleTutorials"
+            },
+        )
         return {"FINISHED"}
 
 
@@ -32,4 +47,11 @@ class OpenSpeckleForum(bpy.types.Operator):
 
     def execute(self, context):
         webbrowser.open("https://speckle.community/")
+        metrics.track(
+            "Connector Action",
+            None, 
+            custom_props={
+                "name": "OpenSpeckleForum"
+            },
+        )
         return {"FINISHED"}
