@@ -11,7 +11,7 @@ from bpy_speckle.convert.to_speckle import (
 )
 from bpy_speckle.functions import get_scale_length, _report
 from bpy_speckle.clients import speckle_clients
-
+from specklepy.logging import metrics
 
 class UpdateObject(bpy.types.Operator):
     """
@@ -56,6 +56,13 @@ class UpdateObject(bpy.types.Operator):
                 _report("Updating object {}".format(sm["_id"]))
                 client.objects.update(active.speckle.object_id, sm)
 
+                metrics.track(
+                    "Connector Action",
+                    None, 
+                    custom_props={
+                        "name": "UpdateObject"
+                    },
+                )
                 return {"FINISHED"}
 
             return {"CANCELLED"}
@@ -78,6 +85,14 @@ class ResetObject(bpy.types.Operator):
         context.object.speckle.object_id = ""
         context.object.speckle.enabled = False
         context.view_layer.update()
+
+        metrics.track(
+            "Connector Action",
+            None, 
+            custom_props={
+                "name": "ResetObject"
+            },
+        )
 
         return {"FINISHED"}
 
@@ -124,6 +139,14 @@ class DeleteObject(bpy.types.Operator):
             active.speckle.object_id = ""
             active.speckle.enabled = False
             context.view_layer.update()
+
+            metrics.track(
+                "Connector Action",
+                None, 
+                custom_props={
+                    "name": "DeleteObject"
+                },
+            )
 
         return {"FINISHED"}
 
@@ -197,6 +220,13 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
             context.view_layer.update()
             _report("Done.")
 
+            metrics.track(
+                "Connector Action",
+                None, 
+                custom_props={
+                    "name": "UploadNgonsAsPolylines"
+                },
+            )
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -267,6 +297,14 @@ class SelectIfSameCustomProperty(bpy.types.Operator):
             else:
                 obj.select_set(False)
 
+            metrics.track(
+                "Connector Action",
+                None, 
+                custom_props={
+                    "name": "SelectIfSameCustomProperty"
+                },
+            )
+                
         return {"FINISHED"}
 
 
@@ -314,5 +352,14 @@ class SelectIfHasCustomProperty(bpy.types.Operator):
                 obj.select_set(True)
             else:
                 obj.select_set(False)
+
+        metrics.track(
+            "Connector Action",
+            None, 
+            custom_props={
+                "name": "SelectIfHasCustomProperty"
+            },
+        )
+
 
         return {"FINISHED"}

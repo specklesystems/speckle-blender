@@ -34,10 +34,10 @@ from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
 from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleUserObject, get_speckle
 from bpy_speckle.convert.util import ConversionSkippedException, add_to_heirarchy
-from specklepy.api.models import Commit
-from specklepy.api import operations, host_applications
-from specklepy.api.wrapper import StreamWrapper
-from specklepy.api.resources.stream import Stream
+from specklepy.core.api.models import Commit
+from specklepy.core.api import operations, host_applications
+from specklepy.core.api.wrapper import StreamWrapper
+from specklepy.core.api.resources.stream import Stream
 from specklepy.transports.server import ServerTransport
 from specklepy.objects import Base
 from specklepy.objects.other import Collection as SCollection
@@ -150,6 +150,15 @@ class ReceiveStreamObjects(bpy.types.Operator):
         client = speckle_clients[int(speckle.active_user)]
 
         transport = ServerTransport(stream.id, client)
+        
+        # Fetch commit data
+        commit_object = operations.receive(commit.referenced_object, transport)
+        client.commit.received(
+            stream.id,
+            commit.id,
+            source_application="blender",
+            message="received commit from Speckle Blender",
+        )
 
         metrics.track(
             metrics.RECEIVE,
@@ -158,17 +167,10 @@ class ReceiveStreamObjects(bpy.types.Operator):
                 "sourceHostApp": host_applications.get_host_app_from_string(commit.source_application).slug,
                 "sourceHostAppVersion": commit.source_application,
                 "isMultiplayer": commit.author_id != user.id,
+                #"connector_version": "unknown", #TODO
             },
         )
 
-        # Fetch commit data
-        commit_object = operations._untracked_receive(commit.referenced_object, transport)
-        client.commit.received(
-            stream.id,
-            commit.id,
-            source_application="blender",
-            message="received commit from Speckle Blender",
-        )
 
         # Convert received data
         context.window_manager.progress_begin(0, commit_object.totalChildrenCount or 1)
@@ -350,6 +352,16 @@ class SendStreamObjects(bpy.types.Operator):
         commit_object = commit_builder.ensure_collection(context.scene.collection)
         commit_builder.build_commit_object(commit_object)
 
+        metrics.track(
+            metrics.SEND,
+            client.account, 
+            custom_props={
+                "branches": len(stream.branches),
+                #"collaborators": 0, #TODO: 
+                "isMain": branch.name == "main",
+            },
+        )
+    
         _report(f"Sending data to {stream.name}")
         transport = ServerTransport(stream.id, client)
         OBJECT_ID = operations.send(
@@ -395,6 +407,14 @@ class ViewStreamDataApi(bpy.types.Operator):
         
         if not webbrowser.open("%s/streams/%s" % (user.server_url, stream.id), new=2):
             raise Exception("Failed to open stream in browser")
+        
+        metrics.track(
+            "Connector Action",
+            None, 
+            custom_props={
+                "name": "view_stream_data_api"
+            },
+        )
 
 
 class AddStreamFromURL(bpy.types.Operator):
@@ -481,6 +501,14 @@ class AddStreamFromURL(bpy.types.Operator):
 
         if context.area:
             context.area.tag_redraw()
+        
+        metrics.track(
+            "Connector Action",
+            client.account, 
+            custom_props={
+                "name": "add_stream_from_url"
+            },
+        )
 
 
 class CreateStream(bpy.types.Operator):
@@ -541,6 +569,14 @@ class CreateStream(bpy.types.Operator):
 
         if context.area:
             context.area.tag_redraw()
+        
+        metrics.track(
+            "Connector Action",
+            client.account, 
+            custom_props={
+                "name": "create_stream"
+            },
+        )
 
 
 class DeleteStream(bpy.types.Operator):
@@ -607,6 +643,14 @@ class DeleteStream(bpy.types.Operator):
         if context.area:
             context.area.tag_redraw()
 
+        metrics.track(
+            "Connector Action",
+            client.account, 
+            custom_props={
+                "name": "delete_stream"
+            },
+        )
+
 
 class SelectOrphanObjects(bpy.types.Operator):
     """
@@ -631,6 +675,13 @@ class SelectOrphanObjects(bpy.types.Operator):
                 o.select = True
             else:
                 o.select = False
+
+        metrics.track(
+            "Connector Action", 
+            custom_props={
+                "name": "SelectOrphanObjects"
+            },
+        )
 
         return {"FINISHED"}
 
@@ -658,6 +709,12 @@ class CopyStreamId(bpy.types.Operator):
         (_, stream) = speckle.validate_stream_selection()
         bpy.context.window_manager.clipboard = stream.id
 
+        metrics.track(
+            "Connector Action",
+            custom_props={
+                "name": "copy_stream_id"
+            },
+        )
 
 class CopyCommitId(bpy.types.Operator):
     """
@@ -682,6 +739,14 @@ class CopyCommitId(bpy.types.Operator):
 
         (_, _, _, commit) = speckle.validate_commit_selection()
         bpy.context.window_manager.clipboard = commit.id
+
+        metrics.track(
+            "Connector Action",
+            custom_props={
+                "name": "copy_commit_id"
+            },
+        )
+
 
 
 class CopyBranchName(bpy.types.Operator):
@@ -708,3 +773,10 @@ class CopyBranchName(bpy.types.Operator):
         (_, _, branch) = speckle.validate_branch_selection()
 
         bpy.context.window_manager.clipboard = branch.name
+
+        metrics.track(
+            "Connector Action",
+            custom_props={
+                "name": "copy_branch_id"
+            },
+        )

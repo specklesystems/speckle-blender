@@ -3,7 +3,7 @@ import bpy
 from bpy.types import Object, Collection, ID
 from specklepy.objects.base import Base
 from bpy_speckle.functions import _report
-from bpy_speckle.specklepy_extras.commit_object_builder import CommitObjectBuilder, ROOT
+from specklepy.objects.graph_traversal.commit_object_builder import CommitObjectBuilder, ROOT
 from specklepy.objects import Base
 from specklepy.objects.other import Collection as SCollection
 from attrs import define
@@ -79,7 +79,7 @@ class BlenderCommitObjectBuilder(CommitObjectBuilder[Object]):
         # Create all collections
         root_col = self.ensure_collection(bpy.context.scene.collection)
         root_col.collectionType = "Scene Collection"
-        for col in bpy.context.scene.collection.children_recursive:
+        for col in bpy.context.scene.collection.children_recursive: #type: ignore
             self.ensure_collection(col)
 
         objects_to_build = set(self.converted.values())

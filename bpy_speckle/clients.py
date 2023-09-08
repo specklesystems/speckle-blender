@@ -1,7 +1,7 @@
 """
 Permanent handle on all user clients
 """
-from specklepy.api.client import SpeckleClient
+from specklepy.core.api.client import SpeckleClient
 
 
 speckle_clients: list[SpeckleClient] = []

@@ -10,7 +10,7 @@ from bpy_speckle.convert.constants import IGNORED_PROPERTY_KEYS
 from bpy_speckle.functions import _report
 from bpy.types import Material, Object, Collection as BCollection, Node, ShaderNodeVertexColor
 
-from bpy_speckle.specklepy_extras.traversal import TraversalContext
+from specklepy.objects.graph_traversal.traversal import TraversalContext
 
 class ConversionSkippedException(Exception):
     pass
