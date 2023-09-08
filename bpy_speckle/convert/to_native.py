@@ -198,12 +198,15 @@ def view_to_native(speckle_view, name: str, scale: float) -> bpy.types.Object:
         native_cam = bpy.data.cameras.new(name=name)
         native_cam.lens = 18 # 90° horizontal fov
 
+    if not hasattr(speckle_view, "origin"):
+        raise ConversionSkippedException("2D views not supported")
+
     cam_obj = create_new_object(native_cam, name)
 
     scale_factor = get_scale_factor(speckle_view, scale)
     tx = (speckle_view.origin.x * scale_factor)
     ty = (speckle_view.origin.y * scale_factor)
-    tz = (speckle_view.origin.z * scale_factor) #TODO: do these need to be scaled?
+    tz = (speckle_view.origin.z * scale_factor)
 
     forward = MVector((speckle_view.forwardDirection.x, speckle_view.forwardDirection.y, speckle_view.forwardDirection.z))
     up = MVector((speckle_view.upDirection.x, speckle_view.upDirection.y, speckle_view.upDirection.z))
