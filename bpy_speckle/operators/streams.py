@@ -33,7 +33,7 @@ from bpy_speckle.functions import (
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
 from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleUserObject, get_speckle
-from bpy_speckle.convert.util import ConversionSkippedException, add_to_heirarchy
+from bpy_speckle.convert.util import ConversionSkippedException, add_to_hierarchy
 from specklepy.core.api.models import Commit
 from specklepy.core.api import operations, host_applications
 from specklepy.core.api.wrapper import StreamWrapper
@@ -223,7 +223,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
                         
                     converted_objects[current.id] = converted
 
-                    add_to_heirarchy(converted, item, converted_objects, True)
+                    add_to_hierarchy(converted, item, converted_objects, True)
 
                     _report(f"Successfully converted {type(current).__name__} {current.id} as '{converted_data_type}'")
                 except ConversionSkippedException as ex:

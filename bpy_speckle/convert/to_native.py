@@ -1,6 +1,6 @@
 import math
-from typing import Any, Dict, Iterable, List, Optional, Union, Collection, cast
-from bpy_speckle.convert.constants import DISPLAY_VALUE_PROPERTY_ALIASES, ELEMENTS_PROPERTY_ALIASES, OBJECT_NAME_MAX_LENGTH, OBJECT_NAME_SEPERATOR, SPECKLE_ID_LENGTH
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, Collection, cast
+from bpy_speckle.convert.constants import DISPLAY_VALUE_PROPERTY_ALIASES, ELEMENTS_PROPERTY_ALIASES, OBJECT_NAME_MAX_LENGTH, OBJECT_NAME_NUMERAL_SEPARATOR, OBJECT_NAME_SPECKLE_SEPARATOR, SPECKLE_ID_LENGTH
 from bpy_speckle.functions import get_default_traversal_func, get_scale_length, _report
 from bpy_speckle.convert.util import ConversionSkippedException
 from mathutils import (
@@ -20,7 +20,7 @@ from specklepy.objects.geometry import Mesh, Line, Polyline, Curve, Arc, Polycur
 from bpy.types import Object, Collection as BCollection
 
 from .util import (
-    add_to_heirarchy,
+    add_to_hierarchy,
     get_render_material,
     get_vertex_color_material,
     render_material_to_native,
@@ -40,7 +40,7 @@ CAN_CONVERT_TO_NATIVE = (
 )
 
 
-def _has_native_convesion(speckle_object: Base) -> bool: 
+def _has_native_conversion(speckle_object: Base) -> bool: 
     return any(isinstance(speckle_object, t) for t in CAN_CONVERT_TO_NATIVE) or "View" in speckle_object.speckle_type #hack
 
 def _has_fallback_conversion(speckle_object: Base) -> bool: 
@@ -48,26 +48,9 @@ def _has_fallback_conversion(speckle_object: Base) -> bool:
 
 def can_convert_to_native(speckle_object: Base) -> bool:
 
-    if(_has_native_convesion(speckle_object) or _has_fallback_conversion(speckle_object)):
+    if(_has_native_conversion(speckle_object) or _has_fallback_conversion(speckle_object)):
         return True
     return False
-
-def create_new_object(obj_data: Optional[bpy.types.ID], desired_name: str, counter: int = 0) -> bpy.types.Object:
-    """
-    Creates a new blender object with a unique name,
-    if the desired_name is already taken
-    we'll append a number, with the format .xxx to the desired_name to ensure the name is unique.
-    """
-    name = desired_name if counter == 0 else f"{desired_name[:OBJECT_NAME_MAX_LENGTH - 4]}.{counter:03d}"  # format counter as name.xxx, truncate to ensure we don't exceed the object name max length
-
-    #TODO: This is very slow, and gets slower the more objects you receive with the same name...
-    # We could use a binary/galloping search, and/or cache the name -> index within a receive.
-    if name in bpy.data.objects.keys():
-        #Object already exists, increment counter and try again!
-        return create_new_object(obj_data, desired_name, counter + 1)
-
-    blender_object = bpy.data.objects.new(name, obj_data)
-    return blender_object
 
 convert_instances_as: str #HACK: This is hacky, we need a better way to pass settings down to the converter
 def set_convert_instances_as(value: str):
@@ -87,7 +70,7 @@ def convert_to_native(speckle_object: Base) -> Object:
     children: list[Object] = []
 
     # convert elements/breps
-    if not _has_native_convesion(speckle_object):
+    if not _has_native_conversion(speckle_object):
         (converted, children) = display_value_to_native(speckle_object, object_name, scale)
         if not converted and not children:
             raise Exception(f"Zero geometry converted from displayValues for {speckle_object}")
@@ -150,8 +133,8 @@ def _members_to_native(speckle_object: Base, name: str, scale: float, members: I
         display = getattr(speckle_object, alias, None)
 
         count = 0
-        MAX_DEPTH = 255 # some large value, to prevent infinite reccursion
-        def seperate(value: Any) -> bool:
+        MAX_DEPTH = 255 # some large value, to prevent infinite recursion
+        def separate(value: Any) -> bool:
             nonlocal meshes, others, count, MAX_DEPTH
 
             if combineMeshes and isinstance(value, Mesh):
@@ -163,11 +146,11 @@ def _members_to_native(speckle_object: Base, name: str, scale: float, members: I
                 if(count > MAX_DEPTH):
                     return True
                 for x in value:
-                    seperate(x) 
+                    separate(x) 
 
             return False
 
-        did_halt = seperate(display)
+        did_halt = separate(display)
 
         if did_halt:
             _report(f"Traversal of {speckle_object.speckle_type} {speckle_object.id} halted after traversal depth exceeds MAX_DEPTH={MAX_DEPTH}. Are there circular references object structure?")
@@ -543,7 +526,7 @@ def icurve_to_native(speckle_curve: Base, name: str, scale: float) -> bpy.types.
 
 
 """
-Transforms and Intances
+Transforms and Instances
 """
 
 def transform_to_native(transform: Transform, scale: float) -> MMatrix:
@@ -586,7 +569,7 @@ def _get_instance_name(instance: Instance) -> str:
         or _get_friendly_object_name(instance.definition) 
         or _simplified_speckle_type(instance.speckle_type)
     )
-    return f"{name_prefix}{OBJECT_NAME_SEPERATOR}{instance.id}"
+    return f"{name_prefix}{OBJECT_NAME_SPECKLE_SEPARATOR}{instance.id}"
 
 
 def instance_to_native_object(instance: Instance, scale: float) -> Object:
@@ -605,12 +588,12 @@ def instance_to_native_object(instance: Instance, scale: float) -> Object:
     traversal_root: Base = definition
     
     if not can_convert_to_native(definition):
-        # Non-convertable (like all blocks, and some revit instances) will not be converted as part of the deep_traversal.
+        # Non-convertible (like all blocks, and some revit instances) will not be converted as part of the deep_traversal.
         # so we explicitly convert them as empties.
         native_instance = create_new_object(None, name) 
         native_instance.empty_display_size = 0
 
-        converted_objects["__ROOT"] = native_instance # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertable
+        converted_objects["__ROOT"] = native_instance # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertible
         traversal_root = Base(elements=definition, id="__ROOT")
 
     #Convert definition + "elements" on definition
@@ -652,7 +635,7 @@ def instance_to_native_collection_instance(instance: Instance, scale: float) -> 
 
     instance_transform = transform_to_native(instance.transform, scale)
 
-    native_instance = bpy.data.objects.new(name, None)
+    native_instance = create_new_object(None, name)
 
     #add_custom_properties(instance, native_instance)
     # hide the instance axes so they don't clutter the viewport
@@ -672,11 +655,11 @@ def _instance_definition_to_native(definition: Union[Base, BlockDefinition]) -> 
     if native_def:
         return native_def
 
-    native_def = bpy.data.collections.new(name)
+    native_def = create_new_collection(name)
     native_def["applicationId"] = definition.applicationId
 
     converted_objects = {}
-    converted_objects["__ROOT"] = native_def # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertable
+    converted_objects["__ROOT"] = native_def # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertible
     dummyRoot = Base(elements=definition, id="__ROOT")
 
     _deep_conversion(dummyRoot, converted_objects, True)
@@ -709,7 +692,7 @@ def _deep_conversion(root: Base, converted_objects: Dict[str, Union[Object, BCol
                     
                 converted_objects[current.id] = converted
 
-                add_to_heirarchy(converted, item, converted_objects, preserve_transform)
+                add_to_hierarchy(converted, item, converted_objects, preserve_transform)
 
                 _report(f"Successfully converted {type(current).__name__} {current.id} as '{converted_data_type}'")
             except ConversionSkippedException as ex:
@@ -728,27 +711,65 @@ def collection_to_native(collection: SCollection) -> BCollection:
     return ret
 
 def get_or_create_collection(name: str, clear_collection: bool = True) -> BCollection:
-    existing = cast(BCollection, bpy.data.collections.get(name))
-    if existing:
-        if clear_collection:
-            for obj in existing.objects:
-                existing.objects.unlink(obj)
-        return existing
-    else:
-        new_collection = bpy.data.collections.new(name)
+    #Disabled for now, since update mode needs rescoping.
+    # existing = cast(Optional[BCollection], bpy.data.collections.get(name))
+    # if existing:
+    #     if clear_collection:
+    #         for obj in existing.objects:
+    #             existing.objects.unlink(obj)
+    #     return existing
+    # else:
+    new_collection = create_new_collection(name)
 
-        #NOTE: We want to not render revit "Rooms" collections by default.
-        if name == "Rooms":
-            new_collection.hide_viewport = True
-            new_collection.hide_render = True
+    #NOTE: We want to not render revit "Rooms" collections by default.
+    if name == "Rooms":
+        new_collection.hide_viewport = True
+        new_collection.hide_render = True
 
-        return new_collection
+    return new_collection
     
     
 
 """
-Object Naming
+Object Naming and Creation
 """
+
+def create_new_collection( desired_name: str) -> bpy.types.Collection:
+    """
+    Creates a new blender collection with a unique name
+    If the desired_name is already taken
+    we'll append a number, with the format .xxx to the desired_name to ensure the name is unique.
+    """
+    name = _make_unique_name(desired_name, bpy.data.collections.keys())
+
+    blender_collection = bpy.data.collections.new(name)
+    return blender_collection
+
+def create_new_object(obj_data: Optional[bpy.types.ID], desired_name: str) -> bpy.types.Object:
+    """
+    Creates a new blender object with a unique name,
+    If the desired_name is already taken
+    we'll append a number, with the format .xxx to the desired_name to ensure the name is unique.
+    """
+    name = _make_unique_name(desired_name, bpy.data.objects.keys())
+
+    blender_object = bpy.data.objects.new(name, obj_data)
+    return blender_object
+
+def _make_unique_name( desired_name: str, taken_names: Collection[str], counter: int = 0) -> str:
+    """
+    Using Blenders default naming (append numeral in .xxx format) to avoid name conflicts with taken names
+    """
+    name = desired_name if counter == 0 else f"{desired_name[:OBJECT_NAME_MAX_LENGTH - 4]}{OBJECT_NAME_NUMERAL_SEPARATOR}{counter:03d}"  # format counter as name.xxx, truncate to ensure we don't exceed the object name max length
+
+    #TODO: This is very slow, and gets slower the more objects you receive with the same name...
+    # We could use a binary/galloping search, and/or cache the name -> index within a receive.
+    if name in taken_names:
+        #Name already taken, increment counter and try again!
+        return _make_unique_name(desired_name, taken_names, counter + 1)
+
+    return name
+
 
 def _get_friendly_object_name(speckle_object: Base) -> Optional[str]:
     return (getattr(speckle_object, "name", None)
@@ -764,7 +785,7 @@ def _get_friendly_object_name(speckle_object: Base) -> Optional[str]:
 
 def _truncate_object_name(name: str) -> str:
 
-    MAX_NAME_LENGTH = OBJECT_NAME_MAX_LENGTH - SPECKLE_ID_LENGTH - len(OBJECT_NAME_SEPERATOR)
+    MAX_NAME_LENGTH = OBJECT_NAME_MAX_LENGTH - SPECKLE_ID_LENGTH - len(OBJECT_NAME_SPECKLE_SEPARATOR)
 
     return name[:MAX_NAME_LENGTH]
     
@@ -780,7 +801,7 @@ def _generate_object_name(speckle_object: Base) -> str:
     else:
         prefix = _simplified_speckle_type(speckle_object.speckle_type)
 
-    return f"{prefix}{OBJECT_NAME_SEPERATOR}{speckle_object.id}"
+    return f"{prefix}{OBJECT_NAME_SPECKLE_SEPARATOR}{speckle_object.id}"
 
 
 def get_scale_factor(speckle_object: Base, fallback: float = 1.0) -> float:

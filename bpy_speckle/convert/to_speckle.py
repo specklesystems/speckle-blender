@@ -20,7 +20,7 @@ from specklepy.objects.geometry import (
      Mesh, Curve, Interval, Box, Point, Vector, Polyline,
 )
 from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
-from bpy_speckle.convert.constants import OBJECT_NAME_SEPERATOR, SPECKLE_ID_LENGTH
+from bpy_speckle.convert.constants import OBJECT_NAME_SPECKLE_SEPARATOR, SPECKLE_ID_LENGTH
 from bpy_speckle.convert.util import (
     ConversionSkippedException,
     get_blender_custom_properties,
@@ -107,7 +107,7 @@ def mesh_to_speckle_meshes(blender_object: Object, data: bpy.types.Mesh) -> List
     for i in submesh_data:
         index_mapping: Dict[int, int] = {}
 
-        #Loop through each polygon, and map indicies to their new index in m_verts
+        #Loop through each polygon, and map indices to their new index in m_verts
     
         mesh_area = 0
         m_verts: List[float] = []
@@ -176,8 +176,8 @@ def bezier_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, name: Optional[
     
     num_points = len(points)
 
-    flattend_points = []
-    for row in points: flattend_points.extend(row)
+    flattened_points = []
+    for row in points: flattened_points.extend(row)
 
     knot_count = num_points + degree - 1
     knots = [0] * knot_count
@@ -192,7 +192,7 @@ def bezier_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, name: Optional[
         degree=degree,
         closed=spline.use_cyclic_u,
         periodic= not spline.use_endpoint_u,
-        points=flattend_points,
+        points=flattened_points,
         weights=[1] * num_points,
         knots=knots,
         rational=True,
@@ -219,15 +219,15 @@ def nurbs_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, name: Optional[s
 
     points = [tuple(matrix @ pt.co.xyz * UnitsScale) for pt in spline.points] # type: ignore
 
-    flattend_points = []
-    for row in points: flattend_points.extend(row)
+    flattened_points = []
+    for row in points: flattened_points.extend(row)
 
     if spline.use_cyclic_u:
         for i in range(0, degree * 3, 3):
             # Rhino expects n + degree number of points (for closed curves). So we need to add an extra point for each degree
-            flattend_points.append(flattend_points[i + 0])
-            flattend_points.append(flattend_points[i + 1])
-            flattend_points.append(flattend_points[i + 2])
+            flattened_points.append(flattened_points[i + 0])
+            flattened_points.append(flattened_points[i + 1])
+            flattened_points.append(flattened_points[i + 2])
         
         for i in range(0, degree):
             weights.append(weights[i])
@@ -237,7 +237,7 @@ def nurbs_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, name: Optional[s
         degree=degree,
         closed=spline.use_cyclic_u,
         periodic= not spline.use_endpoint_u,
-        points=flattend_points,
+        points=flattened_points,
         weights=weights,
         knots=knots,
         rational=is_rational, 
@@ -305,27 +305,27 @@ def bezier_to_speckle_polyline(matrix: MMatrix, spline: bpy.types.Spline, length
     domain = Interval(start=0, end=length, totalChildrenCount=0)
     return Polyline(value=points, closed = spline.use_cyclic_u, domain=domain, area=0, len=length)
 
-_QUICK_TEST_NAME_LENGTH = SPECKLE_ID_LENGTH + len(OBJECT_NAME_SEPERATOR)
+_QUICK_TEST_NAME_LENGTH = SPECKLE_ID_LENGTH + len(OBJECT_NAME_SPECKLE_SEPARATOR)
 
 def to_speckle_name(blender_object: bpy.types.ID) -> str:
-    does_name_contain_id = len(blender_object.name) > _QUICK_TEST_NAME_LENGTH and OBJECT_NAME_SEPERATOR in blender_object.name
+    does_name_contain_id = len(blender_object.name) > _QUICK_TEST_NAME_LENGTH and OBJECT_NAME_SPECKLE_SEPARATOR in blender_object.name
     if does_name_contain_id:
-        return blender_object.name.rsplit(OBJECT_NAME_SEPERATOR, 1)[0]
+        return blender_object.name.rsplit(OBJECT_NAME_SPECKLE_SEPARATOR, 1)[0]
     else:
         return blender_object.name
 
 def poly_to_speckle(matrix: MMatrix, spline: bpy.types.Spline, name: Optional[str] = None) -> Polyline:
     points = [tuple(matrix @ pt.co.xyz * UnitsScale) for pt in spline.points] # type: ignore
 
-    flattend_points = []
-    for row in points: flattend_points.extend(row)
+    flattened_points = []
+    for row in points: flattened_points.extend(row)
 
     length = spline.calc_length()
     domain = Interval(start=0, end=length, totalChildrenCount=0)
     return Polyline(
         name=name,
         closed=bool(spline.use_cyclic_u),
-        value=list(flattend_points),
+        value=list(flattened_points),
         length=length,
         domain=domain,
         bbox=Box(area=0.0, volume=0.0),
@@ -466,7 +466,7 @@ def vector_to_speckle(xyz: MVector) -> Vector:
         )
 
 def transform_to_speckle(blender_transform: Union[Iterable[Iterable[float]], MMatrix]) -> Transform:
-    iterable_transform = cast(Iterable[Iterable[float]], blender_transform) #NOTE: Matrix are itterable, even if type hinting says they are not
+    iterable_transform = cast(Iterable[Iterable[float]], blender_transform) #NOTE: Matrix are iterable, even if type hinting says they are not
     value = [y for x in iterable_transform for y in x]
     # scale the translation
     for i in (3, 7, 11):
@@ -521,7 +521,7 @@ def empty_to_speckle(blender_object: Object) -> Union[BlockInstance, Base]:
         wrapper = Base()
         wrapper["@displayValue"] = matrix_to_speckle_point(cast(MMatrix, blender_object.matrix_world))
         return wrapper
-        #TODO: we could do a Empty -> Point conversion here. However, the viewer (and likly  other apps) don't support a pont with "elements"
+        #TODO: we could do a Empty -> Point conversion here. However, the viewer (and likely  other apps) don't support a pont with "elements"
         #return matrix_to_speckle_point(cast(MMatrix, blender_object.matrix_world))
 
 

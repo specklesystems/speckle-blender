@@ -449,7 +449,7 @@ def link_object_to_collection_nested(obj: Object, col: BCollection):
     for child in obj.children: #type: ignore
         link_object_to_collection_nested(child, col)
 
-def add_to_heirarchy(converted: Union[Object, BCollection], traversalContext : 'TraversalContext', converted_objects: Dict[str, Union[Object, BCollection]], preserve_transform: bool) -> None:
+def add_to_hierarchy(converted: Union[Object, BCollection], traversalContext : 'TraversalContext', converted_objects: Dict[str, Union[Object, BCollection]], preserve_transform: bool) -> None:
     nextParent = traversalContext.parent
 
     # Traverse up the tree to find a direct parent object, and a containing collection

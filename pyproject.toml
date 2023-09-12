@@ -14,7 +14,6 @@ attrs = "^23.1.0"
 # specklepy = {path = "../specklepy", develop = true}
 
 [tool.poetry.group.dev.dependencies]
-numpy = "^1.23.5"
 fake-bpy-module-latest = "^20230117"
 black = "^22.10.0"
 pylint = "^2.15.7"
