@@ -73,6 +73,9 @@ class LoadUsers(bpy.types.Operator):
             },
         )
 
+        if not profiles:
+            raise Exception("Zero accounts were found, please add one through Speckle Manager or a local account")
+
         for profile in profiles:
             user = users.add()
             user.server_name = profile.serverInfo.name or "Speckle Server"
@@ -91,16 +94,24 @@ class LoadUsers(bpy.types.Operator):
                 client.authenticate_with_account(profile)
                 speckle_clients.append(client)
             except Exception as ex:
-                _report(ex)
+                _report(f"Failed to authenticate user {user.email} with server {user.server_url}: {ex}")
                 users.remove(len(users) - 1)
             if profile.isDefault:
                 active_user_index = len(users) - 1
 
+        _report(f"Authenticated {len(users)}/{len(profiles)} accounts")
+
+        if active_user_index < len(users):
         speckle.active_user = str(active_user_index)
+
         bpy.context.view_layer.update()
 
         if context.area:
             context.area.tag_redraw()
+
+        if not users:
+            raise Exception("Zero valid user accounts were found, please ensure account is valid and the server is running")
+
         return {"FINISHED"}
 
 
@@ -139,7 +150,7 @@ def add_user_stream(user: SpeckleUserObject, stream: Stream):
 
 class LoadUserStreams(bpy.types.Operator):
     """
-    Load all available streams for active user user
+    Load all available streams for active user
     """
 
     bl_idname = "speckle.load_user_streams"
@@ -147,34 +158,37 @@ class LoadUserStreams(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "(Re)load all available user streams"
 
+    stream_limit: int = 20
+    branch_limit: int = 20
+
     def execute(self, context):
         try:
-            self.add_stream_from_url(context)
+            self.load_user_stream(context)
             return {"FINISHED"}
         except Exception as ex:
             _report(f"{self.bl_idname} failed: {ex}")
             return {"CANCELLED"} 
         
-    def add_stream_from_url(self, context: Context) -> None:
+    def load_user_stream(self, context: Context) -> None:
         speckle = get_speckle(context)
 
         user = speckle.validate_user_selection()
 
         client = speckle_clients[int(speckle.active_user)]
         try:
-            streams = client.stream.list(stream_limit=20)
-        except Exception as e:
-            _report(f"Failed to retrieve streams: {e}")
-            return
+            streams = client.stream.list(stream_limit=self.stream_limit)
+        except Exception as ex:
+            raise Exception(f"Failed to retrieve streams") from ex
+        
         if not streams:
-            _report("Failed to retrieve streams.")
+            raise Exception("Zero streams found")
             return
 
         user.streams.clear()
 
         for s in streams:
             assert(s.id)
-            sstream = client.stream.get(id=s.id, branch_limit=20)
+            sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit)
             add_user_stream(user, sstream)
 
         bpy.context.view_layer.update()
