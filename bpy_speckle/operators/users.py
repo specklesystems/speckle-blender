@@ -102,7 +102,7 @@ class LoadUsers(bpy.types.Operator):
         _report(f"Authenticated {len(users)}/{len(profiles)} accounts")
 
         if active_user_index < len(users):
-        speckle.active_user = str(active_user_index)
+            speckle.active_user = str(active_user_index)
 
         bpy.context.view_layer.update()
 
