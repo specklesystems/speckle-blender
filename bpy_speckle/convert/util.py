@@ -254,8 +254,9 @@ ignored_keys = {
     "_chunkable",
 }
 
-def get_blender_custom_properties(obj, max_depth: int = 200):
-    if max_depth < 0:
+def get_blender_custom_properties(obj, max_depth: int = 63):
+    """Recursivly grabs custom properties on blender objects. Max depth is determined by the max allowed by Newtonsoft.NET, don't exceed unless you know what you're doing"""
+    if max_depth <= 0:
         return obj
 
     if hasattr(obj, "keys"):
