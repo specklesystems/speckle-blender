@@ -518,7 +518,7 @@ def icurve_to_native(speckle_curve: Base, name: str, scale: float) -> bpy.types.
         else bpy.data.curves.new(name, type="CURVE")
     )
     blender_curve.dimensions = "3D"
-    blender_curve.resolution_u = 12 #TODO: We could maybe decern the resolution from the ployline displayValue
+    blender_curve.resolution_u = 12 #TODO: We could maybe decern the resolution from the polyline displayValue
 
     icurve_to_native_spline(speckle_curve, blender_curve, scale)
 

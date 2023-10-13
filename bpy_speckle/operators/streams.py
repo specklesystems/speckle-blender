@@ -74,7 +74,7 @@ def get_receive_funcs(speckle: SpeckleSceneSettings) -> tuple[ObjectCallback, Re
 #]
 
 INSTANCES_SETTINGS = [
-    ("collection_instance", "Collection Instace", "Receive Instances as Collection Instances"),
+    ("collection_instance", "Collection Instance", "Receive Instances as Collection Instances"),
     ("linked_duplicates", "Linked Duplicates", "Receive Instances as Linked Duplicates"),
 ]
 
@@ -91,7 +91,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
     
     clean_meshes: BoolProperty(name="Clean Meshes", default=False)
 
-    #receive_mode: EnumProperty(items=RECEIVE_MODES, name="Receive Type", default="replace", description="The behaviour of the recieve operation")
+    #receive_mode: EnumProperty(items=RECEIVE_MODES, name="Receive Type", default="replace", description="The behaviour of the receive operation")
     receive_instances_as: EnumProperty(items=INSTANCES_SETTINGS, name="Receive Instances As", default="collection_instance", description="How to receive speckle Instances")
     
 
@@ -183,7 +183,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
         (object_converted_callback, on_complete_callback) = get_receive_funcs(speckle)
 
         # older commits will have a non-collection root object
-        # for the sake of consistant behaviour, we will wrap any non-collection commit objects in a collection
+        # for the sake of consistent behaviour, we will wrap any non-collection commit objects in a collection
         if not isinstance(commit_object, SCollection):
             dummy_commit_object = SCollection()
             dummy_commit_object.elements = [commit_object]
@@ -620,7 +620,7 @@ class DeleteStream(bpy.types.Operator):
 
     def delete_stream(self, context: Context) -> None:
         if not self.are_you_sure:
-            raise Exception("Cancled by user")
+            raise Exception("Cancelled by user")
 
         self.are_you_sure = False
 

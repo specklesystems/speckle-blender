@@ -6,10 +6,10 @@ import bpy
 from bpy.types import Context
 from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.properties.scene import SpeckleCommitObject, SpeckleSceneSettings, SpeckleUserObject, get_speckle
+from bpy_speckle.properties.scene import SpeckleCommitObject, SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.models import Stream
-from specklepy.core.api.credentials import get_local_accounts
+from specklepy.core.api.credentials import get_local_accounts, Account
 from specklepy.logging import metrics
 
 class ResetUsers(bpy.types.Operator):
@@ -58,7 +58,7 @@ class LoadUsers(bpy.types.Operator):
         _report("Loading users...")
 
         speckle = cast(SpeckleSceneSettings, context.scene.speckle) #type: ignore
-        users = speckle.users
+        users_list = speckle.users
 
         ResetUsers.reset_ui(context)
 
@@ -77,31 +77,19 @@ class LoadUsers(bpy.types.Operator):
             raise Exception("Zero accounts were found, please add one through Speckle Manager or a local account")
 
         for profile in profiles:
-            user = users.add()
-            user.server_name = profile.serverInfo.name or "Speckle Server"
-            user.server_url = profile.serverInfo.url
-            user.id = profile.userInfo.id
-            user.name = profile.userInfo.name
-            user.email = profile.userInfo.email
-            user.company = profile.userInfo.company or ""
             try:
-                url = profile.serverInfo.url
-                assert(url)
-                client = SpeckleClient(
-                    host=url,
-                    use_ssl="https" in url,
-                )
-                client.authenticate_with_account(profile)
-                speckle_clients.append(client)
+                add_user_account(profile, speckle)
             except Exception as ex:
-                _report(f"Failed to authenticate user {user.email} with server {user.server_url}: {ex}")
-                users.remove(len(users) - 1)
+                _report(f"Failed to authenticate user account {profile.userInfo.email} with server {profile.serverInfo.url}: {ex}")
+                users_list.remove(len(users_list) - 1)
+                continue
+
             if profile.isDefault:
-                active_user_index = len(users) - 1
+                active_user_index = len(users_list) - 1
 
-        _report(f"Authenticated {len(users)}/{len(profiles)} accounts")
+        _report(f"Authenticated {len(users_list)}/{len(profiles)} accounts")
 
-        if active_user_index < len(users):
+        if active_user_index < len(users_list):
             speckle.active_user = str(active_user_index)
 
         bpy.context.view_layer.update()
@@ -109,14 +97,38 @@ class LoadUsers(bpy.types.Operator):
         if context.area:
             context.area.tag_redraw()
 
-        if not users:
+        if not users_list:
             raise Exception("Zero valid user accounts were found, please ensure account is valid and the server is running")
 
         return {"FINISHED"}
 
+def add_user_account(account: Account, speckle: SpeckleSceneSettings) -> SpeckleUserObject:
+    """Creates a new new SpeckleUserObject for the provided user Account and adds it to the SpeckleSceneSettings"""
+    users_list = speckle.users
+
+    URL = account.serverInfo.url
+
+    user = cast(SpeckleUserObject, users_list.add())
+    user.server_name = account.serverInfo.name or "Speckle Server"
+    user.server_url = URL
+    user.id = account.userInfo.id
+    user.name = account.userInfo.name
+    user.email = account.userInfo.email
+    user.company = account.userInfo.company or ""
+
+    assert(URL)
+    client = SpeckleClient(
+        host=URL,
+        use_ssl="https" in URL,
+    )
+    client.authenticate_with_account(account)
+    speckle_clients.append(client)
+    return user
+
 
 def add_user_stream(user: SpeckleUserObject, stream: Stream):
-    s = user.streams.add()
+    """Adds the provided Stream (with branch & commits) to the SpeckleUserObject"""
+    s = cast(SpeckleStreamObject, user.streams.add())
     s.name = stream.name
     s.id = stream.id
     s.description = stream.description
