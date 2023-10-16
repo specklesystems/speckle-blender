@@ -515,14 +515,13 @@ def empty_to_speckle(blender_object: Object) -> Union[BlockInstance, Base]:
     # probably an instance collection (block) so let's try it
 
     if blender_object.instance_collection and blender_object.instance_type == "COLLECTION":
+        # Empty -> Block
         return block_instance_to_speckle(blender_object)
     else:
-        #raise ConversionSkippedException("Sending non-collection instance empties are not currently supported")
+        # Empty -> Point
         wrapper = Base()
         wrapper["@displayValue"] = matrix_to_speckle_point(cast(MMatrix, blender_object.matrix_world))
         return wrapper
-        #TODO: we could do a Empty -> Point conversion here. However, the viewer (and likely  other apps) don't support a pont with "elements"
-        #return matrix_to_speckle_point(cast(MMatrix, blender_object.matrix_world))
 
 
 def matrix_to_speckle_point(matrix: MMatrix, units_scale: float = 1.0) -> Point:

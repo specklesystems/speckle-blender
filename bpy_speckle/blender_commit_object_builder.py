@@ -10,22 +10,22 @@ from attrs import define
 
 ELEMENTS = "elements"
 
-def _id(natvive_object: ID) -> str:
+def _id(native_object: ID) -> str:
     #NOTE: to avoid naming collisions, we prefix collections and objects differently
-    return f"{type(natvive_object).__name__}:{natvive_object.name_full}" 
+    return f"{type(native_object).__name__}:{native_object.name_full}" 
 
-def _try_id(natvive_object: Optional[Union[Collection, Object]]) -> Optional[str]:
-    return _id(natvive_object) if natvive_object else None
+def _try_id(native_object: Optional[Union[Collection, Object]]) -> Optional[str]:
+    return _id(native_object) if native_object else None
 
 def convert_collection_to_speckle(col: Collection) -> SCollection:
-    convered_collection = SCollection(name = col.name_full, collectionType = "Blender Collection", elements = [])
-    convered_collection.applicationId = _id(col)
+    converted_collection = SCollection(name = col.name_full, collectionType = "Blender Collection", elements = [])
+    converted_collection.applicationId = _id(col)
 
     color_tag = col.color_tag
     if color_tag and color_tag != "NONE":
-        convered_collection["colorTag"] = col.color_tag
+        converted_collection["colorTag"] = col.color_tag
 
-    return convered_collection
+    return converted_collection
 
 @define(slots=True)
 class BlenderCommitObjectBuilder(CommitObjectBuilder[Object]):
@@ -67,11 +67,11 @@ class BlenderCommitObjectBuilder(CommitObjectBuilder[Object]):
         # parent = self.find_collection_parent(col)
         # self.set_relationship(id, (_try_builder_id(parent), ELEMENTS), (ROOT, ELEMENTS)) 
 
-        convered_collection = convert_collection_to_speckle(col)
-        self.converted[id] = convered_collection
-        self._collections[id] = convered_collection
+        converted_collection = convert_collection_to_speckle(col)
+        self.converted[id] = converted_collection
+        self._collections[id] = converted_collection
 
-        return convered_collection
+        return converted_collection
 
     def build_commit_object(self, root_commit_object: Base) -> None:
         assert(root_commit_object.applicationId in self.converted)
