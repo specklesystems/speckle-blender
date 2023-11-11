@@ -52,7 +52,7 @@ def can_convert_to_native(speckle_object: Base) -> bool:
         return True
     return False
 
-convert_instances_as: str #HACK: This is hacky, we need a better way to pass settings down to the converter
+convert_instances_as: str = "" #HACK: This is hacky, we need a better way to pass settings down to the converter
 def set_convert_instances_as(value: str):
     global convert_instances_as
     convert_instances_as = value
