@@ -8,7 +8,7 @@ from specklepy.objects.geometry import Mesh
 from specklepy.objects.other import RenderMaterial
 from bpy_speckle.convert.constants import IGNORED_PROPERTY_KEYS
 from bpy_speckle.functions import _report
-from bpy.types import Material, Object, Collection as BCollection, Node, ShaderNodeVertexColor
+from bpy.types import Material, Object, Collection as BCollection, Node, ShaderNodeVertexColor, NodeInputs
 
 from specklepy.objects.graph_traversal.traversal import TraversalContext
 
@@ -88,10 +88,13 @@ def render_material_to_native(speckle_mat: RenderMaterial) -> Material:
         inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
 
         inputs["Base Color"].default_value = to_rgba(speckle_mat.diffuse) # type: ignore
-        inputs["Emission"].default_value = to_rgba(speckle_mat.emissive) # type: ignore
         inputs["Roughness"].default_value = speckle_mat.roughness # type: ignore
         inputs["Metallic"].default_value = speckle_mat.metalness # type: ignore
         inputs["Alpha"].default_value = speckle_mat.opacity # type: ignore
+
+        # Blender >=4.0 use "Emission Color"
+        emission_color = "Emission" if "Emission" in inputs else "Emission Color" # type: ignore 
+        inputs[emission_color].default_value = to_rgba(speckle_mat.emissive) # type: ignore
 
     if speckle_mat.opacity < 1.0:
         blender_mat.blend_method = "BLEND"

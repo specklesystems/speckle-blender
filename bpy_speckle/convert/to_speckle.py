@@ -410,8 +410,10 @@ def material_to_speckle(blender_mat: bpy.types.Material) -> RenderMaterial:
     if blender_mat.use_nodes:
         if blender_mat.node_tree.nodes.get("Principled BSDF"):
             inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
+            emission_color = "Emission" if "Emission" in inputs else "Emission Color" # type: ignore 
+            
             speckle_mat.diffuse = to_argb_int(inputs["Base Color"].default_value) # type: ignore
-            speckle_mat.emissive = to_argb_int(inputs["Emission"].default_value) # type: ignore
+            speckle_mat.emissive = to_argb_int(inputs[emission_color].default_value) # type: ignore
             speckle_mat.roughness = inputs["Roughness"].default_value # type: ignore
             speckle_mat.metalness = inputs["Metallic"].default_value # type: ignore
             speckle_mat.opacity = inputs["Alpha"].default_value # type: ignore
