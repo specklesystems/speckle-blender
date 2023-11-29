@@ -41,42 +41,58 @@ Give Speckle a try in no time by:
 - [![docs](https://img.shields.io/badge/docs-speckle.guide-orange?style=for-the-badge&logo=read-the-docs&logoColor=white)](https://speckle.guide/user/blender.html) reference on almost any end-user and developer functionality
 
 
-# Repo structure
+# Blender Connector
 
 The Speckle UI can be found in the 3d viewport toolbar (N), under the Speckle tab.
 
 Head to the [**📚 documentation**](https://speckle.guide/user/blender.html) for more information.
 
-## Disclaimer
-This code is WIP and as such should be used with extreme caution on non-sensitive projects.
-
 ## Installation
 
-1. Place `bpy_speckle` folder in your `addons` folder. On Windows this is typically `%APPDATA%/Blender Foundation/Blender/2.80/scripts/addons`.
-2. Go to `Edit->Preferences` (Ctrl + Alt + U)
-3. Go to the `Add-ons` tab
-4. Find and enable `SpeckleBlender 2.0` in the `Scene` category. <!-- **If enabling for the first time, expect the UI to freeze for bit while it silently installs all the dependencies.** -->
-5. The Speckle UI can be found in the 3d viewport toolbar (N), under the `Speckle` tab.
+Currently, we are supporting all Blender 3.X versions on Windows and Mac.
+We have experimental support for Blender 4.0 and greater.
+
+Please follow our installation instructions on our [connector docs](https://speckle.guide/user/blender.html#installation)
 
 ## Usage
+Once enabled in `Preferences -> Addons`,
+The Speckle connector UI can be found in the 3d viewport toolbar (N), under the `Speckle` tab.
+
 - Available user accounts are automatically detected and made available. To add user accounts use **Speckle Manager**.
 - Select the user from the dropdown list in the `Users` panel. This will populate the `Streams` list with available streams for the selected user.
 - Select a branch and commit from the dropdown menus.
 - Click on `Receive` to download the objects from the selected stream, branch, and commit. The stream objects will be loaded into a Blender Collection, named `<STREAM_NAME> [ <STREAM_BRANCH> @ <BRANCH_COMMIT> ]`. <!-- You can filter the stream by entering a query into the `Filter` field (i.e. `properties.weight>10` or `type="Mesh"`). -->
 - Click on `Open Stream in Web` to view the stream in your web browser.
 
-## Caveats
+## Supported Elements
 
-- Mesh objects are supported. Breps are imported as meshes using their `displayValue` data. 
-- Curves have limited support: `Polylines` are supported; `NurbsCurves` are supported, though they are not guaranteed to look the same; `Lines` are supported; `Arcs` are not supported, though they are very roughly approximated; `PolyCurves` are supported for linear / polyline segments and very approximate arc segments. These conversions are a point of focus for further development.
+The Blender Connector is still a work in progress and, as such, data sent from the Blender connector is a highly lossy exchange. Our connectors are ever evolving to facilitate more and more Speckle usecases. We welcome feedback, requests, edge cases, and contributions!
 
-## Custom properties
+The full matrix of supported Blender and Speckle types [can be found here](https://speckle.guide/user/support-tables.html#blender)
 
-- **SpeckleBlender** will look for a `texture_coordinates` property and use that to create a UV layer for the imported object. These texture coordinates are a space-separated list of floats (`[u v u v u v etc...]`) that is encoded as a base64 blob. This is subject to change as **SpeckleBlender** develops.
-- If a `renderMaterial` property is found, **SpeckleBlender** will create a material named using the sub-property `renderMaterial.name`. If a material with that name already exists in Blender, **SpeckleBlender** will just assign that existing material to the object. This allows geometry to be updated without having to re-assign and re-create materials.
-- Vertex colors are supported. The `colors` list from Speckle meshes is translated to a vertex color layer.
+
+## Additional Features
+
 - Speckle properties will be imported as custom properties on Blender objects. Nested dictionaries are expanded to individual properties by flattening their key hierarchy. I.e. `propA:{'propB': {'propC':10, 'propD':'foobar'}}` is flattened to `propA.propB.propC = 10` and `propA.propB.propD = "foobar"`.
 
+- If a `renderMaterial` property is found, **SpeckleBlender** will create a material named using the sub-property `renderMaterial.name`. If a material with that name already exists in Blender, **SpeckleBlender** will just assign that existing material to the object. This allows geometry to be updated without having to re-assign and re-create materials.
+
+- Receiving vertex colors are supported. The `colors` list from Speckle meshes is translated to a vertex color layer.
+
+- Receive/Send scripts. Allow injecting a custom python function to the receive/send process to automate any blender operations
+
+## Dependency Installation and Compatibility with Other Blender Addons
+
+Upon first launch of the addon, the Speckle connector installs its SpecklePy dependencies in `%appdata%/Speckle/connector_installations` on Windows and `~/.config/Speckle/connector_installations` on Mac.
+This is done through our [`installer.py`](https://github.com/specklesystems/speckle-blender/blob/main/bpy_speckle/installer.py). Through pip, we install the correct version of each dependency for your blender python version, host OS, and system architecture.
+As such, an internet connection is required for first launch of the connector.
+
+Other blender addons may require dependencies that conflict with specklepy. In these cases, one or both addons may fail to load.
+If you suspect you're seeing a conflict, Please uninstall other third party addons one at a time to identify which addon is conflicting.
+
+If you find an addon that conflicts, please try using a different version of that addon (newer or older).
+
+If you can't find a version of an addon that works, please let us know on [our forums](https://speckle.community/) the name of the addon, the versions you've tried, the version of the Speckle connector you've tried, and your OS (win/mac/linux).
 
 ## Contributing
 
