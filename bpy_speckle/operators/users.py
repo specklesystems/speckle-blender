@@ -171,7 +171,7 @@ class LoadUserStreams(bpy.types.Operator):
     bl_description = "(Re)load all available user streams"
 
     stream_limit: int = 20
-    branch_limit: int = 20
+    branch_limit: int = 100
 
     def execute(self, context):
         try:

@@ -17,7 +17,7 @@ from mathutils import (
 from specklepy.objects import Base
 from specklepy.objects.other import BlockInstance, BlockDefinition, RenderMaterial, Transform
 from specklepy.objects.geometry import (
-     Mesh, Curve, Interval, Box, Point, Vector, Polyline,
+     Mesh, Curve, Interval, Box, Point, Vector, Polyline
 )
 from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
 from bpy_speckle.convert.constants import OBJECT_NAME_SPECKLE_SEPARATOR, SPECKLE_ID_LENGTH
@@ -34,7 +34,7 @@ from bpy_speckle.functions import _report
 Units: str = "m" # The desired final units to send
 UnitsScale: float = 1 # The scale factor conversions need to apply to position data to get to the desired units
 
-CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY", "CAMERA")
+CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY", "CAMERA", "FONT", "SURFACE", "META")
 
 
 def convert_to_speckle(raw_blender_object: Object, units_scale: float, units: str, depsgraph: Optional[Depsgraph]) -> Base:
@@ -69,6 +69,8 @@ def convert_to_speckle(raw_blender_object: Object, units_scale: float, units: st
         converted = empty_to_speckle(blender_object)
     elif blender_type == "CAMERA":
         converted = camera_to_speckle_view(blender_object, cast(NCamera, blender_object.data))
+    elif blender_type == "FONT" or "SURFACE" or "META":
+        converted = anything_to_speckle_mesh(blender_object)
     if not converted:
         raise Exception("Conversion returned None")
 
@@ -369,6 +371,12 @@ def curve_to_speckle_geometry(blender_object: Object, data: bpy.types.Curve) -> 
             curves.append(poly_to_speckle(matrix, spline, to_speckle_name(blender_object)))
 
     return (meshes, curves)
+
+def anything_to_speckle_mesh(blender_object: Object) -> Base:
+
+    mesh = mesh_to_speckle(blender_object, blender_object.to_mesh())
+    blender_object.to_mesh_clear()
+    return mesh
 
 @deprecated
 def ngons_to_speckle_polylines(blender_object: Object, data: bpy.types.Mesh) -> Optional[List[Polyline]]:
