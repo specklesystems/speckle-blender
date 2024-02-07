@@ -17,7 +17,7 @@ from mathutils import (
 from specklepy.objects import Base
 from specklepy.objects.other import BlockInstance, BlockDefinition, RenderMaterial, Transform
 from specklepy.objects.geometry import (
-     Mesh, Curve, Interval, Box, Point, Vector, Polyline
+     Mesh, Curve, Interval, Box, Point, Vector, Polyline,
 )
 from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
 from bpy_speckle.convert.constants import OBJECT_NAME_SPECKLE_SEPARATOR, SPECKLE_ID_LENGTH
