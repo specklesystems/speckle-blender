@@ -37,6 +37,8 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
         return [("0", "<none>", "<none>", 0)]
 
     name: StringProperty(default="main")
+    id: StringProperty(default="")
+    description: StringProperty(default="")
     commits: CollectionProperty(type=SpeckleCommitObject)
     commit: EnumProperty(
         name="Commit",

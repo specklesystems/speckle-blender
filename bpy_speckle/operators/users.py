@@ -1,12 +1,12 @@
 """
 User account operators
 """
-from typing import cast
+from typing import List, cast
 import bpy
 from bpy.types import Context
 from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.properties.scene import SpeckleCommitObject, SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle
+from bpy_speckle.properties.scene import SpeckleBranchObject, SpeckleCommitObject, SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.models import Stream
 from specklepy.core.api.credentials import get_local_accounts, Account
@@ -138,8 +138,10 @@ def add_user_stream(user: SpeckleUserObject, stream: Stream):
 
     # branches = [branch for branch in stream.branches.items if branch.name != "globals"]
     for b in stream.branches.items:
-        branch = s.branches.add()
+        branch = cast(SpeckleBranchObject, s.branches.add())
         branch.name = b.name
+        branch.id = b.id
+        branch.description = b.description
 
         if not b.commits:
             continue

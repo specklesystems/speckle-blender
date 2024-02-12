@@ -2,7 +2,7 @@
 Stream operators
 """
 from math import radians
-from typing import Callable, Dict, Optional, Union, cast
+from typing import Callable, Dict, Optional, Tuple, Union, cast
 import webbrowser
 import bpy
 from bpy.props import (
@@ -32,7 +32,7 @@ from bpy_speckle.functions import (
 )
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import add_user_stream
-from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleUserObject, get_speckle
+from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle
 from bpy_speckle.convert.util import ConversionSkippedException, add_to_hierarchy
 from specklepy.core.api.models import Commit
 from specklepy.core.api import operations, host_applications
@@ -376,7 +376,13 @@ class SendStreamObjects(bpy.types.Operator):
             message=self.commit_message,
             source_application="blender",
         )
-        _report(f"Commit Created {user.server_url}/streams/{stream.id}/commits/{COMMIT_ID}")
+
+        if client.account.serverInfo.frontend2:
+            sent_url = f"{user.server_url}/projects/{stream.id}/models/{branch.id}@{COMMIT_ID}"
+        else:
+            sent_url = f"{user.server_url}/streams/{stream.id}/commits/{COMMIT_ID}"
+
+        _report(f"Commit Created {sent_url}")
 
         bpy.ops.speckle.load_user_streams() # refresh loaded commits
         context.view_layer.update()
@@ -404,8 +410,14 @@ class ViewStreamDataApi(bpy.types.Operator):
         speckle = get_speckle(context)
 
         (user, stream) = speckle.validate_stream_selection()
-        
-        if not webbrowser.open("%s/streams/%s" % (user.server_url, stream.id), new=2):
+
+        client = speckle_clients[int(speckle.active_user)]
+        if client.account.serverInfo.frontend2:
+            stream_url = f"{user.server_url}/projects/{stream.id}"
+        else:
+            stream_url= f"{user.server_url}/streams/{stream.id}"
+
+        if not webbrowser.open(stream_url, new=2):
             raise Exception("Failed to open stream in browser")
         
         metrics.track(
@@ -451,6 +463,23 @@ class AddStreamFromURL(bpy.types.Operator):
             _report(f"{self.bl_idname} failed: {ex}")
             return {"CANCELLED"} 
         
+
+    @staticmethod
+    def _get_or_add_stream(user : SpeckleUserObject, stream : Stream) -> Tuple[int, SpeckleStreamObject]:
+        index, b_stream = next(
+            ((i, cast(SpeckleStreamObject, s)) for i, s in enumerate(user.streams) if s.id == stream.id),
+            (None, None),
+        )
+
+        if index is not None:
+            return (index, b_stream)
+        
+        add_user_stream(user, stream)
+        return next(
+            (i, cast(SpeckleStreamObject, s)) for i, s in enumerate(user.streams) if s.id == stream.id
+        )
+            
+
     def add_stream_from_url(self, context: Context) -> None:
         speckle = get_speckle(context)
 
@@ -470,18 +499,8 @@ class AddStreamFromURL(bpy.types.Operator):
         if not isinstance(stream, Stream):
             raise SpeckleException("Could not get the requested stream")
 
-        index, b_stream = next(
-            ((i, s) for i, s in enumerate(user.streams) if s.id == stream.id),
-            (None, None),
-        )
-
-        if index is None:
-            add_user_stream(user, stream)
-            user.active_stream, b_stream = next(
-                (i, s) for i, s in enumerate(user.streams) if s.id == stream.id
-            )
-        else:
-            user.active_stream = index
+        (index, b_stream) = self._get_or_add_stream(user, stream)
+        user.active_stream = index
 
         if wrapper.branch_name:
             b_index = b_stream.branches.find(wrapper.branch_name)
