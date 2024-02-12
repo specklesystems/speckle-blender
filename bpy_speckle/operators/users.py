@@ -57,7 +57,7 @@ class LoadUsers(bpy.types.Operator):
 
         _report("Loading users...")
 
-        speckle = cast(SpeckleSceneSettings, context.scene.speckle) #type: ignore
+        speckle = get_speckle(context)
         users_list = speckle.users
 
         ResetUsers.reset_ui(context)

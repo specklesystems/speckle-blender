@@ -101,7 +101,7 @@ def mesh_to_speckle_meshes(blender_object: Object, data: bpy.types.Mesh) -> List
         submesh_data[p.material_index].append(p)
 
     transform = cast(MMatrix, blender_object.matrix_world)
-    scaled_vertices = [tuple(transform @ x.co * UnitsScale) for x in data.vertices] # type: ignore
+    scaled_vertices = [tuple(transform @ x.co * UnitsScale) for x in data.vertices] 
 
     # Create Speckle meshes for each material
     submeshes = []
@@ -445,8 +445,8 @@ def camera_to_speckle_view(blender_object: Object, data: NCamera) -> Base:
         raise Exception(f"Cameras of type {data.type} are not currently supported")
     
     matrix = cast(MMatrix, blender_object.matrix_world)
-    up = matrix.col[1].xyz # type: ignore
-    forwards = -matrix.col[2].xyz # type: ignore
+    up = cast(MVector, matrix.col[1].xyz)
+    forwards = cast(MVector, -matrix.col[2].xyz)
     translation = matrix.translation
 
     view = Base.of_type("Objects.BuiltElements.View:Objects.BuiltElements.View3D") #HACK: views are not in specklepy yet!

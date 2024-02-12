@@ -146,7 +146,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
         speckle = get_speckle(context)
         
         (user, stream, branch, commit) = speckle.validate_commit_selection()
-
+        
         client = speckle_clients[int(speckle.active_user)]
 
         transport = ServerTransport(stream.id, client)
