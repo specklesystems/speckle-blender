@@ -41,7 +41,7 @@ class BlenderCommitObjectBuilder(CommitObjectBuilder[Object]):
         # Set the Child -> Parent relationships
         parent = native_object.parent
         
-        parent_collections: Tuple[Collection] = native_object.users_collection # type: ignore 
+        parent_collections = native_object.users_collection 
         parent_collection = parent_collections[0] if len(parent_collections) > 0 else None #NOTE: we don't support objects appearing in more than one collection, for now, we will just take the zeroth one
         
         app_id = _id(native_object)
@@ -79,7 +79,7 @@ class BlenderCommitObjectBuilder(CommitObjectBuilder[Object]):
         # Create all collections
         root_col = self.ensure_collection(bpy.context.scene.collection)
         root_col.collectionType = "Scene Collection"
-        for col in bpy.context.scene.collection.children_recursive: #type: ignore
+        for col in bpy.context.scene.collection.children_recursive:
             self.ensure_collection(col)
 
         objects_to_build = set(self.converted.values())

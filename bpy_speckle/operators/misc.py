@@ -3,6 +3,8 @@ import webbrowser
 from specklepy.logging import metrics 
 
 
+
+
 class OpenSpeckleGuide(bpy.types.Operator):
     bl_idname = "speckle.open_speckle_guide"
     bl_label = "Speckle Guide"

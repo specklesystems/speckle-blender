@@ -168,7 +168,7 @@ def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, indexOffset: int, materia
             i += 1
             try:
                 f = blender_mesh.faces.new(
-                    [blender_mesh.verts[x + indexOffset] for x in sfaces[i : i + n]] # type: ignore
+                    [blender_mesh.verts[x + indexOffset] for x in sfaces[i : i + n]]
                 )
                 f.material_index = materialIndex
                 f.smooth = smooth
@@ -198,10 +198,10 @@ def add_colors(speckle_mesh: Mesh, blender_mesh: BMesh):
                 )
 
         # Make vertex colors
-        if len(scolors) == len(blender_mesh.verts): # type: ignore
+        if len(scolors) == len(blender_mesh.verts):
             color_layer = blender_mesh.loops.layers.color.new("Col")
 
-            for face in blender_mesh.faces: # type: ignore
+            for face in blender_mesh.faces:
                 for loop in face.loops:
                     loop[color_layer] = colors[loop.vert.index]
 
@@ -220,21 +220,21 @@ def add_uv_coords(speckle_mesh: Mesh, blender_mesh: BMesh):
     try:
         uv = []
 
-        if len(s_uvs) // 2 == len(blender_mesh.verts): # type: ignore
+        if len(s_uvs) // 2 == len(blender_mesh.verts):
             uv.extend(
                 (float(s_uvs[i]), float(s_uvs[i + 1]))
                 for i in range(0, len(s_uvs), 2)
             )
         else:
             _report(
-                f"Failed to match UV coordinates to vert data. Blender mesh verts: {len(blender_mesh.verts)}, Speckle UVs: {len(s_uvs) // 2}" # type: ignore
+                f"Failed to match UV coordinates to vert data. Blender mesh verts: {len(blender_mesh.verts)}, Speckle UVs: {len(s_uvs) // 2}"
             )
             return
 
         # Make UVs
         uv_layer = blender_mesh.loops.layers.uv.verify()
 
-        for f in blender_mesh.faces: # type: ignore
+        for f in blender_mesh.faces:
             for l in f.loops:
                 luv = l[uv_layer]
                 luv.uv = uv[l.vert.index]
@@ -450,7 +450,7 @@ def link_object_to_collection_nested(obj: Object, col: BCollection):
     if obj.name not in col.objects: #type: ignore
         col.objects.link(obj)
 
-    for child in obj.children: #type: ignore
+    for child in obj.children:
         link_object_to_collection_nested(child, col)
 
 def add_to_hierarchy(converted: Union[Object, BCollection], traversalContext : 'TraversalContext', converted_objects: Dict[str, Union[Object, BCollection]], preserve_transform: bool) -> None:

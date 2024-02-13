@@ -540,7 +540,7 @@ def transform_to_native(transform: Transform, scale: float) -> MMatrix:
     )
     # scale the translation
     for i in range(3):
-        mat[i][3] *= scale # type: ignore
+        mat[i][3] *= scale
     return mat
 
 def plane_to_native_transform(plane: Plane, fallback_scale:float = 1) -> MMatrix:
