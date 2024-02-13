@@ -10,8 +10,9 @@ from bpy.props import (
     CollectionProperty,
     EnumProperty,
 )
+from deprecated import deprecated
 
-
+@deprecated
 class OBJECT_PT_speckle(bpy.types.Panel):
     bl_space_type = "PROPERTIES"
     # bl_idname = 'OBJECT_PT_speckle'

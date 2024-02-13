@@ -4,6 +4,7 @@ Commit operators
 import bpy
 from bpy.props import BoolProperty
 from bpy_speckle.clients import speckle_clients
+from bpy_speckle.functions import _report
 from bpy_speckle.properties.scene import get_speckle
 from specklepy.logging import metrics
 
@@ -38,20 +39,16 @@ class DeleteCommit(bpy.types.Operator):
         return {"CANCELLED"}
 
     def execute(self, context):
-        try:
-            self.delete_commit(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            print(f"{self.bl_idname}: failed: {ex}")
-            return {"CANCELLED"}
-
-    def delete_commit(self, context: bpy.types.Context) -> None: 
-
         if not self.are_you_sure:
-            raise Exception("Cancelled by user")
-
+            _report("Cancelled by user")
+            return {"CANCELLED"}
         self.are_you_sure = False
 
+        self.delete_commit(context)
+        return {"FINISHED"}
+
+    @staticmethod
+    def delete_commit(context: bpy.types.Context) -> None: 
         speckle = get_speckle(context)
 
         (_, stream, _, commit) = speckle.validate_commit_selection()
@@ -71,5 +68,5 @@ class DeleteCommit(bpy.types.Operator):
         if not deleted:
             raise Exception("Delete operation failed")
 
-        print(f"{self.bl_idname}: succeeded - commit {commit.id} ({commit.message}) has been deleted from stream {stream.id}")
+        print(f"Commit {commit.id} ({commit.message}) has been deleted from stream {stream.id}")
 

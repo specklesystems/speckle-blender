@@ -13,6 +13,7 @@ from bpy_speckle.functions import get_scale_length, _report
 from bpy_speckle.clients import speckle_clients
 from specklepy.logging import metrics
 
+@deprecated
 class UpdateObject(bpy.types.Operator):
     """
     Update local (receive) or remote (send) object depending on
@@ -68,7 +69,7 @@ class UpdateObject(bpy.types.Operator):
             return {"CANCELLED"}
         return {"CANCELLED"}
 
-
+@deprecated
 class ResetObject(bpy.types.Operator):
     """
     Reset Speckle object settings
@@ -96,7 +97,7 @@ class ResetObject(bpy.types.Operator):
 
         return {"FINISHED"}
 
-
+@deprecated
 class DeleteObject(bpy.types.Operator):
     """
     Delete object from the server and update relevant stream
@@ -247,7 +248,7 @@ def get_custom_speckle_props(self, context):
 
     return [(x, "{}".format(x), "") for x in active.keys()]
 
-
+@deprecated
 class SelectIfSameCustomProperty(bpy.types.Operator):
     """
     Select scene objects if they have the same custom property
@@ -307,7 +308,7 @@ class SelectIfSameCustomProperty(bpy.types.Operator):
                 
         return {"FINISHED"}
 
-
+@deprecated
 class SelectIfHasCustomProperty(bpy.types.Operator):
     """
     Select scene objects if they have the same custom property

@@ -31,7 +31,8 @@ from bpy_speckle.functions import (
     get_scale_length,
 )
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.operators.users import add_user_stream
+from bpy_speckle.operators.helpers import ShowMessageBox
+from bpy_speckle.operators.users import LoadUserStreams, add_user_stream
 from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle
 from bpy_speckle.convert.util import ConversionSkippedException, add_to_hierarchy
 from specklepy.core.api.models import Commit
@@ -133,12 +134,8 @@ class ReceiveStreamObjects(bpy.types.Operator):
         bpy.context.view_layer.objects.active = None
 
     def execute(self, context):
-        try:
-            self.receive(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"Failed to receive objects: {type(ex)} {ex}")
-            return {"CANCELLED"}
+        self.receive(context)
+        return {"FINISHED"}
 
     def receive(self, context: Context) -> None:
         bpy.context.view_layer.objects.active = None
@@ -201,7 +198,8 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
             if can_convert_to_native(current) or isinstance(current, SCollection):
                 try:
-                    if not current or not current.id: raise Exception(f"{current} was an invalid speckle object")
+                    if not current or not current.id:
+                        raise Exception(f"{current} was an invalid speckle object")
 
                     #Convert the object!
                     converted_data_type: str
@@ -270,7 +268,9 @@ class SendStreamObjects(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
-        if len(context.scene.speckle.users) <= 0: return {"CANCELLED"}
+        if len(context.scene.speckle.users) <= 0:
+            _report("No user accounts")
+            return {"CANCELLED"}
 
         N = len(context.selected_objects)
         if N == 1:
@@ -281,12 +281,8 @@ class SendStreamObjects(bpy.types.Operator):
 
 
     def execute(self, context):
-        try:
-            self.send(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"Send failed: {ex}")
-            return {"CANCELLED"} 
+        self.send(context)
+        return {"FINISHED"}
 
     def send(self, context: Context) -> None:
 
@@ -399,12 +395,8 @@ class ViewStreamDataApi(bpy.types.Operator):
     bl_description = "View the stream in the web browser"
 
     def execute(self, context):
-        try:
-            self.view_stream_data_api(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"{self.bl_idname} failed: {ex}")
-            return {"CANCELLED"} 
+        self.view_stream_data_api(context)
+        return {"FINISHED"}
 
     def view_stream_data_api(self, context: Context) -> None:
         speckle = get_speckle(context)
@@ -456,13 +448,8 @@ class AddStreamFromURL(bpy.types.Operator):
         return {"CANCELLED"}
 
     def execute(self, context):
-        try:
-            self.add_stream_from_url(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"{self.bl_idname} failed: {ex}")
-            return {"CANCELLED"} 
-        
+        self.add_stream_from_url(context)
+        return {"FINISHED"}
 
     @staticmethod
     def _get_or_add_stream(user : SpeckleUserObject, stream : Stream) -> Tuple[int, SpeckleStreamObject]:
@@ -489,18 +476,20 @@ class AddStreamFromURL(bpy.types.Operator):
             None,
         )
         if user_index is None:
-            raise Exception("Unable to find user stream server")
+            raise Exception(f"No user account credentials for {wrapper.host}, have you added your account in Manager?")
         
         speckle.active_user = str(user_index)
         user = cast(SpeckleUserObject, speckle.users[user_index])
 
         client = speckle_clients[user_index]
-        stream = client.stream.get(wrapper.stream_id, branch_limit=20)
+        stream = client.stream.get(wrapper.stream_id, branch_limit=LoadUserStreams.branch_limit, commit_limit=LoadUserStreams.commits_limit)
         if not isinstance(stream, Stream):
-            raise SpeckleException("Could not get the requested stream")
+            raise SpeckleException(f"Could not get the requested stream {wrapper.stream_id}")
 
         (index, b_stream) = self._get_or_add_stream(user, stream)
         user.active_stream = index
+
+        _report(f"Selecting stream at index {index} ({b_stream.id} - {b_stream.name})")
 
         if wrapper.branch_name:
             b_index = b_stream.branches.find(wrapper.branch_name)
@@ -560,12 +549,8 @@ class CreateStream(bpy.types.Operator):
         return {"CANCELLED"}
 
     def execute(self, context):
-        try:
-            self.create_stream(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"{self.bl_idname} failed: {ex}")
-            return {"CANCELLED"} 
+        self.create_stream(context)
+        return {"FINISHED"}
         
     def create_stream(self, context: Context) -> None:
         speckle = get_speckle(context)
@@ -630,19 +615,16 @@ class DeleteStream(bpy.types.Operator):
         return {"CANCELLED"}
 
     def execute(self, context):
-        try:
-            self.delete_stream(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"{self.bl_idname} failed: {ex}")
-            return {"CANCELLED"} 
-
-    def delete_stream(self, context: Context) -> None:
         if not self.are_you_sure:
-            raise Exception("Cancelled by user")
-
+            _report(f"Cancelled by user - are_you_sure was {self.are_you_sure}")
+            return {"CANCELLED"}
         self.are_you_sure = False
 
+        self.delete_stream(context, self.delete_collection)
+        return {"FINISHED"}
+
+    @staticmethod
+    def delete_stream(context: Context, delete_collection: bool) -> None:
         speckle = get_speckle(context)
         (_, stream) = speckle.validate_stream_selection()
 
@@ -650,7 +632,8 @@ class DeleteStream(bpy.types.Operator):
 
         client.stream.delete(id=stream.id)
 
-        if self.delete_collection:
+        if delete_collection:
+            # This may not work anymore since we changed the collection naming...
             col_name = "SpeckleStream_{}_{}".format(stream.name, stream.id)
             if col_name in bpy.data.collections:
                 collection = bpy.data.collections[col_name]
@@ -715,12 +698,8 @@ class CopyStreamId(bpy.types.Operator):
     bl_description = "Copy stream ID to clipboard"
 
     def execute(self, context):
-        try:
-            self.copy_stream_id(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"{self.bl_idname} failed: {ex}")
-            return {"CANCELLED"} 
+        self.copy_stream_id(context)
+        return {"FINISHED"}
         
     def copy_stream_id(self, context) -> None:
         speckle = get_speckle(context)
@@ -746,12 +725,9 @@ class CopyCommitId(bpy.types.Operator):
     bl_description = "Copy commit ID to clipboard"
 
     def execute(self, context):
-        try:
-            self.copy_commit_id(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"{self.bl_idname} failed: {ex}")
-            return {"CANCELLED"} 
+        self.copy_commit_id(context)
+        return {"FINISHED"}
+
         
     def copy_commit_id(self, context) -> None:
         speckle = get_speckle(context)
@@ -779,12 +755,9 @@ class CopyBranchName(bpy.types.Operator):
     bl_description = "Copy branch name to clipboard"
 
     def execute(self, context):
-        try:
-            self.copy_branch_id(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"{self.bl_idname} failed: {ex}")
-            return {"CANCELLED"} 
+        self.copy_branch_id(context)
+        return {"FINISHED"}
+
         
     def copy_branch_id(self, context) -> None:
         speckle = get_speckle(context)

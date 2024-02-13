@@ -133,6 +133,8 @@ def add_user_stream(user: SpeckleUserObject, stream: Stream):
     s.id = stream.id
     s.description = stream.description
 
+    _report(f"Adding stream {s.id} - {s.name}")
+    
     if not stream.branches:
         return
 
@@ -141,7 +143,7 @@ def add_user_stream(user: SpeckleUserObject, stream: Stream):
         branch = cast(SpeckleBranchObject, s.branches.add())
         branch.name = b.name
         branch.id = b.id
-        branch.description = b.description
+        branch.description = b.description or ""
 
         if not b.commits:
             continue
@@ -174,14 +176,12 @@ class LoadUserStreams(bpy.types.Operator):
 
     stream_limit: int = 20
     branch_limit: int = 100
+    commits_limit: int = 10
 
     def execute(self, context):
-        try:
-            self.load_user_stream(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"{self.bl_idname} failed: {ex}")
-            return {"CANCELLED"} 
+        self.load_user_stream(context)
+        return {"FINISHED"}
+
         
     def load_user_stream(self, context: Context) -> None:
         speckle = get_speckle(context)
@@ -195,14 +195,14 @@ class LoadUserStreams(bpy.types.Operator):
             raise Exception(f"Failed to retrieve streams") from ex
         
         if not streams:
-            raise Exception("Zero streams found")
+            _report("Zero streams found")
             return
 
         user.streams.clear()
 
         for s in streams:
             assert(s.id)
-            sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit)
+            sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit, commit_limit=10)
             add_user_stream(user, sstream)
 
         bpy.context.view_layer.update()
