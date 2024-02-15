@@ -15,6 +15,7 @@ from bpy.types import (
     Object,
     Collection
 )
+from deprecated import deprecated
 from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
 from bpy_speckle.convert.to_native import (
     can_convert_to_native,
@@ -31,7 +32,6 @@ from bpy_speckle.functions import (
     get_scale_length,
 )
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.operators.helpers import ShowMessageBox
 from bpy_speckle.operators.users import LoadUserStreams, add_user_stream
 from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle
 from bpy_speckle.convert.util import ConversionSkippedException, add_to_hierarchy
@@ -89,11 +89,10 @@ class ReceiveStreamObjects(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Receive objects from active stream"
 
-    
-    clean_meshes: BoolProperty(name="Clean Meshes", default=False)
+    clean_meshes: BoolProperty(name="Clean Meshes", default=False) # type: ignore 
 
     #receive_mode: EnumProperty(items=RECEIVE_MODES, name="Receive Type", default="replace", description="The behaviour of the receive operation")
-    receive_instances_as: EnumProperty(items=INSTANCES_SETTINGS, name="Receive Instances As", default="collection_instance", description="How to receive speckle Instances")
+    receive_instances_as: EnumProperty(items=INSTANCES_SETTINGS, name="Receive Instances As", default="collection_instance", description="How to receive speckle Instances") # type: ignore 
     
 
     def draw(self, context):
@@ -131,14 +130,14 @@ class ReceiveStreamObjects(bpy.types.Operator):
         # Reset state to previous (not quite sure if this is 100% necessary)
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
-        bpy.context.view_layer.objects.active = None
+        bpy.context.view_layer.objects.active = None # type: ignore 
 
     def execute(self, context):
         self.receive(context)
         return {"FINISHED"}
 
     def receive(self, context: Context) -> None:
-        bpy.context.view_layer.objects.active = None
+        bpy.context.view_layer.objects.active = None # type: ignore 
 
         speckle = get_speckle(context)
         
@@ -254,11 +253,11 @@ class SendStreamObjects(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Send selected objects to active stream"
 
-    apply_modifiers: BoolProperty(name="Apply modifiers", default=True)
+    apply_modifiers: BoolProperty(name="Apply modifiers", default=True) # type: ignore 
     commit_message: StringProperty(
         name="Message",
         default="Pushed elements from Blender.",
-    )
+    ) # type: ignore 
 
     def draw(self, context):
         layout = self.layout
@@ -268,10 +267,11 @@ class SendStreamObjects(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager
-        if len(context.scene.speckle.users) <= 0:
+        speckle = get_speckle(context)
+        if len(speckle.users) <= 0:
             _report("No user accounts")
             return {"CANCELLED"}
-
+        
         N = len(context.selected_objects)
         if N == 1:
             self.commit_message = f"Pushed {N} element from Blender."
@@ -432,7 +432,7 @@ class AddStreamFromURL(bpy.types.Operator):
     bl_description = "Add an existing stream by providing its URL"
     stream_url: StringProperty(
         name="Stream URL", default="https://speckle.xyz/streams/3073b96e86"
-    )
+    ) # type: ignore 
 
     def draw(self, context):
         layout = self.layout
@@ -459,6 +459,7 @@ class AddStreamFromURL(bpy.types.Operator):
         )
 
         if index is not None:
+            assert(b_stream)
             return (index, b_stream)
         
         add_user_stream(user, stream)
@@ -529,10 +530,10 @@ class CreateStream(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Create new stream"
 
-    stream_name: StringProperty(name="Stream name")
+    stream_name: StringProperty(name="Stream name") # type: ignore 
     stream_description: StringProperty(
         name="Stream description", default="This is a Blender stream."
-    )
+    ) # type: ignore 
 
     def draw(self, context):
         layout = self.layout
@@ -596,9 +597,9 @@ class DeleteStream(bpy.types.Operator):
     are_you_sure: BoolProperty(
         name="Confirm",
         default=False,
-    )
+    ) # type: ignore 
 
-    delete_collection: BoolProperty(name="Delete collection", default=False)
+    delete_collection: BoolProperty(name="Delete collection", default=False) # type: ignore 
 
     def draw(self, context):
         layout = self.layout
@@ -653,7 +654,7 @@ class DeleteStream(bpy.types.Operator):
             },
         )
 
-
+@deprecated
 class SelectOrphanObjects(bpy.types.Operator):
     """
     Select Speckle objects that don't belong to any stream
