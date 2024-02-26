@@ -71,19 +71,13 @@ jobs:
   build-installer-win:
     executor:
       name: win/default
-      shell: cmd.exe
     environment:
       SSM: 'C:\Program Files\DigiCert\DigiCert One Signing Manager Tools'
     steps:
       - attach_workspace:
           at: ./
       - run:
-          name: Exit if External PR
-          shell: bash.exe
-          command: if [ "$CIRCLE_PR_REPONAME" ]; then circleci-agent step halt; fi
-      - run:
           name: Patch installer
-          shell: powershell.exe
           command: python patch_installer.py (Get-Content -Raw SEMVER)
       - unless: # Build installers unsigned on non-tagged builds
           condition: << pipeline.git.tag >>
@@ -110,7 +104,6 @@ jobs:
                   echo $env:SM_OV_PEM_CERT > SpeckleOVCertificate-2024.pem
             - run:
                 name: Sync Certs
-                shell: powershell.exe
                 command: |
                   & $env:SSM\smksp_cert_sync.exe
             - run:
