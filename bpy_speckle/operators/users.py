@@ -1,12 +1,12 @@
 """
 User account operators
 """
-from typing import cast
+from typing import List, cast
 import bpy
 from bpy.types import Context
 from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.properties.scene import SpeckleCommitObject, SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle
+from bpy_speckle.properties.scene import SpeckleBranchObject, SpeckleCommitObject, SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.models import Stream
 from specklepy.core.api.credentials import get_local_accounts, Account
@@ -57,7 +57,7 @@ class LoadUsers(bpy.types.Operator):
 
         _report("Loading users...")
 
-        speckle = cast(SpeckleSceneSettings, context.scene.speckle) #type: ignore
+        speckle = get_speckle(context)
         users_list = speckle.users
 
         ResetUsers.reset_ui(context)
@@ -133,13 +133,17 @@ def add_user_stream(user: SpeckleUserObject, stream: Stream):
     s.id = stream.id
     s.description = stream.description
 
+    _report(f"Adding stream {s.id} - {s.name}")
+    
     if not stream.branches:
         return
 
     # branches = [branch for branch in stream.branches.items if branch.name != "globals"]
     for b in stream.branches.items:
-        branch = s.branches.add()
+        branch = cast(SpeckleBranchObject, s.branches.add())
         branch.name = b.name
+        branch.id = b.id
+        branch.description = b.description or ""
 
         if not b.commits:
             continue
@@ -172,14 +176,12 @@ class LoadUserStreams(bpy.types.Operator):
 
     stream_limit: int = 20
     branch_limit: int = 100
+    commits_limit: int = 10
 
     def execute(self, context):
-        try:
-            self.load_user_stream(context)
-            return {"FINISHED"}
-        except Exception as ex:
-            _report(f"{self.bl_idname} failed: {ex}")
-            return {"CANCELLED"} 
+        self.load_user_stream(context)
+        return {"FINISHED"}
+
         
     def load_user_stream(self, context: Context) -> None:
         speckle = get_speckle(context)
@@ -193,14 +195,14 @@ class LoadUserStreams(bpy.types.Operator):
             raise Exception(f"Failed to retrieve streams") from ex
         
         if not streams:
-            raise Exception("Zero streams found")
+            _report("Zero streams found")
             return
 
         user.streams.clear()
 
         for s in streams:
             assert(s.id)
-            sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit)
+            sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit, commit_limit=10)
             add_user_stream(user, sstream)
 
         bpy.context.view_layer.update()
