@@ -29,7 +29,7 @@ class OBJECT_PT_speckle(bpy.types.Panel):
         layout.active = ob.speckle.enabled
         col = layout.column()
         col.prop(ob.speckle, "send_or_receive", expand=True)
-        col.prop(ob.speckle, "stream_id", text="Stream ID")
+        col.prop(ob.speckle, "stream_id", text="Project ID")
         col.prop(ob.speckle, "object_id", text="Object ID")
         col.operator("speckle.update_object", text="Update")
         col.operator("speckle.reset_object", text="Reset")

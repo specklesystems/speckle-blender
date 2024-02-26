@@ -11,19 +11,18 @@ from specklepy.logging import metrics
 
 class DeleteCommit(bpy.types.Operator):
     """
-    Deletes the selected commit from the selected stream.
+    Permanently deletes the selected version from the selected model.
     To execute from code, call: `bpy.ops.speckle.delete_commit(are_you_sure=True)`
     """
 
     bl_idname = "speckle.delete_commit"
-    bl_label = "Delete commit"
+    bl_label = "Delete Version"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Delete active commit permanently"
 
     are_you_sure: BoolProperty(
         name="Confirm",
         default=False,
-    )
+    ) # type: ignore
 
     def draw(self, context):
         layout = self.layout
@@ -51,7 +50,7 @@ class DeleteCommit(bpy.types.Operator):
     def delete_commit(context: bpy.types.Context) -> None: 
         speckle = get_speckle(context)
 
-        (_, stream, _, commit) = speckle.validate_commit_selection()
+        (_, stream, branch, commit) = speckle.validate_commit_selection()
 
         client = speckle_clients[int(speckle.active_user)]
 
@@ -68,5 +67,5 @@ class DeleteCommit(bpy.types.Operator):
         if not deleted:
             raise Exception("Delete operation failed")
 
-        print(f"Commit {commit.id} ({commit.message}) has been deleted from stream {stream.id}")
+        print(f"Version {commit.id} ({commit.message}) of model {branch.id} ({branch.name}) has been deleted from project {stream.id} ({stream.name})")
 

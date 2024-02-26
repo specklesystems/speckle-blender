@@ -94,7 +94,7 @@ class VIEW3D_UL_SpeckleStreams(bpy.types.UIList):
 
         elif self.layout_type in {"GRID"}:
             layout.alignment = "CENTER"
-            layout.label(text="Streams", icon_value=0)
+            layout.label(text="Projects", icon_value=0)
 
 
 class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
@@ -106,7 +106,7 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
     bl_region_type = Region
     bl_category = "Speckle"
     bl_context = "objectmode"
-    bl_label = "User"
+    bl_label = "User Account"
 
     def draw(self, context):
         speckle = context.scene.speckle
@@ -133,14 +133,14 @@ class VIEW3D_PT_SpeckleStreams(bpy.types.Panel):
     bl_region_type = Region
     bl_category = "Speckle"
     bl_context = "objectmode"
-    bl_label = "Streams"
+    bl_label = "Projects"
 
     def draw(self, context):
         speckle = context.scene.speckle
         col = self.layout.column()
 
         if len(speckle.users) < 1:
-            col.label(text="No stream data.")
+            col.label(text="No Projects")
         else:
             user = speckle.users[int(speckle.active_user)]
             col.template_list(
@@ -162,18 +162,18 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
     bl_region_type = Region
     bl_category = "Speckle"
     bl_context = "objectmode"
-    bl_label = "Active stream"
+    bl_label = "Active Project"
 
     def draw(self, context):
         speckle = context.scene.speckle
         col = self.layout.column()
 
         if len(speckle.users) < 1:
-            col.label(text="No stream data.")
+            col.label(text="No projects")
         else:
             user = speckle.users[int(speckle.active_user)]
             if len(user.streams) < 1:
-                col.label(text="No active stream.")
+                col.label(text="No active project")
             else:
                 stream = user.streams[user.active_stream]
                 # user.active_stream = min(user.active_stream, len(user.streams) - 1)
@@ -183,14 +183,14 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
                 col.separator()
 
                 row = col.row()
-                row.prop(stream, "branch", text="")
-                row.operator("speckle.branch_copy_name", text="", icon="COPY_ID")
+                row.prop(stream, "branch", text="Model")
+                row.operator("speckle.model_copy_id", text="", icon="COPY_ID")
 
                 if len(stream.branches) > 0:
                     branch = stream.branches[int(stream.branch)]
 
                     row = col.row()
-                    row.prop(branch, "commit", text="")
+                    row.prop(branch, "commit", text="Version")
                     row.operator("speckle.commit_copy_id", text="", icon="COPY_ID")
 
                     if len(branch.commits) > 0:
@@ -213,7 +213,7 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
                         col.label(text=f"{commit.author_name} ({commit.author_id})")
                         col.label(text=commit.source_application)
                 else:
-                    col.label(text="No branches found!")
+                    col.label(text="No models found!")
 
                 col.separator()
 
@@ -246,7 +246,7 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
 
                 area.separator()
                 col.separator()
-                col.operator("speckle.view_stream_data_api", text="Open Stream in Web")
+                col.operator("speckle.view_stream_data_api", text="Open Model in Web")
 
 
 class VIEW3D_PT_SpeckleHelp(bpy.types.Panel):

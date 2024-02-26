@@ -22,7 +22,7 @@ class UpdateObject(bpy.types.Operator):
     """
 
     bl_idname = "speckle.update_object"
-    bl_label = "Update Object"
+    bl_label = "Update Object (DEPRECATED)"
     bl_options = {"REGISTER", "UNDO"}
 
     client = None
@@ -76,7 +76,7 @@ class ResetObject(bpy.types.Operator):
     """
 
     bl_idname = "speckle.reset_object"
-    bl_label = "Reset Object"
+    bl_label = "Reset Object (DEPRECATED)"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -104,7 +104,7 @@ class DeleteObject(bpy.types.Operator):
     """
 
     bl_idname = "speckle.delete_object"
-    bl_label = "Delete Object"
+    bl_label = "Delete Object (DEPRECATED)"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -159,7 +159,7 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
     """
 
     bl_idname = "speckle.upload_ngons_as_polylines"
-    bl_label = "Upload Ngons As Polylines"
+    bl_label = "Upload Ngons As Polylines (DEPRECATED)"
     bl_options = {"REGISTER", "UNDO"}
 
     clear_stream: BoolProperty(
@@ -256,7 +256,7 @@ class SelectIfSameCustomProperty(bpy.types.Operator):
     """
 
     bl_idname = "speckle.select_if_same_custom_props"
-    bl_label = "Select Identical Custom Props"
+    bl_label = "Select Identical Custom Props (DEPRECATED)"
     bl_options = {"REGISTER", "UNDO"}
 
     custom_prop: EnumProperty(
@@ -316,7 +316,7 @@ class SelectIfHasCustomProperty(bpy.types.Operator):
     """
 
     bl_idname = "speckle.select_if_has_custom_props"
-    bl_label = "Select Same Custom Prop"
+    bl_label = "Select Same Custom Prop (DEPRECATED)"
     bl_options = {"REGISTER", "UNDO"}
 
     custom_prop: EnumProperty(
