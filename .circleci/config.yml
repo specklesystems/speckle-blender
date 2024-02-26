@@ -110,6 +110,7 @@ jobs:
                   echo $env:SM_OV_PEM_CERT > SpeckleOVCertificate-2024.pem
             - run:
                 name: Sync Certs
+                shell: powershell.exe
                 command: |
                   & $env:SSM\smksp_cert_sync.exe
             - run:
