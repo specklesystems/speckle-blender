@@ -138,7 +138,6 @@ jobs:
           at: ./
       - run:
           name: Exit if External PR
-          shell: bash.exe
           command: if [ "$CIRCLE_PR_REPONAME" ]; then circleci-agent step halt; fi
       - run:
           name: Install mono
