@@ -53,6 +53,7 @@ class LoadUsers(bpy.types.Operator):
     bl_idname = "speckle.users_load"
     bl_label = "Load Users"
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Loads all user accounts from the credentials in the local database.\nSee docs to add accounts via Manager"
 
     def execute(self, context):
 
@@ -168,6 +169,7 @@ class LoadUserStreams(bpy.types.Operator):
     bl_idname = "speckle.load_user_streams"
     bl_label = "Load User's Projects"
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "(Re)Load all available projects for active user"
 
     stream_limit: int = 20
     branch_limit: int = 100
