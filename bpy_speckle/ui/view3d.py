@@ -4,20 +4,10 @@ Speckle UI elements for the 3d viewport
 
 
 import bpy
-from bpy.props import (
-    StringProperty,
-    BoolProperty,
-    FloatProperty,
-    CollectionProperty,
-    EnumProperty,
-)
 
 from datetime import datetime
 
-"""
-Compatibility 
-TODO: evaluate if we should still support Blender <2.80
-"""
+from bpy_speckle.properties.scene import get_speckle
 
 Region = "TOOLS" if bpy.app.version < (2, 80, 0) else "UI"
 
@@ -78,7 +68,7 @@ class VIEW3D_UL_SpeckleUsers(bpy.types.UIList):
 
 class VIEW3D_UL_SpeckleStreams(bpy.types.UIList):
     """
-    Speckle stream list
+    Speckle projects list
     """
 
     def draw_item(self, context, layout, data, stream, active_data, active_propname):
@@ -109,7 +99,7 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
     bl_label = "User Account"
 
     def draw(self, context):
-        speckle = context.scene.speckle
+        speckle = get_speckle(context)
 
         layout = self.layout
         col = layout.column()
@@ -121,12 +111,12 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
             user = speckle.users[int(speckle.active_user)]
             col.label(text="{} ({})".format(user.server_name, user.server_url))
             col.label(text="{} ({})".format(user.name, user.email))
-            
+
         col.operator("speckle.users_load", text="", icon="FILE_REFRESH")
 
 class VIEW3D_PT_SpeckleStreams(bpy.types.Panel):
     """
-    Speckle Streams UI panel in the 3d viewport
+    Speckle projects UI panel in the 3d viewport
     """
 
     bl_space_type = "VIEW_3D"
@@ -136,7 +126,7 @@ class VIEW3D_PT_SpeckleStreams(bpy.types.Panel):
     bl_label = "Projects"
 
     def draw(self, context):
-        speckle = context.scene.speckle
+        speckle = get_speckle(context)
         col = self.layout.column()
 
         if len(speckle.users) < 1:
@@ -155,7 +145,7 @@ class VIEW3D_PT_SpeckleStreams(bpy.types.Panel):
 
 class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
     """
-    Speckle Active Streams UI panel in the 3d viewport
+    Speckle Active Projects UI panel in the 3d viewport
     """
 
     bl_space_type = "VIEW_3D"
@@ -165,13 +155,14 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
     bl_label = "Active Project"
 
     def draw(self, context):
-        speckle = context.scene.speckle
+        speckle = get_speckle(context)
         col = self.layout.column()
 
         if len(speckle.users) < 1:
             col.label(text="No projects")
         else:
-            user = speckle.users[int(speckle.active_user)]
+            user = speckle.validate_user_selection()
+            #user = speckle.users[int(speckle.active_user)]
             if len(user.streams) < 1:
                 col.label(text="No active project")
             else:

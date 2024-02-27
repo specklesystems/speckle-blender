@@ -193,4 +193,7 @@ class SelectionException(Exception):
     pass
 
 def get_speckle(context: bpy.types.Context) -> SpeckleSceneSettings:
+    """
+    Gets the speckle scene object
+    """
     return context.scene.speckle #type: ignore
