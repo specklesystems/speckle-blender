@@ -109,8 +109,8 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
         else:
             col.prop(speckle, "active_user", text="")
             user = speckle.users[int(speckle.active_user)]
-            col.label(text="{} ({})".format(user.server_name, user.server_url))
-            col.label(text="{} ({})".format(user.name, user.email))
+            col.label(text=f"{user.server_name} ({user.server_url})")
+            col.label(text=f"{user.name} ({user.email})")
 
         col.operator("speckle.users_load", text="", icon="FILE_REFRESH")
 
@@ -216,7 +216,6 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
                 subcol = row.column()
                 subcol.operator("speckle.send_stream_objects", text="Send")
                 subcol.prop(speckle, "send_script", text="")
-                area.prop(stream, "query", text="Filter")
 
                 col.separator()
 

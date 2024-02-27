@@ -112,9 +112,10 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
     users: CollectionProperty(type=SpeckleUserObject) # type: ignore
 
     def get_users(self, context):
+        USERS = cast(Iterable[SpeckleUserObject], self.users)
         return [
-            (str(i), "{} ({})".format(user.email, user.server_name), user.server_url, i)
-            for i, user in enumerate(self.users)
+            (str(i), f"{user.email} ({user.server_name})", user.server_url, i)
+            for i, user in enumerate(USERS)
         ]
 
     def set_user(self, context):

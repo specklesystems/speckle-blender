@@ -401,19 +401,12 @@ class ViewStreamDataApi(bpy.types.Operator):
     def view_stream_data_api(self, context: Context) -> None:
         speckle = get_speckle(context)
 
-        (user, stream) = speckle.validate_stream_selection()
+        url = self._get_url_from_selection(speckle)
 
-        sw = StreamWrapper #TODO: same as in Unity, use stream wrapper here, point to Model
-
-        sw.stream_url
-        client = speckle_clients[int(speckle.active_user)]
-        if client.account.serverInfo.frontend2:
-            stream_url = f"{user.server_url}/projects/{stream.id}"
-        else:
-            stream_url= f"{user.server_url}/streams/{stream.id}"
-
-        if not webbrowser.open(stream_url, new=2):
-            raise Exception("Failed to open model in browser")
+        _report(f"Opening {url} in web browser")
+        
+        if not webbrowser.open(url, new=2):
+            raise Exception(f"Failed to open model in browser ({url})")
         
         metrics.track(
             "Connector Action",
@@ -423,7 +416,29 @@ class ViewStreamDataApi(bpy.types.Operator):
             },
         )
 
+    @staticmethod
+    def _get_url_from_selection(speckleScene : SpeckleSceneSettings) -> str:
 
+        client = speckle_clients[int(speckleScene.active_user)]
+        (user, stream) = speckleScene.validate_stream_selection()
+        branch = stream.get_active_branch()
+        commit = branch.get_active_commit() if branch else None
+
+        if client.account.serverInfo.frontend2:
+            server_url = f"{user.server_url}/projects/{stream.id}/"
+            if branch:
+                server_url += f"models/{branch.id}"
+            if commit:
+                server_url += f"@{commit.id}"
+        else:
+            server_url = f"{user.server_url}/streams/{stream.id}/"
+            if commit:
+                server_url += f"commits/{commit.id}"
+            elif branch:
+                server_url += f"branches/{branch.name}"
+
+        return server_url
+    
 class AddStreamFromURL(bpy.types.Operator):
     """
     Add / select an existing project by providing its URL
