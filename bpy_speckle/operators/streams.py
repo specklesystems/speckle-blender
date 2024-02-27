@@ -81,13 +81,13 @@ INSTANCES_SETTINGS = [
 
 class ReceiveStreamObjects(bpy.types.Operator):
     """
-    Receive stream objects
+    Receive objects from selected model version
     """
 
     bl_idname = "speckle.receive_stream_objects"
-    bl_label = "Receive Model Objects"
+    bl_label = "Receive"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Receive objects from selected model"
+    bl_description = "Receive objects from selected model version"
 
     clean_meshes: BoolProperty(name="Clean Meshes", default=False) # type: ignore 
 
@@ -245,7 +245,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
 class SendStreamObjects(bpy.types.Operator):
     """
-    Send stream objects
+    Send selected objects to selected model
     """
 
     bl_idname = "speckle.send_stream_objects"
@@ -390,7 +390,7 @@ class SendStreamObjects(bpy.types.Operator):
 
 class ViewStreamDataApi(bpy.types.Operator):
     bl_idname = "speckle.view_stream_data_api"
-    bl_label = "Open model in web"
+    bl_label = "Open Model in Web"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "View the selected model in the web browser"
 
@@ -432,7 +432,7 @@ class AddStreamFromURL(bpy.types.Operator):
     bl_idname = "speckle.add_stream_from_url"
     bl_label = "Add Project From URL"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = ""
+    bl_description = "Add / select an existing project by providing its URL"
     stream_url: StringProperty(
         name="Project URL", default=""
     ) # type: ignore 
@@ -525,12 +525,13 @@ class AddStreamFromURL(bpy.types.Operator):
 
 class CreateStream(bpy.types.Operator):
     """
-    Create new project
+    Create a new Speckle project using the selected user account
     """
 
     bl_idname = "speckle.create_stream"
     bl_label = "Create Project"
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Create a new Speckle project using the selected user account"
 
     stream_name: StringProperty(name="Project name") # type: ignore 
     stream_description: StringProperty(
@@ -755,6 +756,7 @@ class CopyModelId(bpy.types.Operator):
     bl_idname = "speckle.model_copy_id"
     bl_label = "Copy model id"
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Copy model id to clipboard"
 
     def execute(self, context):
         self.copy_model_id(context)
@@ -784,6 +786,7 @@ class CopyBranchName(bpy.types.Operator):
     bl_idname = "speckle.branch_copy_name"
     bl_label = "Copy branch name"
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Copy branch name to clipboard"
 
     def execute(self, context):
         self.copy_branch_id(context)
