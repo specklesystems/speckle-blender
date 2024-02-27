@@ -189,7 +189,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         # ensure commit object has a name if not already
         if not commit_object.name:
-            commit_object.name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id) # Matches Rhino "Create" naming
+            commit_object.name = f"{stream.name} [ {branch.name} @ {commit.id} ]" # Matches Rhino "Create" naming
 
         for item in traversalFunc.traverse(commit_object):
             
@@ -588,13 +588,13 @@ class CreateStream(bpy.types.Operator):
 
 class DeleteStream(bpy.types.Operator):
     """
-    Delete stream
+    Permanently delete the selected project
     """
 
     bl_idname = "speckle.delete_stream"
     bl_label = "Delete Project"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Delete selected stream permanently"
+    bl_description = "Permanently delete the selected project"
 
     are_you_sure: BoolProperty(
         name="Confirm",
@@ -692,12 +692,13 @@ class SelectOrphanObjects(bpy.types.Operator):
 
 class CopyStreamId(bpy.types.Operator):
     """
-    Copy project id to clipboard
+    Copy the selected project id to clipboard
     """
 
     bl_idname = "speckle.stream_copy_id"
     bl_label = "Copy Project Id"
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Copy the selected project id to clipboard"
 
     def execute(self, context):
         self.copy_stream_id(context)
@@ -718,13 +719,13 @@ class CopyStreamId(bpy.types.Operator):
 
 class CopyCommitId(bpy.types.Operator):
     """
-    Copy commit ID to clipboard
+    Copy the selected version id to clipboard
     """
 
     bl_idname = "speckle.commit_copy_id"
     bl_label = "Copy Version Id"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Copy version Id to clipboard"
+    bl_description = "Copy the selected version id to clipboard"
 
     def execute(self, context):
         self.copy_commit_id(context)
@@ -802,3 +803,37 @@ class CopyBranchName(bpy.types.Operator):
                 "name": "copy_branch_id"
             },
         )
+
+@deprecated
+class SelectOrphanObjects(bpy.types.Operator):
+    """
+    Select Speckle objects that don't belong to any stream
+    """
+
+    bl_idname = "speckle.select_orphans"
+    bl_label = "Select orphaned objects"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Select Speckle objects that don't belong to any stream"
+
+    def draw(self, context):
+        layout = self.layout
+
+    def execute(self, context):
+
+        for o in context.scene.objects:
+            if (
+                o.speckle.stream_id
+                and o.speckle.stream_id not in context.scene["speckle_streams"]
+            ):
+                o.select = True
+            else:
+                o.select = False
+
+        metrics.track(
+            "Connector Action", 
+            custom_props={
+                "name": "SelectOrphanObjects"
+            },
+        )
+
+        return {"FINISHED"}

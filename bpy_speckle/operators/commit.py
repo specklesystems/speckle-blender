@@ -18,6 +18,7 @@ class DeleteCommit(bpy.types.Operator):
     bl_idname = "speckle.delete_commit"
     bl_label = "Delete Version"
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Permanently Deletes the selected version from the selected model"
 
     are_you_sure: BoolProperty(
         name="Confirm",
