@@ -71,24 +71,45 @@ jobs:
   build-installer-win:
     executor:
       name: win/default
-      shell: cmd.exe
+    environment:
+      SSM: 'C:\Program Files\DigiCert\DigiCert One Signing Manager Tools'
     steps:
       - attach_workspace:
           at: ./
       - run:
           name: Patch installer
-          shell: powershell.exe
           command: python patch_installer.py (Get-Content -Raw SEMVER)
-      - run:
-          name: Create Innosetup signing cert
-          shell: powershell.exe
-          command: |
-            echo $env:PFX_B64 > "speckle-sharp-ci-tools\SignTool\AEC Systems Ltd.txt"
-            certutil -decode "speckle-sharp-ci-tools\SignTool\AEC Systems Ltd.txt" "speckle-sharp-ci-tools\SignTool\AEC Systems Ltd.pfx"
-      - run:
-          name: Installer
-          shell: cmd.exe #does not work in powershell
-          command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /Sbyparam=$p
+      - unless: # Build installers unsigned on non-tagged builds
+          condition: << pipeline.git.tag >>
+          steps:
+            - run:
+                name: Build Installer
+                command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /Sbyparam=$p
+                shell: cmd.exe #does not work in powershell
+      - when: # Setup certificates and build installers signed for tagged builds
+          condition: << pipeline.git.tag >>
+          steps:
+            - run:
+                name: "Digicert Signing Manager Setup"
+                command: |
+                  cd C:\
+                  curl.exe -X GET  https://one.digicert.com/signingmanager/api-ui/v1/releases/smtools-windows-x64.msi/download -H "x-api-key:$env:SM_API_KEY" -o smtools-windows-x64.msi
+                  msiexec.exe /i smtools-windows-x64.msi /quiet /qn | Wait-Process
+            - run:
+                name: Create Auth & OV Signing Cert
+                command: |
+                  cd C:\
+                  echo $env:SM_CLIENT_CERT_FILE_B64 > certificate.txt
+                  certutil -decode certificate.txt certificate.p12
+                  echo $env:SM_OV_PEM_CERT > SpeckleOVCertificate-2024.pem
+            - run:
+                name: Sync Certs
+                command: |
+                  & $env:SSM\smksp_cert_sync.exe
+            - run:
+                name: Build Installer
+                command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /Sbyparam=$p /DSIGN_INSTALLER
+                shell: cmd.exe #does not work in powershell
       - persist_to_workspace:
           root: ./
           paths:
@@ -109,6 +130,9 @@ jobs:
       - checkout
       - attach_workspace:
           at: ./
+      - run:
+          name: Exit if External PR
+          command: if [ "$CIRCLE_PR_REPONAME" ]; then circleci-agent step halt; fi
       - run:
           name: Install mono
           command: |
@@ -214,7 +238,7 @@ workflows:
           filters: *build_filters
 
       - build-installer-win:
-          context: innosetup
+          context: digicert-signing-connectors-test
           name: Windows Installer Build
           requires:
             - package-connector
