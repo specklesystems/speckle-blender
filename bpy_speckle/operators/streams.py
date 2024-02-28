@@ -584,6 +584,7 @@ class CreateStream(bpy.types.Operator):
         )
 
 
+@deprecated
 class DeleteStream(bpy.types.Operator):
     """
     Delete stream
@@ -596,6 +597,7 @@ class DeleteStream(bpy.types.Operator):
 
     are_you_sure: BoolProperty(
         name="Confirm",
+        description="⚠ This action will delete your entire stream permanently ⚠",
         default=False,
     ) # type: ignore 
 
