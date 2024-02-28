@@ -139,7 +139,6 @@ class VIEW3D_PT_SpeckleStreams(bpy.types.Panel):
             row = col.row(align=True)
             row.operator("speckle.add_stream_from_url", text="", icon="URL")
             row.operator("speckle.create_stream", text="", icon="ADD")
-            row.operator("speckle.delete_stream", text="", icon="REMOVE")
             row.operator("speckle.load_user_streams", text="", icon="FILE_REFRESH")
 
 
