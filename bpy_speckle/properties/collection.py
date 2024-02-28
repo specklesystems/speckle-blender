@@ -5,7 +5,7 @@ import bpy
 
 
 class SpeckleCollectionSettings(bpy.types.PropertyGroup):
-    enabled: bpy.props.BoolProperty(default=False, name="Enabled")
+    enabled: bpy.props.BoolProperty(default=False, name="Enabled") # type: ignore
 
     send_or_receive: bpy.props.EnumProperty(
         name="Mode",
@@ -13,7 +13,6 @@ class SpeckleCollectionSettings(bpy.types.PropertyGroup):
             ("send", "Send", "Send data to Speckle server."),
             ("receive", "Receive", "Receive data from Speckle server."),
         ),
-    )
-    stream_id: bpy.props.StringProperty(default="")
-    name: bpy.props.StringProperty(default="")
-    units: bpy.props.StringProperty(default="")
+    ) # type: ignore
+    stream_id: bpy.props.StringProperty(default="") # type: ignore
+    name: bpy.props.StringProperty(default="") # type: ignore

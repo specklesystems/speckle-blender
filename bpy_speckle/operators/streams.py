@@ -81,13 +81,13 @@ INSTANCES_SETTINGS = [
 
 class ReceiveStreamObjects(bpy.types.Operator):
     """
-    Receive stream objects
+    Receive objects from selected model version
     """
 
     bl_idname = "speckle.receive_stream_objects"
-    bl_label = "Download Stream Objects"
+    bl_label = "Receive"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Receive objects from active stream"
+    bl_description = "Receive objects from selected model version"
 
     clean_meshes: BoolProperty(name="Clean Meshes", default=False) # type: ignore 
 
@@ -153,7 +153,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
             stream.id,
             commit.id,
             source_application="blender",
-            message="received commit from Speckle Blender",
+            message="Received model version from Speckle Blender",
         )
 
         metrics.track(
@@ -189,7 +189,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         # ensure commit object has a name if not already
         if not commit_object.name:
-            commit_object.name = "{} [ {} @ {} ]".format(stream.name, branch.name, commit.id) # Matches Rhino "Create" naming
+            commit_object.name = f"{stream.name} [ {branch.name} @ {commit.id} ]" # Matches Rhino "Create" naming
 
         for item in traversalFunc.traverse(commit_object):
             
@@ -198,7 +198,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
             if can_convert_to_native(current) or isinstance(current, SCollection):
                 try:
                     if not current or not current.id:
-                        raise Exception(f"{current} was an invalid speckle object")
+                        raise Exception(f"{current} was an invalid Speckle object")
 
                     #Convert the object!
                     converted_data_type: str
@@ -245,18 +245,18 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
 class SendStreamObjects(bpy.types.Operator):
     """
-    Send stream objects
+    Send selected objects to selected model
     """
 
     bl_idname = "speckle.send_stream_objects"
-    bl_label = "Send stream objects"
+    bl_label = "Send"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Send selected objects to active stream"
+    bl_description = "Send selected objects to selected model"
 
     apply_modifiers: BoolProperty(name="Apply modifiers", default=True) # type: ignore 
     commit_message: StringProperty(
         name="Message",
-        default="Pushed elements from Blender.",
+        default="Sent elements from Blender.",
     ) # type: ignore 
 
     def draw(self, context):
@@ -274,9 +274,9 @@ class SendStreamObjects(bpy.types.Operator):
         
         N = len(context.selected_objects)
         if N == 1:
-            self.commit_message = f"Pushed {N} element from Blender."
+            self.commit_message = f"Sent {N} element from Blender."
         else:
-            self.commit_message = f"Pushed {N} elements from Blender."
+            self.commit_message = f"Sent {N} elements from Blender."
         return wm.invoke_props_dialog(self)
 
 
@@ -390,9 +390,9 @@ class SendStreamObjects(bpy.types.Operator):
 
 class ViewStreamDataApi(bpy.types.Operator):
     bl_idname = "speckle.view_stream_data_api"
-    bl_label = "Open Stream in Web"
+    bl_label = "Open Model in Web"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "View the stream in the web browser"
+    bl_description = "View the selected model in the web browser"
 
     def execute(self, context):
         self.view_stream_data_api(context)
@@ -401,16 +401,12 @@ class ViewStreamDataApi(bpy.types.Operator):
     def view_stream_data_api(self, context: Context) -> None:
         speckle = get_speckle(context)
 
-        (user, stream) = speckle.validate_stream_selection()
+        url = self._get_url_from_selection(speckle)
 
-        client = speckle_clients[int(speckle.active_user)]
-        if client.account.serverInfo.frontend2:
-            stream_url = f"{user.server_url}/projects/{stream.id}"
-        else:
-            stream_url= f"{user.server_url}/streams/{stream.id}"
-
-        if not webbrowser.open(stream_url, new=2):
-            raise Exception("Failed to open stream in browser")
+        _report(f"Opening {url} in web browser")
+        
+        if not webbrowser.open(url, new=2):
+            raise Exception(f"Failed to open model in browser ({url})")
         
         metrics.track(
             "Connector Action",
@@ -420,18 +416,40 @@ class ViewStreamDataApi(bpy.types.Operator):
             },
         )
 
+    @staticmethod
+    def _get_url_from_selection(speckleScene : SpeckleSceneSettings) -> str:
 
+        client = speckle_clients[int(speckleScene.active_user)]
+        (user, stream) = speckleScene.validate_stream_selection()
+        branch = stream.get_active_branch()
+        commit = branch.get_active_commit() if branch else None
+
+        if client.account.serverInfo.frontend2:
+            server_url = f"{user.server_url}/projects/{stream.id}/"
+            if branch:
+                server_url += f"models/{branch.id}"
+            if commit:
+                server_url += f"@{commit.id}"
+        else:
+            server_url = f"{user.server_url}/streams/{stream.id}/"
+            if commit:
+                server_url += f"commits/{commit.id}"
+            elif branch:
+                server_url += f"branches/{branch.name}"
+
+        return server_url
+    
 class AddStreamFromURL(bpy.types.Operator):
     """
-    Add / select a stream using its url
+    Add / select an existing project by providing its URL
     """
 
     bl_idname = "speckle.add_stream_from_url"
-    bl_label = "Add stream from URL"
+    bl_label = "Add Project From URL"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Add an existing stream by providing its URL"
+    bl_description = "Add / select an existing project by providing its URL"
     stream_url: StringProperty(
-        name="Stream URL", default="https://speckle.xyz/streams/3073b96e86"
+        name="Project URL", default=""
     ) # type: ignore 
 
     def draw(self, context):
@@ -485,12 +503,12 @@ class AddStreamFromURL(bpy.types.Operator):
         client = speckle_clients[user_index]
         stream = client.stream.get(wrapper.stream_id, branch_limit=LoadUserStreams.branch_limit, commit_limit=LoadUserStreams.commits_limit)
         if not isinstance(stream, Stream):
-            raise SpeckleException(f"Could not get the requested stream {wrapper.stream_id}")
+            raise SpeckleException(f"Could not get the requested project {wrapper.stream_id}")
 
         (index, b_stream) = self._get_or_add_stream(user, stream)
         user.active_stream = index
 
-        _report(f"Selecting stream at index {index} ({b_stream.id} - {b_stream.name})")
+        _report(f"Selecting project at index {index} ({b_stream.id} - {b_stream.name})")
 
         if wrapper.branch_name:
             b_index = b_stream.branches.find(wrapper.branch_name)
@@ -522,17 +540,17 @@ class AddStreamFromURL(bpy.types.Operator):
 
 class CreateStream(bpy.types.Operator):
     """
-    Create new stream
+    Create a new Speckle project using the selected user account
     """
 
     bl_idname = "speckle.create_stream"
-    bl_label = "Create stream"
+    bl_label = "Create Project"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Create new stream"
+    bl_description = "Create a new Speckle project using the selected user account"
 
-    stream_name: StringProperty(name="Stream name") # type: ignore 
+    stream_name: StringProperty(name="Project name") # type: ignore 
     stream_description: StringProperty(
-        name="Stream description", default="This is a Blender stream."
+        name="Project description", default="My new project"
     ) # type: ignore 
 
     def draw(self, context):
@@ -587,13 +605,13 @@ class CreateStream(bpy.types.Operator):
 @deprecated
 class DeleteStream(bpy.types.Operator):
     """
-    Delete stream
+    Permanently delete the selected project
     """
 
     bl_idname = "speckle.delete_stream"
-    bl_label = "Delete stream"
+    bl_label = "Delete Project"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Delete selected stream permanently"
+    bl_description = "Permanently delete the selected project"
 
     are_you_sure: BoolProperty(
         name="Confirm",
@@ -663,7 +681,7 @@ class SelectOrphanObjects(bpy.types.Operator):
     """
 
     bl_idname = "speckle.select_orphans"
-    bl_label = "Select orphaned objects"
+    bl_label = "Select Orphaned Objects (DEPRECATED)"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Select Speckle objects that don't belong to any stream"
 
@@ -692,13 +710,13 @@ class SelectOrphanObjects(bpy.types.Operator):
 
 class CopyStreamId(bpy.types.Operator):
     """
-    Copy stream ID to clipboard
+    Copy the selected project id to clipboard
     """
 
     bl_idname = "speckle.stream_copy_id"
-    bl_label = "Copy stream ID"
+    bl_label = "Copy Project Id"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Copy stream ID to clipboard"
+    bl_description = "Copy the selected project id to clipboard"
 
     def execute(self, context):
         self.copy_stream_id(context)
@@ -719,13 +737,13 @@ class CopyStreamId(bpy.types.Operator):
 
 class CopyCommitId(bpy.types.Operator):
     """
-    Copy commit ID to clipboard
+    Copy the selected version id to clipboard
     """
 
     bl_idname = "speckle.commit_copy_id"
-    bl_label = "Copy commit ID"
+    bl_label = "Copy Version Id"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Copy commit ID to clipboard"
+    bl_description = "Copy the selected version id to clipboard"
 
     def execute(self, context):
         self.copy_commit_id(context)
@@ -747,6 +765,36 @@ class CopyCommitId(bpy.types.Operator):
 
 
 
+class CopyModelId(bpy.types.Operator):
+    """
+    Copy model id to clipboard
+    """
+
+    bl_idname = "speckle.model_copy_id"
+    bl_label = "Copy model id"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Copy model id to clipboard"
+
+    def execute(self, context):
+        self.copy_model_id(context)
+        return {"FINISHED"}
+
+        
+    def copy_model_id(self, context) -> None:
+        speckle = get_speckle(context)
+
+        (_, _, branch) = speckle.validate_branch_selection()
+
+        bpy.context.window_manager.clipboard = branch.id
+
+        metrics.track(
+            "Connector Action",
+            custom_props={
+                "name": "copy_branch_id"
+            },
+        )
+
+@deprecated
 class CopyBranchName(bpy.types.Operator):
     """
     Copy branch name to clipboard
@@ -775,3 +823,37 @@ class CopyBranchName(bpy.types.Operator):
                 "name": "copy_branch_id"
             },
         )
+
+@deprecated
+class SelectOrphanObjects(bpy.types.Operator):
+    """
+    Select Speckle objects that don't belong to any stream
+    """
+
+    bl_idname = "speckle.select_orphans"
+    bl_label = "Select orphaned objects"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Select Speckle objects that don't belong to any stream"
+
+    def draw(self, context):
+        layout = self.layout
+
+    def execute(self, context):
+
+        for o in context.scene.objects:
+            if (
+                o.speckle.stream_id
+                and o.speckle.stream_id not in context.scene["speckle_streams"]
+            ):
+                o.select = True
+            else:
+                o.select = False
+
+        metrics.track(
+            "Connector Action", 
+            custom_props={
+                "name": "SelectOrphanObjects"
+            },
+        )
+
+        return {"FINISHED"}
