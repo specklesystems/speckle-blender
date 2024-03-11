@@ -101,14 +101,16 @@ jobs:
                   cd C:\
                   echo $env:SM_CLIENT_CERT_FILE_B64 > certificate.txt
                   certutil -decode certificate.txt certificate.p12
-                  echo $env:SM_OV_PEM_CERT > SpeckleOVCertificate-2024.pem
             - run:
                 name: Sync Certs
                 command: |
                   & $env:SSM\smksp_cert_sync.exe
             - run:
                 name: Build Installer
-                command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss /Sbyparam=$p /DSIGN_INSTALLER
+                command: speckle-sharp-ci-tools\InnoSetup\ISCC.exe speckle-sharp-ci-tools\blender.iss \
+                  /Sbyparam=$p \
+                  /DSIGN_INSTALLER \
+                  /DCODE_SIGNING_CERT_FINGERPRINT=%SM_CODE_SIGNING_CERT_SHA1_HASH%
                 shell: cmd.exe #does not work in powershell
       - persist_to_workspace:
           root: ./
@@ -238,7 +240,7 @@ workflows:
           filters: *build_filters
 
       - build-installer-win:
-          context: digicert-signing-connectors-test
+          context: digicert-keylocker
           name: Windows Installer Build
           requires:
             - package-connector
