@@ -774,15 +774,21 @@ def _make_unique_name( desired_name: str, taken_names: Collection[str], counter:
 def _get_friendly_object_name(speckle_object: Base) -> Optional[str]:
     return (getattr(speckle_object, "name", None)
         or getattr(speckle_object, "Name", None)
-        or getattr(speckle_object, "family", None)
+        or _get_revit_family_name(speckle_object)
         )
 
+def _get_revit_family_name(speckle_object: Base) -> Optional[str]:
+    family = getattr(speckle_object, "family", None)
+    family_type = getattr(speckle_object, "type", None)
+
+    if family and family_type:
+        return f"{family_type}-{family}"
+    else:
+        return None
 
 # Blender object names must not exceed 62 characters
 # We need to ensure the complete ID is included in the name (to prevent identity collisions)
 # So we if the name is too long, we need to truncate
-
-
 def _truncate_object_name(name: str) -> str:
 
     MAX_NAME_LENGTH = OBJECT_NAME_MAX_LENGTH - SPECKLE_ID_LENGTH - len(OBJECT_NAME_SPECKLE_SEPARATOR)
