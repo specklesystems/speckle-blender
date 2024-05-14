@@ -20,6 +20,7 @@ from .streams import (
     CopyStreamId,
     CopyCommitId,
     CopyBranchName,
+    CopyModelId,
 )
 from .commit import DeleteCommit
 from .misc import OpenSpeckleGuide, OpenSpeckleTutorials, OpenSpeckleForum
@@ -33,6 +34,7 @@ operator_classes = [
     CopyStreamId,
     CopyCommitId,
     CopyBranchName,
+    CopyModelId,
 ]
 
 operator_classes.extend([DeleteCommit])

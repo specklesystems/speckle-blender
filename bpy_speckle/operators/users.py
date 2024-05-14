@@ -18,7 +18,7 @@ class ResetUsers(bpy.types.Operator):
     """
 
     bl_idname = "speckle.users_reset"
-    bl_label = "Reset users"
+    bl_label = "Reset Users"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -46,12 +46,14 @@ class ResetUsers(bpy.types.Operator):
 
 class LoadUsers(bpy.types.Operator):
     """
-    Load all users from local user database
+    Loads all user accounts from the credentials in the local database.
+    See docs to add accounts via Manager
     """
 
     bl_idname = "speckle.users_load"
-    bl_label = "Load users"
+    bl_label = "Load Users"
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = "Loads all user accounts from the credentials in the local database.\nSee docs to add accounts via Manager"
 
     def execute(self, context):
 
@@ -158,21 +160,16 @@ def add_user_stream(user: SpeckleUserObject, stream: Stream):
             commit.source_application = str(c.sourceApplication)
             commit.referenced_object = c.referencedObject
 
-    if hasattr(s, "baseProperties"):
-        s.units = stream.baseProperties.units # type: ignore
-    else:
-        s.units = "Meters"
-
 
 class LoadUserStreams(bpy.types.Operator):
     """
-    Load all available streams for active user
+    (Re)Load all available projects for active user
     """
 
     bl_idname = "speckle.load_user_streams"
-    bl_label = "Load user streams"
+    bl_label = "Load User's Projects"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = "(Re)load all available user streams"
+    bl_description = "(Re)Load all available projects for active user"
 
     stream_limit: int = 20
     branch_limit: int = 100
@@ -192,10 +189,10 @@ class LoadUserStreams(bpy.types.Operator):
         try:
             streams = client.stream.list(stream_limit=self.stream_limit)
         except Exception as ex:
-            raise Exception(f"Failed to retrieve streams") from ex
+            raise Exception(f"Failed to retrieve projects") from ex
         
         if not streams:
-            _report("Zero streams found")
+            _report("Zero projects found")
             return
 
         user.streams.clear()

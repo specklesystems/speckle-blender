@@ -1,50 +1,49 @@
 """
 Scene properties
 """
-from typing import Optional, Tuple
+from typing import Iterable, Optional, Tuple, cast
 import bpy
 from bpy.props import (
     StringProperty,
-    BoolProperty,
     FloatProperty,
     CollectionProperty,
     EnumProperty,
     IntProperty,
-    PointerProperty,
 )
 
 class SpeckleSceneObject(bpy.types.PropertyGroup):
-    name: bpy.props.StringProperty(default="")
+    name: bpy.props.StringProperty(default="") # type: ignore
 
 
 class SpeckleCommitObject(bpy.types.PropertyGroup):
-    id: StringProperty(default="")
-    message: StringProperty(default="")
-    author_name: StringProperty(default="")
-    author_id: StringProperty(default="")
-    created_at: StringProperty(default="")
-    source_application: StringProperty(default="")
-    referenced_object: StringProperty(default="")
+    id: StringProperty(default="") # type: ignore
+    message: StringProperty(default="") # type: ignore
+    author_name: StringProperty(default="") # type: ignore
+    author_id: StringProperty(default="") # type: ignore
+    created_at: StringProperty(default="") # type: ignore
+    source_application: StringProperty(default="") # type: ignore
+    referenced_object: StringProperty(default="") # type: ignore
 
 
 class SpeckleBranchObject(bpy.types.PropertyGroup):
     def get_commits(self, context):
         if self.commits != None and len(self.commits) > 0:
+            COMMITS = cast(Iterable[SpeckleCommitObject], self.commits)
             return [
                 (str(i), commit.id, commit.message, i)
-                for i, commit in enumerate(self.commits)
+                for i, commit in enumerate(COMMITS)
             ]
         return [("0", "<none>", "<none>", 0)]
-
-    name: StringProperty(default="main")
-    id: StringProperty(default="")
-    description: StringProperty(default="")
-    commits: CollectionProperty(type=SpeckleCommitObject)
+  
+    name: StringProperty(default="main") # type: ignore
+    id: StringProperty(default="") # type: ignore
+    description: StringProperty(default="") # type: ignore
+    commits: CollectionProperty(type=SpeckleCommitObject) # type: ignore
     commit: EnumProperty(
-        name="Commit",
-        description="Active commit",
+        name="Version",
+        description="Selected model version",
         items=get_commits,
-    )
+    ) # type: ignore
     
     def get_active_commit(self) -> Optional[SpeckleCommitObject]:
         selected_index = int(self.commit)
@@ -56,24 +55,23 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
 class SpeckleStreamObject(bpy.types.PropertyGroup):
     def get_branches(self, context):
         if self.branches:
+            BRANCHES = cast(Iterable[SpeckleBranchObject], self.branches)
             return [
-                (str(i), branch.name, branch.name, i)
-                for i, branch in enumerate(self.branches)
+                (str(i), branch.name, branch.description, i)
+                for i, branch in enumerate(BRANCHES)
                 if branch.name != "globals"
             ]
         return [("0", "<none>", "<none>", 0)]
 
-    name: StringProperty(default="SpeckleStream")
-    description: StringProperty(default="No description provided.")
-    id: StringProperty(default="")
-    units: StringProperty(default="Meters")
-    query: StringProperty(default="")
-    branches: CollectionProperty(type=SpeckleBranchObject)
+    name: StringProperty(default="") # type: ignore
+    description: StringProperty(default="") # type: ignore
+    id: StringProperty(default="") # type: ignore
+    branches: CollectionProperty(type=SpeckleBranchObject) # type: ignore
     branch: EnumProperty(
-        name="Branch",
-        description="Active branch",
+        name="Model",
+        description="Selected Model",
         items=get_branches,
-    )
+    ) # type: ignore
 
     def get_active_branch(self) -> Optional[SpeckleBranchObject]:
         selected_index = int(self.branch)
@@ -83,14 +81,14 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
 
 
 class SpeckleUserObject(bpy.types.PropertyGroup):
-    server_name: StringProperty(default="SpeckleXYZ")
-    server_url: StringProperty(default="https://speckle.xyz")
-    id: StringProperty(default="")
-    name: StringProperty(default="Speckle User")
-    email: StringProperty(default="user@speckle.xyz")
-    company: StringProperty(default="SpeckleSystems")
-    streams: CollectionProperty(type=SpeckleStreamObject)
-    active_stream: IntProperty(default=0)
+    server_name: StringProperty(default="SpeckleXYZ") # type: ignore
+    server_url: StringProperty(default="https://speckle.xyz") # type: ignore
+    id: StringProperty(default="") # type: ignore
+    name: StringProperty(default="Speckle User") # type: ignore
+    email: StringProperty(default="user@speckle.xyz") # type: ignore
+    company: StringProperty(default="SpeckleSystems") # type: ignore
+    streams: CollectionProperty(type=SpeckleStreamObject) # type: ignore
+    active_stream: IntProperty(default=0) # type: ignore
 
     def get_active_stream(self) -> Optional[SpeckleStreamObject]:
         selected_index = int(self.active_stream)
@@ -109,18 +107,19 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
         name="Available streams",
         description="Available streams associated with user.",
         items=[],
-    )
+    ) # type: ignore
 
-    users: CollectionProperty(type=SpeckleUserObject)
+    users: CollectionProperty(type=SpeckleUserObject) # type: ignore
 
     def get_users(self, context):
+        USERS = cast(Iterable[SpeckleUserObject], self.users)
         return [
-            (str(i), "{} ({})".format(user.email, user.server_name), user.server_url, i)
-            for i, user in enumerate(self.users)
+            (str(i), f"{user.email} ({user.server_name})", user.server_url, i)
+            for i, user in enumerate(USERS)
         ]
 
     def set_user(self, context):
-        bpy.ops.speckle.load_user_streams()
+        bpy.ops.speckle.load_user_streams() # type: ignore
 
     active_user: EnumProperty(
         items=get_users,
@@ -129,29 +128,29 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
         update=set_user,
         get=None,
         set=None,
-    )
+    ) # type: ignore
 
-    objects: CollectionProperty(type=SpeckleSceneObject)
+    objects: CollectionProperty(type=SpeckleSceneObject) # type: ignore
 
-    scale: FloatProperty(default=0.001)
+    scale: FloatProperty(default=0.001) # type: ignore
 
     user: StringProperty(
         name="User",
-        description="Current user.",
+        description="Current user",
         default="Speckle User",
-    )
+    ) # type: ignore
 
     receive_script: EnumProperty(
         name="Receive script",
-        description="Script to run when receiving stream objects.",
+        description="Custom py script to execute when receiving objects. See docs for function signature.",
         items=get_scripts,
-    )
+    ) # type: ignore
 
     send_script: EnumProperty(
         name="Send script",
-        description="Script to run when sending stream objects.",
+        description="Custom py script to execute when sending objects. See docs for function signature",
         items=get_scripts,
-    )
+    ) # type: ignore
 
     def get_active_user(self) -> Optional[SpeckleUserObject]:
         selected_index = int(self.active_user)
@@ -163,7 +162,7 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
     def validate_user_selection(self) -> SpeckleUserObject:
         user = self.get_active_user()
         if not user:
-            raise SelectionException("No user selected/found")
+            raise SelectionException("No user account selected/found")
         return user
         
     def validate_stream_selection(self) -> Tuple[SpeckleUserObject, SpeckleStreamObject]:
@@ -171,7 +170,7 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
 
         stream = user.get_active_stream()
         if not stream:
-            raise SelectionException("No stream selected/found")
+            raise SelectionException("No project selected/found")
 
         return (user, stream)
     
@@ -180,14 +179,14 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
 
         branch = stream.get_active_branch()
         if not branch:
-            raise SelectionException("No branch selected/found")
+            raise SelectionException("No model selected/found")
         return (user, stream, branch)
     
     def validate_commit_selection(self) ->Tuple[SpeckleUserObject, SpeckleStreamObject, SpeckleBranchObject, SpeckleCommitObject]:
         (user, stream, branch) = self.validate_branch_selection()
         commit = branch.get_active_commit()
         if commit is None:
-            raise SelectionException("No commit selected/found")
+            raise SelectionException("No model version selected/found")
         
         return (user, stream, branch, commit)
     
@@ -195,4 +194,7 @@ class SelectionException(Exception):
     pass
 
 def get_speckle(context: bpy.types.Context) -> SpeckleSceneSettings:
+    """
+    Gets the speckle scene object
+    """
     return context.scene.speckle #type: ignore
