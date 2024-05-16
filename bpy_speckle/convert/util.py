@@ -220,14 +220,18 @@ def add_uv_coords(speckle_mesh: Mesh, blender_mesh: BMesh):
     try:
         uv = []
 
-        if len(s_uvs) // 2 == len(blender_mesh.verts):
+        speckle_uv_vertex_count = len(s_uvs) // 2
+        blender_loops_count = sum(len(f.loops) for f in blender_mesh.faces)
+
+        if speckle_uv_vertex_count == blender_loops_count:
             uv.extend(
                 (float(s_uvs[i]), float(s_uvs[i + 1]))
                 for i in range(0, len(s_uvs), 2)
             )
         else:
             _report(
-                f"Failed to match UV coordinates to vert data. Blender mesh verts: {len(blender_mesh.verts)}, Speckle UVs: {len(s_uvs) // 2}"
+                f"Failed to match UV coordinates to vert data. Blender mesh loop count: {blender_loops_count}, " 
+                f"Speckle UV vertex count: {speckle_uv_vertex_count}"
             )
             return
 
