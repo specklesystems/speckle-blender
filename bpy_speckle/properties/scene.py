@@ -51,7 +51,9 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
             return self.commits[selected_index]
         return None
 
-
+class SelectedBranchHack:
+    selected_branch : int = None
+    
 class SpeckleStreamObject(bpy.types.PropertyGroup):
     def get_branches(self, context):
         if self.branches:
@@ -62,6 +64,9 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
                 if branch.name != "globals"
             ]
         return [("0", "<none>", "<none>", 0)]
+    
+    def branch_update_hook(self, context: bpy.types.Context):
+        SelectedBranchHack.selected_branch = int(self.branch)
 
     name: StringProperty(default="") # type: ignore
     description: StringProperty(default="") # type: ignore
@@ -71,9 +76,12 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
         name="Model",
         description="Selected Model",
         items=get_branches,
+        update=branch_update_hook,
     ) # type: ignore
 
     def get_active_branch(self) -> Optional[SpeckleBranchObject]:
+        if SelectedBranchHack.selected_branch != None:
+            return self.branches[SelectedBranchHack.selected_branch]
         selected_index = int(self.branch)
         if 0 <= selected_index < len(self.branches): 
             return self.branches[selected_index]
@@ -153,6 +161,8 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
     ) # type: ignore
 
     def get_active_user(self) -> Optional[SpeckleUserObject]:
+        if not self.active_user:
+            return None
         selected_index = int(self.active_user)
         if 0 <= selected_index < len(self.users):
             return self.users[selected_index]
