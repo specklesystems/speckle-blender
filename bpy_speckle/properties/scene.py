@@ -80,13 +80,12 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
     ) # type: ignore
 
     def get_active_branch(self) -> Optional[SpeckleBranchObject]:
-        if SelectedBranchHack.selected_branch != None:
-            return self.branches[SelectedBranchHack.selected_branch]
         selected_index = int(self.branch)
+        if SelectedBranchHack.selected_branch != None:
+            selected_index = SelectedBranchHack.selected_branch
         if 0 <= selected_index < len(self.branches): 
             return self.branches[selected_index]
         return None
-
 
 class SpeckleUserObject(bpy.types.PropertyGroup):
     server_name: StringProperty(default="SpeckleXYZ") # type: ignore
