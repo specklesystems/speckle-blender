@@ -25,6 +25,12 @@ class SelectionStateHack:
             if index == selected_index:
                 return item.id
         return None
+    
+    @staticmethod
+    def get_item_index_by_id(collection, id):
+        for index, item in enumerate(collection):
+            if item.id == id:
+                return str(index)
 
     @staticmethod
     def restore_selection_state(speckle):
@@ -35,10 +41,8 @@ class SelectionStateHack:
             same_user = active_user.id == SelectionStateHack.selected_user_id
             same_stream = active_stream.id == SelectionStateHack.selected_stream_id
             if same_user and same_stream:
-                for index, branch in enumerate(active_stream.branches):
-                    if branch.id == SelectionStateHack.selected_branch_id:
-                        active_stream.branch = str(index)
-                        break
+                if branch := SelectionStateHack.get_item_index_by_id(active_stream.branches, SelectionStateHack.selected_branch_id):
+                    active_stream.branch = branch
         
         # Restore commit selection state
         if SelectionStateHack.selected_commit_id != None:
@@ -49,10 +53,8 @@ class SelectionStateHack:
             same_stream = active_stream.id == SelectionStateHack.selected_stream_id
             same_branch = active_branch.id == SelectionStateHack.selected_branch_id
             if same_user and same_stream and same_branch:
-                for index, commit in enumerate(active_branch.commits):
-                    if commit.id == SelectionStateHack.selected_commit_id:
-                        active_branch.commit = str(index)
-                        break
+                if commit := SelectionStateHack.get_item_index_by_id(active_branch.commits, SelectionStateHack.selected_commit_id):
+                    active_branch.commit = commit
 
 class SpeckleSceneObject(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(default="") # type: ignore
