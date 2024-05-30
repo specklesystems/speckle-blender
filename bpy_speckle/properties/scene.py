@@ -11,6 +11,49 @@ from bpy.props import (
     IntProperty,
 )
 
+class SelectionStateHack:
+    selected_user_id : str = None
+    selected_stream_id : str = None
+    selected_branch_id : str = None
+    selected_commit_id : str = None
+
+    @staticmethod
+    def get_item_id_by_index(collection, index):
+        # print(list(collection.items()))
+        selected_index = int(index)
+        for index, (key, item) in enumerate(collection.items()):
+            if index == selected_index:
+                return item.id
+        return None
+
+    @staticmethod
+    def restore_selection_state(speckle):
+        # Restore branch selection state
+        if SelectionStateHack.selected_branch_id != None:
+            active_user = speckle.get_active_user()
+            active_stream = active_user.get_active_stream()
+            same_user = active_user.id == SelectionStateHack.selected_user_id
+            same_stream = active_stream.id == SelectionStateHack.selected_stream_id
+            if same_user and same_stream:
+                for index, branch in enumerate(active_stream.branches):
+                    if branch.id == SelectionStateHack.selected_branch_id:
+                        active_stream.branch = str(index)
+                        break
+        
+        # Restore commit selection state
+        if SelectionStateHack.selected_commit_id != None:
+            active_user = speckle.get_active_user()
+            active_stream = active_user.get_active_stream()
+            active_branch = active_stream.get_active_branch()
+            same_user = active_user.id == SelectionStateHack.selected_user_id
+            same_stream = active_stream.id == SelectionStateHack.selected_stream_id
+            same_branch = active_branch.id == SelectionStateHack.selected_branch_id
+            if same_user and same_stream and same_branch:
+                for index, commit in enumerate(active_branch.commits):
+                    if commit.id == SelectionStateHack.selected_commit_id:
+                        active_branch.commit = str(index)
+                        break
+
 class SpeckleSceneObject(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(default="") # type: ignore
 
@@ -35,6 +78,9 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
             ]
         return [("0", "<none>", "<none>", 0)]
   
+    def commit_update_hook(self, context: bpy.types.Context):
+        SelectionStateHack.selected_commit_id = SelectionStateHack.get_item_id_by_index(self.commits, self.commit)
+
     name: StringProperty(default="main") # type: ignore
     id: StringProperty(default="") # type: ignore
     description: StringProperty(default="") # type: ignore
@@ -43,6 +89,7 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
         name="Version",
         description="Selected model version",
         items=get_commits,
+        update=commit_update_hook,
     ) # type: ignore
     
     def get_active_commit(self) -> Optional[SpeckleCommitObject]:
@@ -50,9 +97,6 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
         if 0 <= selected_index < len(self.commits): 
             return self.commits[selected_index]
         return None
-
-class SelectedBranchHack:
-    selected_branch : int = None
     
 class SpeckleStreamObject(bpy.types.PropertyGroup):
     def get_branches(self, context):
@@ -66,7 +110,7 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
         return [("0", "<none>", "<none>", 0)]
     
     def branch_update_hook(self, context: bpy.types.Context):
-        SelectedBranchHack.selected_branch = int(self.branch)
+        SelectionStateHack.selected_branch_id = SelectionStateHack.get_item_id_by_index(self.branches, self.branch)
 
     name: StringProperty(default="") # type: ignore
     description: StringProperty(default="") # type: ignore
@@ -81,13 +125,14 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
 
     def get_active_branch(self) -> Optional[SpeckleBranchObject]:
         selected_index = int(self.branch)
-        if SelectedBranchHack.selected_branch != None:
-            selected_index = SelectedBranchHack.selected_branch
         if 0 <= selected_index < len(self.branches): 
             return self.branches[selected_index]
         return None
 
 class SpeckleUserObject(bpy.types.PropertyGroup):
+    def stream_update_hook(self, context: bpy.types.Context):
+        SelectionStateHack.selected_stream_id = SelectionStateHack.get_item_id_by_index(self.streams, self.active_stream)
+
     server_name: StringProperty(default="SpeckleXYZ") # type: ignore
     server_url: StringProperty(default="https://speckle.xyz") # type: ignore
     id: StringProperty(default="") # type: ignore
@@ -95,13 +140,14 @@ class SpeckleUserObject(bpy.types.PropertyGroup):
     email: StringProperty(default="user@speckle.xyz") # type: ignore
     company: StringProperty(default="SpeckleSystems") # type: ignore
     streams: CollectionProperty(type=SpeckleStreamObject) # type: ignore
-    active_stream: IntProperty(default=0) # type: ignore
+    active_stream: IntProperty(default=0, update=stream_update_hook) # type: ignore
 
     def get_active_stream(self) -> Optional[SpeckleStreamObject]:
         selected_index = int(self.active_stream)
         if 0 <= selected_index < len(self.streams): 
             return self.streams[selected_index]
         return None
+    
 
 class SpeckleSceneSettings(bpy.types.PropertyGroup):
     def get_scripts(self, context):
@@ -127,6 +173,7 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
 
     def set_user(self, context):
         bpy.ops.speckle.load_user_streams() # type: ignore
+        SelectionStateHack.selected_user_id = SelectionStateHack.get_item_id_by_index(self.users, self.active_user)
 
     active_user: EnumProperty(
         items=get_users,
