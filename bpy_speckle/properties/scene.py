@@ -12,54 +12,6 @@ from bpy.props import (
     IntProperty,
 )
 
-@dataclass
-class SelectionState:
-    selected_user_id : Optional[str] = None
-    selected_stream_id : Optional[str] = None
-    selected_branch_id : Optional[str] = None
-    selected_commit_id : Optional[str] = None
-
-    @staticmethod
-    def get_item_id_by_index(collection: bpy.types.PropertyGroup, index: Union[str, int]) -> Optional[str]:
-        # print(list(collection.items()))
-        selected_index = int(index)
-        for index, (key, item) in enumerate(collection.items()):
-            if index == selected_index:
-                return item.id
-        return None
-    
-    @staticmethod
-    def get_item_index_by_id(collection: bpy.types.PropertyGroup, id: int) -> Optional[str]:
-        for index, item in enumerate(collection):
-            if item.id == id:
-                return str(index)
-        return None
-
-selection_state = SelectionState()
-
-def restore_selection_state(speckle: bpy.types.PropertyGroup) -> None:
-    # Restore branch selection state
-    if selection_state.selected_branch_id != None:
-        active_user = speckle.get_active_user()
-        active_stream = active_user.get_active_stream()
-        same_user = active_user.id == selection_state.selected_user_id
-        same_stream = active_stream.id == selection_state.selected_stream_id
-        if same_user and same_stream:
-            if branch := SelectionState.get_item_index_by_id(active_stream.branches, selection_state.selected_branch_id):
-                active_stream.branch = branch
-    
-    # Restore commit selection state
-    if selection_state.selected_commit_id != None:
-        active_user = speckle.get_active_user()
-        active_stream = active_user.get_active_stream()
-        active_branch = active_stream.get_active_branch()
-        same_user = active_user.id == selection_state.selected_user_id
-        same_stream = active_stream.id == selection_state.selected_stream_id
-        same_branch = active_branch.id == selection_state.selected_branch_id
-        if same_user and same_stream and same_branch:
-            if commit := SelectionState.get_item_index_by_id(active_branch.commits, selection_state.selected_commit_id):
-                active_branch.commit = commit
-
 class SpeckleSceneObject(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(default="") # type: ignore
 
@@ -260,3 +212,52 @@ def get_speckle(context: bpy.types.Context) -> SpeckleSceneSettings:
     Gets the speckle scene object
     """
     return context.scene.speckle #type: ignore
+
+@dataclass
+class SelectionState:
+    selected_user_id : Optional[str] = None
+    selected_stream_id : Optional[str] = None
+    selected_branch_id : Optional[str] = None
+    selected_commit_id : Optional[str] = None
+
+    @staticmethod
+    def get_item_id_by_index(collection: bpy.types.PropertyGroup, index: Union[str, int]) -> Optional[str]:
+        # print(list(collection.items()))
+        selected_index = int(index)
+        for index, (_, item) in enumerate(collection.items()):
+            if index == selected_index:
+                return item.id
+        return None
+    
+    @staticmethod
+    def get_item_index_by_id(collection: Iterable[SpeckleCommitObject], id: Optional[str]) -> Optional[str]:
+        for index, item in enumerate(collection):
+            if item.id == id:
+                return str(index)
+        return None
+
+selection_state = SelectionState()
+
+def restore_selection_state(speckle: SpeckleSceneSettings) -> None:
+    # Restore branch selection state
+    if selection_state.selected_branch_id != None:
+        (active_user, active_stream) = speckle.validate_stream_selection()
+
+        is_same_user = active_user.id == selection_state.selected_user_id
+        is_same_stream = active_stream.id == selection_state.selected_stream_id
+    
+        if is_same_user and is_same_stream:
+            if branch := SelectionState.get_item_index_by_id(active_stream.branches, selection_state.selected_branch_id):
+                active_stream.branch = branch
+    
+    # Restore commit selection state
+    if selection_state.selected_commit_id != None:
+        (active_user, active_stream, active_branch) = speckle.validate_branch_selection()
+
+        is_same_user = active_user.id == selection_state.selected_user_id
+        is_same_stream = active_stream.id == selection_state.selected_stream_id
+        is_same_branch = active_branch.id == selection_state.selected_branch_id
+
+        if is_same_user and is_same_stream and is_same_branch:
+            if commit := SelectionState.get_item_index_by_id(active_branch.commits, selection_state.selected_commit_id):
+                active_branch.commit = commit
