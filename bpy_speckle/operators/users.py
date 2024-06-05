@@ -6,7 +6,7 @@ import bpy
 from bpy.types import Context
 from bpy_speckle.functions import _report
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.properties.scene import SpeckleBranchObject, SpeckleCommitObject, SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle
+from bpy_speckle.properties.scene import SpeckleBranchObject, SpeckleCommitObject, SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle, restore_selection_state
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.models import Stream
 from specklepy.core.api.credentials import get_local_accounts, Account
@@ -201,6 +201,8 @@ class LoadUserStreams(bpy.types.Operator):
             assert(s.id)
             sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit, commit_limit=10)
             add_user_stream(user, sstream)
+
+        restore_selection_state(speckle)
 
         bpy.context.view_layer.update()
 
