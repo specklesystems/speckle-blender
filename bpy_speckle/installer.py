@@ -147,10 +147,20 @@ def install_requirements(host_application: str) -> None:
     # script path. Here we'll install the
     # dependencies
     path = connector_installation_path(host_application)
-    print(f"Installing Speckle dependencies to {path}")
+
+    print(path)
 
     from subprocess import run
 
+    def debugger_is_active() -> bool:
+        """Return if the debugger is currently active"""
+        return hasattr(sys, 'gettrace') and sys.gettrace() is not None
+    
+    if not debugger_is_active() and os.listdir(path):
+        print("Skipped installing dependencies")
+        return
+
+    print(f"Installing Speckle dependencies to {path}")
     completed_process = run(
         [
             PYTHON_PATH,
