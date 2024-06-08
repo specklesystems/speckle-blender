@@ -148,8 +148,6 @@ def install_requirements(host_application: str) -> None:
     # dependencies
     path = connector_installation_path(host_application)
 
-    print(path)
-
     from subprocess import run
 
     def debugger_is_active() -> bool:
