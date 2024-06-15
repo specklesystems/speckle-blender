@@ -181,6 +181,7 @@ class LoadUserStreams(bpy.types.Operator):
 
         
     def load_user_stream(self, context: Context) -> None:
+        print("load user stream")
         speckle = get_speckle(context)
 
         user = speckle.validate_user_selection()
@@ -198,13 +199,18 @@ class LoadUserStreams(bpy.types.Operator):
 
         active_stream_id = None
         if active_stream := user.get_active_stream():
+            print("active stream is", active_stream.name)
             active_stream_id = active_stream.id
+        elif len(user.streams) > 0:
+            print("initial active stream is", user.streams[0].name)
+            active_stream_id = user.streams[0].id
 
         user.streams.clear()
 
-        for s in streams:
+        for i, s in enumerate(streams):
             assert(s.id)
-            if s.id == active_stream_id:
+            load_branches = s.id == active_stream_id if active_stream_id else i == 0
+            if load_branches:
                 sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit, commit_limit=10)
                 add_user_stream(user, sstream)
             else:
