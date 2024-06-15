@@ -161,7 +161,6 @@ class LoadUserStreams(bpy.types.Operator):
 
         
     def load_user_stream(self, context: Context) -> None:
-        print("load user stream")
         speckle = get_speckle(context)
 
         user = speckle.validate_user_selection()
@@ -179,10 +178,8 @@ class LoadUserStreams(bpy.types.Operator):
 
         active_stream_id = None
         if active_stream := user.get_active_stream():
-            print("active stream is", active_stream.name)
             active_stream_id = active_stream.id
         elif len(user.streams) > 0:
-            print("initial active stream is", user.streams[0].name)
             active_stream_id = user.streams[0].id
 
         user.streams.clear()

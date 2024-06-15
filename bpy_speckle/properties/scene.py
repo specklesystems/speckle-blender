@@ -123,7 +123,6 @@ class SpeckleUserObject(bpy.types.PropertyGroup):
     def stream_update_hook(self, context: bpy.types.Context):
         stream = SelectionState.get_item_by_index(self.streams, self.active_stream)
         selection_state.selected_stream_id = stream.id
-        selection_state.selected_commit_id = None
         if len(stream.branches) == 0: # do not reload on selection, same as the old behavior 
             self.fetch_stream_branches(context, stream)
 
