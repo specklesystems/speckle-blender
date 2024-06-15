@@ -121,7 +121,8 @@ class SpeckleUserObject(bpy.types.PropertyGroup):
         stream = SelectionState.get_item_by_index(self.streams, self.active_stream)
         selection_state.selected_stream_id = stream.id
         selection_state.selected_commit_id = None
-        self.load_stream_branches(context, stream)
+        if len(stream.branches) == 0: # do not reload on selection, same as the old behavior 
+            self.load_stream_branches(context, stream)
 
     server_name: StringProperty(default="SpeckleXYZ") # type: ignore
     server_url: StringProperty(default="https://speckle.xyz") # type: ignore
@@ -254,20 +255,15 @@ class SelectionState:
 
     @staticmethod
     def get_item_id_by_index(collection: bpy.types.PropertyGroup, index: Union[str, int]) -> Optional[str]:
-        # print(list(collection.items()))
-        selected_index = int(index)
-        for index, (_, item) in enumerate(collection.items()):
-            if index == selected_index:
-                return item.id
-        return None
+        if item := SelectionState.get_item_by_index(collection, index):
+            return item.id
     
     @staticmethod
     def get_item_by_index(collection: bpy.types.PropertyGroup, index: Union[str, int]) -> Optional[bpy.types.PropertyGroup]:
-        # print(list(collection.items()))
-        selected_index = int(index)
-        for index, (_, item) in enumerate(collection.items()):
-            if index == selected_index:
-                return item
+        items = collection.values()
+        i = int(index)
+        if 0 <= i <= len(items):
+            return items[i]
         return None
     
     @staticmethod
