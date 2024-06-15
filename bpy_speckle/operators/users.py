@@ -195,12 +195,20 @@ class LoadUserStreams(bpy.types.Operator):
             _report("Zero projects found")
             return
 
+
+        active_stream_id = None
+        if active_stream := user.get_active_stream():
+            active_stream_id = active_stream.id
+
         user.streams.clear()
 
         for s in streams:
             assert(s.id)
-            sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit, commit_limit=10)
-            add_user_stream(user, sstream)
+            if s.id == active_stream_id:
+                sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit, commit_limit=10)
+                add_user_stream(user, sstream)
+            else:
+                add_user_stream(user, s)
 
         restore_selection_state(speckle)
 
