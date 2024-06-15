@@ -259,6 +259,7 @@ class SelectionState:
     def get_item_id_by_index(collection: bpy.types.PropertyGroup, index: Union[str, int]) -> Optional[str]:
         if item := SelectionState.get_item_by_index(collection, index):
             return item.id
+        return None
     
     @staticmethod
     def get_item_by_index(collection: bpy.types.PropertyGroup, index: Union[str, int]) -> Optional[bpy.types.PropertyGroup]:
