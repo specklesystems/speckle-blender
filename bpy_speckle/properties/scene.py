@@ -12,6 +12,8 @@ from bpy.props import (
     IntProperty,
 )
 
+from bpy_speckle.clients import speckle_clients
+
 class SpeckleSceneObject(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(default="") # type: ignore
 
@@ -88,8 +90,38 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
         return None
 
 class SpeckleUserObject(bpy.types.PropertyGroup):
+    def load_stream_branches(self, context: bpy.types.Context, s: SpeckleStreamObject):
+        speckle = context.scene.speckle
+        client = speckle_clients[int(speckle.active_user)]
+        sstream = client.stream.get(id=s.id, branch_limit=100, commit_limit=10) # TODO: refactor magic numbers
+
+        s.branches.clear()
+
+        # branches = [branch for branch in stream.branches.items if branch.name != "globals"]
+        for b in sstream.branches.items:
+            branch = cast(SpeckleBranchObject, s.branches.add())
+            branch.name = b.name
+            branch.id = b.id
+            branch.description = b.description or ""
+
+            if not b.commits:
+                continue
+
+            for c in b.commits.items:
+                commit: SpeckleCommitObject = branch.commits.add()
+                commit.id = commit.name = c.id
+                commit.message = c.message or ""
+                commit.author_name = c.authorName
+                commit.author_id = c.authorId
+                commit.created_at = c.createdAt.strftime("%Y-%m-%d %H:%M:%S.%f%Z") if c.createdAt else ""
+                commit.source_application = str(c.sourceApplication)
+                commit.referenced_object = c.referencedObject
+
     def stream_update_hook(self, context: bpy.types.Context):
-        selection_state.selected_stream_id = SelectionState.get_item_id_by_index(self.streams, self.active_stream)
+        stream = SelectionState.get_item_by_index(self.streams, self.active_stream)
+        selection_state.selected_stream_id = stream.id
+        selection_state.selected_commit_id = None
+        self.load_stream_branches(context, stream)
 
     server_name: StringProperty(default="SpeckleXYZ") # type: ignore
     server_url: StringProperty(default="https://speckle.xyz") # type: ignore
@@ -227,6 +259,15 @@ class SelectionState:
         for index, (_, item) in enumerate(collection.items()):
             if index == selected_index:
                 return item.id
+        return None
+    
+    @staticmethod
+    def get_item_by_index(collection: bpy.types.PropertyGroup, index: Union[str, int]) -> Optional[bpy.types.PropertyGroup]:
+        # print(list(collection.items()))
+        selected_index = int(index)
+        for index, (_, item) in enumerate(collection.items()):
+            if index == selected_index:
+                return item
         return None
     
     @staticmethod
