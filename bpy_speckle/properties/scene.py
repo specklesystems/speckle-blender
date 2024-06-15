@@ -13,6 +13,7 @@ from bpy.props import (
 )
 
 from bpy_speckle.clients import speckle_clients
+from specklepy.core.api.models import Stream
 
 class SpeckleSceneObject(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(default="") # type: ignore
@@ -60,6 +61,28 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
         return None
     
 class SpeckleStreamObject(bpy.types.PropertyGroup):
+    def load_stream_branches(self, sstream: Stream):
+        self.branches.clear()
+        # branches = [branch for branch in stream.branches.items if branch.name != "globals"]
+        for b in sstream.branches.items:
+            branch = cast(SpeckleBranchObject, self.branches.add())
+            branch.name = b.name
+            branch.id = b.id
+            branch.description = b.description or ""
+
+            if not b.commits:
+                continue
+
+            for c in b.commits.items:
+                commit: SpeckleCommitObject = branch.commits.add()
+                commit.id = commit.name = c.id
+                commit.message = c.message or ""
+                commit.author_name = c.authorName
+                commit.author_id = c.authorId
+                commit.created_at = c.createdAt.strftime("%Y-%m-%d %H:%M:%S.%f%Z") if c.createdAt else ""
+                commit.source_application = str(c.sourceApplication)
+                commit.referenced_object = c.referencedObject
+
     def get_branches(self, context):
         if self.branches:
             BRANCHES = cast(Iterable[SpeckleBranchObject], self.branches)
@@ -91,39 +114,18 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
         return None
 
 class SpeckleUserObject(bpy.types.PropertyGroup):
-    def load_stream_branches(self, context: bpy.types.Context, s: SpeckleStreamObject):
+    def fetch_stream_branches(self, context: bpy.types.Context, stream: SpeckleStreamObject):
         speckle = context.scene.speckle
         client = speckle_clients[int(speckle.active_user)]
-        sstream = client.stream.get(id=s.id, branch_limit=100, commit_limit=10) # TODO: refactor magic numbers
-
-        s.branches.clear()
-
-        # branches = [branch for branch in stream.branches.items if branch.name != "globals"]
-        for b in sstream.branches.items:
-            branch = cast(SpeckleBranchObject, s.branches.add())
-            branch.name = b.name
-            branch.id = b.id
-            branch.description = b.description or ""
-
-            if not b.commits:
-                continue
-
-            for c in b.commits.items:
-                commit: SpeckleCommitObject = branch.commits.add()
-                commit.id = commit.name = c.id
-                commit.message = c.message or ""
-                commit.author_name = c.authorName
-                commit.author_id = c.authorId
-                commit.created_at = c.createdAt.strftime("%Y-%m-%d %H:%M:%S.%f%Z") if c.createdAt else ""
-                commit.source_application = str(c.sourceApplication)
-                commit.referenced_object = c.referencedObject
+        sstream = client.stream.get(id=stream.id, branch_limit=100, commit_limit=10) # TODO: refactor magic numbers
+        stream.load_stream_branches(sstream)
 
     def stream_update_hook(self, context: bpy.types.Context):
         stream = SelectionState.get_item_by_index(self.streams, self.active_stream)
         selection_state.selected_stream_id = stream.id
         selection_state.selected_commit_id = None
         if len(stream.branches) == 0: # do not reload on selection, same as the old behavior 
-            self.load_stream_branches(context, stream)
+            self.fetch_stream_branches(context, stream)
 
     server_name: StringProperty(default="SpeckleXYZ") # type: ignore
     server_url: StringProperty(default="https://speckle.xyz") # type: ignore

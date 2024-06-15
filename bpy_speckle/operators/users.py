@@ -137,28 +137,8 @@ def add_user_stream(user: SpeckleUserObject, stream: Stream):
 
     _report(f"Adding stream {s.id} - {s.name}")
     
-    if not stream.branches:
-        return
-
-    # branches = [branch for branch in stream.branches.items if branch.name != "globals"]
-    for b in stream.branches.items:
-        branch = cast(SpeckleBranchObject, s.branches.add())
-        branch.name = b.name
-        branch.id = b.id
-        branch.description = b.description or ""
-
-        if not b.commits:
-            continue
-
-        for c in b.commits.items:
-            commit: SpeckleCommitObject = branch.commits.add()
-            commit.id = commit.name = c.id
-            commit.message = c.message or ""
-            commit.author_name = c.authorName
-            commit.author_id = c.authorId
-            commit.created_at = c.createdAt.strftime("%Y-%m-%d %H:%M:%S.%f%Z") if c.createdAt else ""
-            commit.source_application = str(c.sourceApplication)
-            commit.referenced_object = c.referencedObject
+    if stream.branches:
+        s.load_stream_branches(stream)
 
 
 class LoadUserStreams(bpy.types.Operator):
