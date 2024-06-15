@@ -40,6 +40,7 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
   
     def commit_update_hook(self, context: bpy.types.Context):
         selection_state.selected_commit_id = SelectionState.get_item_id_by_index(self.commits, self.commit)
+        selection_state.selected_branch_id = self.id
 
     name: StringProperty(default="main") # type: ignore
     id: StringProperty(default="") # type: ignore
