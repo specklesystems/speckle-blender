@@ -138,7 +138,6 @@ def ensure_pip() -> None:
 def get_requirements_path() -> Path:
     # we assume that a requirements.txt exists next to the __init__.py file
     path = Path(Path(__file__).parent, "requirements.txt")
-    assert path.exists()
     return path
 
 
@@ -147,10 +146,22 @@ def install_requirements(host_application: str) -> None:
     # script path. Here we'll install the
     # dependencies
     path = connector_installation_path(host_application)
-    print(f"Installing Speckle dependencies to {path}")
 
     from subprocess import run
 
+    def debugger_is_active() -> bool:
+        """Return if the debugger is currently active"""
+        return hasattr(sys, 'gettrace') and sys.gettrace() is not None
+    
+    requirements_path = get_requirements_path()
+
+    is_debug = debugger_is_active()
+    
+    if not is_debug and not requirements_path.exists():
+        print("Skipped installing dependencies")
+        return
+
+    print(f"Installing Speckle dependencies to {path}")
     completed_process = run(
         [
             PYTHON_PATH,
@@ -165,16 +176,21 @@ def install_requirements(host_application: str) -> None:
             "-t",
             str(path),
             "-r",
-            str(get_requirements_path()),
+            str(requirements_path),
         ],
         capture_output=True,
         text=True,
     )
 
     if completed_process.returncode != 0:
-        m = f"Failed to install dependenices through pip, got {completed_process.returncode} return code"
+        m = f"Failed to install dependencies through pip, got {completed_process.returncode} return code"
         print(m)
         raise Exception(m)
+    
+    print("Successfully installed dependencies")
+
+    if not is_debug:
+        requirements_path.unlink()
 
 
 def install_dependencies(host_application: str) -> None:
