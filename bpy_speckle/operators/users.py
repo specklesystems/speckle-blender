@@ -137,28 +137,8 @@ def add_user_stream(user: SpeckleUserObject, stream: Stream):
 
     _report(f"Adding stream {s.id} - {s.name}")
     
-    if not stream.branches:
-        return
-
-    # branches = [branch for branch in stream.branches.items if branch.name != "globals"]
-    for b in stream.branches.items:
-        branch = cast(SpeckleBranchObject, s.branches.add())
-        branch.name = b.name
-        branch.id = b.id
-        branch.description = b.description or ""
-
-        if not b.commits:
-            continue
-
-        for c in b.commits.items:
-            commit: SpeckleCommitObject = branch.commits.add()
-            commit.id = commit.name = c.id
-            commit.message = c.message or ""
-            commit.author_name = c.authorName
-            commit.author_id = c.authorId
-            commit.created_at = c.createdAt.strftime("%Y-%m-%d %H:%M:%S.%f%Z") if c.createdAt else ""
-            commit.source_application = str(c.sourceApplication)
-            commit.referenced_object = c.referencedObject
+    if stream.branches:
+        s.load_stream_branches(stream)
 
 
 class LoadUserStreams(bpy.types.Operator):
@@ -195,12 +175,23 @@ class LoadUserStreams(bpy.types.Operator):
             _report("Zero projects found")
             return
 
+
+        active_stream_id = None
+        if active_stream := user.get_active_stream():
+            active_stream_id = active_stream.id
+        elif len(user.streams) > 0:
+            active_stream_id = user.streams[0].id
+
         user.streams.clear()
 
-        for s in streams:
+        for i, s in enumerate(streams):
             assert(s.id)
-            sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit, commit_limit=10)
-            add_user_stream(user, sstream)
+            load_branches = s.id == active_stream_id if active_stream_id else i == 0
+            if load_branches:
+                sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit, commit_limit=10)
+                add_user_stream(user, sstream)
+            else:
+                add_user_stream(user, s)
 
         restore_selection_state(speckle)
 
