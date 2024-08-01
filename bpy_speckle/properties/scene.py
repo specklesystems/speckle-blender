@@ -309,9 +309,3 @@ def restore_selection_state(speckle: SpeckleSceneSettings) -> None:
         if is_same_user and is_same_stream and is_same_branch:
             if commit := SelectionState.get_item_index_by_id(active_branch.commits, selection_state.selected_commit_id):
                 active_branch.commit = commit
-
-    (active_user, active_stream, active_branch, active_commit) = speckle.validate_commit_selection()
-    # selection_state.selected_user_id = active_user.id
-    # selection_state.selected_stream_id = active_stream.id
-    selection_state.selected_branch_id = active_branch.id
-    selection_state.selected_commit_id = active_commit.id
