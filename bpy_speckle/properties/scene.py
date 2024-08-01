@@ -167,7 +167,7 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
             for i, user in enumerate(USERS)
         ]
 
-    def set_user(self, context):
+    def user_update_hook(self, context):
         bpy.ops.speckle.load_user_streams() # type: ignore
         selection_state.selected_user_id = SelectionState.get_item_id_by_index(self.users, self.active_user)
 
@@ -175,7 +175,7 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
         items=get_users,
         name="Account",
         description="Select account",
-        update=set_user,
+        update=user_update_hook,
         get=None,
         set=None,
     ) # type: ignore
