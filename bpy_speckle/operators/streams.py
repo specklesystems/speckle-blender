@@ -33,7 +33,7 @@ from bpy_speckle.functions import (
 )
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.operators.users import LoadUserStreams, add_user_stream
-from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle
+from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle, selection_state
 from bpy_speckle.convert.util import ConversionSkippedException, add_to_hierarchy
 from specklepy.core.api.models import Commit
 from specklepy.core.api import operations, host_applications
@@ -285,6 +285,7 @@ class SendStreamObjects(bpy.types.Operator):
         return {"FINISHED"}
 
     def send(self, context: Context) -> None:
+        print("SendStreamObjects")
 
         selected = context.selected_objects
         if len(selected) < 1:
@@ -379,6 +380,11 @@ class SendStreamObjects(bpy.types.Operator):
             sent_url = f"{user.server_url}/streams/{stream.id}/commits/{COMMIT_ID}"
 
         _report(f"Commit Created {sent_url}")
+
+        selection_state.selected_commit_id = COMMIT_ID
+        selection_state.selected_branch_id = branch.id
+        selection_state.selected_stream_id = stream.id
+        selection_state.selected_user_id = user.id
 
         bpy.ops.speckle.load_user_streams() # refresh loaded commits
         context.view_layer.update()
