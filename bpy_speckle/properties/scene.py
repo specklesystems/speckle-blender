@@ -300,12 +300,7 @@ def restore_selection_state(speckle: SpeckleSceneSettings) -> None:
     
     # Restore commit selection state
     if selection_state.selected_commit_id != None:
-        (active_user, active_stream) = speckle.validate_stream_selection()
-
-        active_branch = active_stream.get_active_branch()
-
-        if active_branch is None:
-            active_branch = active_stream.branches[0]
+        (active_user, active_stream, active_branch) = speckle.validate_branch_selection()
         # print(f"restore_selection_state: {active_user.id=}, {active_stream.id=}, {active_branch.id=}")
         # print(f"restore_selection_state: {selection_state.selected_user_id=}, {selection_state.selected_stream_id=}, {selection_state.selected_branch_id=}, {selection_state.selected_commit_id=}")
 
