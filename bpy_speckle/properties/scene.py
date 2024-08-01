@@ -96,7 +96,6 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
     
     def branch_update_hook(self, context: bpy.types.Context):
         selection_state.selected_branch_id = SelectionState.get_item_id_by_index(self.branches, self.branch)
-        selection_state.selected_stream_id = self.id
         # print(f"branch_update_hook: {selection_state.selected_branch_id=}, {selection_state.selected_stream_id=}")
 
     name: StringProperty(default="") # type: ignore
@@ -126,7 +125,6 @@ class SpeckleUserObject(bpy.types.PropertyGroup):
     def stream_update_hook(self, context: bpy.types.Context):
         stream = SelectionState.get_item_by_index(self.streams, self.active_stream)
         selection_state.selected_stream_id = stream.id
-        selection_state.selected_user_id = self.id
         # print(f"stream_update_hook: {selection_state.selected_stream_id=}, {selection_state.selected_user_id=}")
         if len(stream.branches) == 0: # do not reload on selection, same as the old behavior 
             self.fetch_stream_branches(context, stream)
