@@ -161,7 +161,6 @@ class LoadUserStreams(bpy.types.Operator):
 
         
     def load_user_stream(self, context: Context) -> None:
-        print("LoadUserStreams")
         speckle = get_speckle(context)
 
         user = speckle.validate_user_selection()

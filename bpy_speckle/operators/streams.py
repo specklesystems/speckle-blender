@@ -285,7 +285,6 @@ class SendStreamObjects(bpy.types.Operator):
         return {"FINISHED"}
 
     def send(self, context: Context) -> None:
-        print("SendStreamObjects")
 
         selected = context.selected_objects
         if len(selected) < 1:
