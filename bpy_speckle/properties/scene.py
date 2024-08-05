@@ -42,6 +42,7 @@ class SpeckleBranchObject(bpy.types.PropertyGroup):
     def commit_update_hook(self, context: bpy.types.Context):
         selection_state.selected_commit_id = SelectionState.get_item_id_by_index(self.commits, self.commit)
         selection_state.selected_branch_id = self.id
+        # print(f"commit_update_hook: {selection_state.selected_commit_id=}, {selection_state.selected_branch_id=}")
 
     name: StringProperty(default="main") # type: ignore
     id: StringProperty(default="") # type: ignore
@@ -95,6 +96,7 @@ class SpeckleStreamObject(bpy.types.PropertyGroup):
     
     def branch_update_hook(self, context: bpy.types.Context):
         selection_state.selected_branch_id = SelectionState.get_item_id_by_index(self.branches, self.branch)
+        # print(f"branch_update_hook: {selection_state.selected_branch_id=}, {selection_state.selected_stream_id=}")
 
     name: StringProperty(default="") # type: ignore
     description: StringProperty(default="") # type: ignore
@@ -123,6 +125,7 @@ class SpeckleUserObject(bpy.types.PropertyGroup):
     def stream_update_hook(self, context: bpy.types.Context):
         stream = SelectionState.get_item_by_index(self.streams, self.active_stream)
         selection_state.selected_stream_id = stream.id
+        # print(f"stream_update_hook: {selection_state.selected_stream_id=}, {selection_state.selected_user_id=}")
         if len(stream.branches) == 0: # do not reload on selection, same as the old behavior 
             self.fetch_stream_branches(context, stream)
 
@@ -164,7 +167,7 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
             for i, user in enumerate(USERS)
         ]
 
-    def set_user(self, context):
+    def user_update_hook(self, context):
         bpy.ops.speckle.load_user_streams() # type: ignore
         selection_state.selected_user_id = SelectionState.get_item_id_by_index(self.users, self.active_user)
 
@@ -172,7 +175,7 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
         items=get_users,
         name="Account",
         description="Select account",
-        update=set_user,
+        update=user_update_hook,
         get=None,
         set=None,
     ) # type: ignore
@@ -200,7 +203,7 @@ class SpeckleSceneSettings(bpy.types.PropertyGroup):
     ) # type: ignore
 
     def get_active_user(self) -> Optional[SpeckleUserObject]:
-        if not self.active_user:
+        if self.active_user is None:
             return None
         selected_index = int(self.active_user)
         if 0 <= selected_index < len(self.users):
@@ -282,17 +285,22 @@ def restore_selection_state(speckle: SpeckleSceneSettings) -> None:
     # Restore branch selection state
     if selection_state.selected_branch_id != None:
         (active_user, active_stream) = speckle.validate_stream_selection()
+        # print(f"restore_selection_state: {active_user.id=}, {active_stream.id=}")
+        # print(f"restore_selection_state: {selection_state.selected_user_id=}, {selection_state.selected_stream_id=}, {selection_state.selected_branch_id=}, {selection_state.selected_commit_id=}")
 
         is_same_user = active_user.id == selection_state.selected_user_id
-        is_same_stream = active_stream.id == selection_state.selected_stream_id
     
-        if is_same_user and is_same_stream:
+        if is_same_user:
+            active_user.active_stream = int(SelectionState.get_item_index_by_id(active_user.streams, selection_state.selected_stream_id))
+            active_stream = SelectionState.get_item_by_index(active_user.streams, active_user.active_stream)
             if branch := SelectionState.get_item_index_by_id(active_stream.branches, selection_state.selected_branch_id):
                 active_stream.branch = branch
     
     # Restore commit selection state
     if selection_state.selected_commit_id != None:
         (active_user, active_stream, active_branch) = speckle.validate_branch_selection()
+        # print(f"restore_selection_state: {active_user.id=}, {active_stream.id=}, {active_branch.id=}")
+        # print(f"restore_selection_state: {selection_state.selected_user_id=}, {selection_state.selected_stream_id=}, {selection_state.selected_branch_id=}, {selection_state.selected_commit_id=}")
 
         is_same_user = active_user.id == selection_state.selected_user_id
         is_same_stream = active_stream.id == selection_state.selected_stream_id
