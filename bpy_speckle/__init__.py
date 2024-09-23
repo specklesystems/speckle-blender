@@ -19,8 +19,9 @@ from .operators.load import SPECKLE_OT_load
 from .ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list
 from .ui.model_selection_dialog import SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list
 from .ui.version_selection_dialog import SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list
+from .ui.selection_dialog import SPECKLE_OT_selection_dialog
 
-classes = (SPECKLE_PT_main_panel, SPECKLE_OT_publish, SPECKLE_OT_load, SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list, SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list)
+classes = (SPECKLE_PT_main_panel, SPECKLE_OT_publish, SPECKLE_OT_load, SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list, SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list, SPECKLE_OT_selection_dialog)
 
 # Register and Unregister
 def register():
@@ -29,6 +30,7 @@ def register():
     bpy.types.Scene.speckle_projects = bpy.props.CollectionProperty(type=speckle_project)
     bpy.types.Scene.speckle_models = bpy.props.CollectionProperty(type=speckle_model)
     bpy.types.Scene.speckle_versions = bpy.props.CollectionProperty(type=speckle_version)
+    bpy.types.Scene.speckle_ui_mode = bpy.props.StringProperty(name="UI Mode", default="NONE")
 
 def unregister():
     for cls in classes:
@@ -36,6 +38,7 @@ def unregister():
     del bpy.types.Scene.speckle_projects
     del bpy.types.Scene.speckle_models
     del bpy.types.Scene.speckle_versions
+    del bpy.types.Scene.speckle_ui_mode
 # Run the register function when the script is executed
 if __name__ == "__main__":
     register()

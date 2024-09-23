@@ -37,7 +37,10 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
     model_index: bpy.props.IntProperty(name="Model Index", default=0)
 
     def execute(self, context):
-        bpy.ops.speckle.version_selection_dialog("INVOKE_DEFAULT")
+        if context.scene.speckle_ui_mode == "PUBLISH":
+            bpy.ops.speckle.selection_dialog("INVOKE_DEFAULT")
+        elif context.scene.speckle_ui_mode == "LOAD":
+            bpy.ops.speckle.version_selection_dialog("INVOKE_DEFAULT")
         return {'FINISHED'}
 
     def invoke(self, context, event):
