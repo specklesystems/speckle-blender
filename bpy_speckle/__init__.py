@@ -39,6 +39,7 @@ def unregister():
     del bpy.types.Scene.speckle_models
     del bpy.types.Scene.speckle_versions
     del bpy.types.Scene.speckle_ui_mode
+
 # Run the register function when the script is executed
 if __name__ == "__main__":
     register()

@@ -5,13 +5,24 @@ class SPECKLE_OT_selection_dialog(bpy.types.Operator):
     bl_label = "Select Objects"
 
     selection_type: bpy.props.EnumProperty(
-        name="Selection Type",
+        name="Selection",
         items=[
             ("SELECTION", "Selection", "Select objects manually"),
         ],
         default="SELECTION"
     )
-    
+
+    project_name: bpy.props.StringProperty(
+        name="Project Name",
+        description="Name of the selected project",
+        default=""
+    )
+
+    model_name: bpy.props.StringProperty(
+        name="Model Name",
+        description="Name of the selected model",
+        default=""
+    )
 
     def execute(self, context):
         return {'FINISHED'}
@@ -21,6 +32,11 @@ class SPECKLE_OT_selection_dialog(bpy.types.Operator):
     
     def draw(self, context):
         layout = self.layout
+
+        layout.label(text=f"Project: {self.project_name}")
+        layout.label(text=f"Model: {self.model_name}")
+
+        # Selection dropdown
         layout.prop(self, "selection_type")
         layout.separator()
 

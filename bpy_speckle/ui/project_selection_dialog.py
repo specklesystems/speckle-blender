@@ -45,7 +45,8 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     project_index: bpy.props.IntProperty(name="Project Index", default=0)
     
     def execute(self, context):
-        bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT")
+        selected_project = context.scene.speckle_projects[self.project_index]
+        bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name)
         return {'FINISHED'}
     
     def invoke(self, context, event):

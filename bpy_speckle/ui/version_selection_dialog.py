@@ -29,6 +29,18 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
         default=""
     )
 
+    project_name: bpy.props.StringProperty(
+        name="Project Name",
+        description="Name of the selected project",
+        default=""
+    )
+
+    model_name: bpy.props.StringProperty(
+        name="Model Name",
+        description="Name of the selected model",
+        default=""
+    )
+
     versions = [
         ("648896", "Message 1", "12 day ago"),
         ("658465", "Message 2", "15 days ago"),
@@ -54,6 +66,8 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
     
     def draw(self, context):
         layout = self.layout
+        layout.label(text=f"Project: {self.project_name}")
+        layout.label(text=f"Model: {self.model_name}")
         # TODO: Add more UI elements here.
         # Search field
         row = layout.row(align=True)

@@ -28,6 +28,12 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         default=""
     )
 
+    project_name: bpy.props.StringProperty(
+        name="Project Name",
+        description="The name of the project to select",
+        default=""
+    )
+
     models = [
         ("94-workset name", "RVT", "1 day ago"),
         ("296/skp2skp3", "SKP", "16 days ago"),
@@ -37,10 +43,11 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
     model_index: bpy.props.IntProperty(name="Model Index", default=0)
 
     def execute(self, context):
+        selected_model = context.scene.speckle_models[self.model_index]
         if context.scene.speckle_ui_mode == "PUBLISH":
-            bpy.ops.speckle.selection_dialog("INVOKE_DEFAULT")
+            bpy.ops.speckle.selection_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
         elif context.scene.speckle_ui_mode == "LOAD":
-            bpy.ops.speckle.version_selection_dialog("INVOKE_DEFAULT")
+            bpy.ops.speckle.version_selection_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -56,6 +63,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
     
     def draw(self, context):
         layout = self.layout
+        layout.label(text=f"Project: {self.project_name}")
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon='VIEWZOOM', text="")
