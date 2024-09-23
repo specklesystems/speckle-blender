@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "speckle_blender_addon",
+			"path": "."
+		}
+	],
+	"settings": {
+		"blender.addon.loadDirectory": "auto",
+		"blender.executables": []
+	}
+}
