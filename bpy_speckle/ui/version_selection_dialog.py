@@ -11,9 +11,11 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
-            row.label(text=item.id)
-            row.label(text=item.message)
-            row.label(text=item.updated)
+            split = row.split(factor=0.166)
+            split.label(text=item.id)
+            right_split = split.split(factor=0.7)
+            right_split.label(text=item.message)
+            right_split.label(text=item.updated)
         # This handles when the list is in a grid layout
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'

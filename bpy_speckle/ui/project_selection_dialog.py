@@ -9,9 +9,12 @@ class SPECKLE_UL_projects_list(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
-            row.label(text=item.name)
-            row.label(text=item.role)
-            row.label(text=item.updated)
+            split = row.split(factor=0.5) # This gives project name 1/2
+            split.label(text=item.name)
+            
+            right_split = split.split(factor=0.5) # This gives project role and updated the other 1/2 of the row
+            right_split.label(text=item.role)
+            right_split.label(text=item.updated)
         # This handles when the list is in a grid layout
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
