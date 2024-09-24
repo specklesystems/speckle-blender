@@ -51,6 +51,13 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
 
 
     def execute(self, context):
+        model_card = context.scene.speckle_model_cards.add()
+        model_card.project_name = self.project_name
+        model_card.model_name = self.model_name
+        model_card.is_publish = False
+        # Store the selected version ID
+        selected_version = context.scene.speckle_versions[self.version_index]
+        model_card.version_id = selected_version.id
         return {'FINISHED'}
 
     def invoke(self, context, event):

@@ -25,6 +25,26 @@ class SPECKLE_OT_selection_dialog(bpy.types.Operator):
     )
 
     def execute(self, context):
+        model_card = context.scene.speckle_model_cards.add()
+        model_card.project_name = self.project_name
+        model_card.model_name = self.model_name
+        model_card.is_publish = True
+        
+        # Create the selection summary
+        selected_objects = context.selected_objects
+        total_selected = len(selected_objects)
+        object_types = {}
+        for obj in selected_objects:
+            if obj.type not in object_types:
+                object_types[obj.type] = 1
+            else:
+                object_types[obj.type] += 1
+
+        summary = f"{total_selected} objects - "
+        for obj_type, count in object_types.items():
+            summary += f"{obj_type}: {count}, "
+
+        model_card.selection_summary = summary.strip()
         return {'FINISHED'}
     
     def invoke(self, context, event):

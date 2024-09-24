@@ -24,3 +24,21 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
         row = layout.row()
         row.operator("speckle.publish", text="Publish", icon='EXPORT')
         row.operator("speckle.load", text="Load", icon='IMPORT')
+
+        layout.separator()
+
+        for model_card in context.scene.speckle_model_cards:
+            box = layout.box()
+            row = box.row()
+            icon = 'EXPORT' if model_card.is_publish else 'IMPORT'
+            row.label(icon=icon)
+            row.label(text=model_card.model_name)
+            row.label(text=model_card.project_name)
+            row.operator("speckle.model_card_settings", text="", icon='PREFERENCES').model_name = model_card.model_name
+            # Display selection summary or version ID
+            if model_card.is_publish:
+                box.label(text=f"Selection: {model_card.selection_summary}")
+            else:
+                box.label(text=f"Version ID: {model_card.version_id}")
+
+
