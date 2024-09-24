@@ -1,12 +1,25 @@
 import bpy
 
 class speckle_version(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing versions.
+
+    This PropertyGroup is used to store information about a version,
+    such as its ID, message, and updated time.
+
+    These are then used in the version selection dialog.
+    """
     id: bpy.props.StringProperty(name="ID")
     message: bpy.props.StringProperty(name="Message")
     updated: bpy.props.StringProperty(name="Updated")
     source_app: bpy.props.StringProperty(name="Source")
 
 class SPECKLE_UL_versions_list(bpy.types.UIList):
+    """
+    UIList for displaying a list of versions.
+
+    This UIList is used to display a list of versions in the version selection dialog.
+    """
     #TODO: Adjust column widths so message has the most space.
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -22,6 +35,9 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
             layout.label(text=item.id)
 
 class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
+    """
+    Operator for selecting a version.
+    """
     bl_idname = "speckle.version_selection_dialog"
     bl_label = "Select Version"
 

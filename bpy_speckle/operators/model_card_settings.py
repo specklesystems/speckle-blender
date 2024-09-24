@@ -2,6 +2,12 @@ import bpy
 import webbrowser
 
 class SPECKLE_OT_model_card_settings(bpy.types.Operator):
+    """
+    Operator for managing model card settings.
+
+    This operator provides functionality to view and modify settings
+    for a specific model card.
+    """
     bl_idname = "speckle.model_card_settings"
     bl_label = "Model Card Settings"
     bl_description = "Settings for the model card"
@@ -23,6 +29,9 @@ class SPECKLE_OT_model_card_settings(bpy.types.Operator):
 
 # Operator for viewing the model in the browser
 class SPECKLE_OT_view_in_browser(bpy.types.Operator):
+    """
+    Operator for viewing the model in the browser.
+    """
     bl_idname = "speckle.view_in_browser"
     bl_label = "View in Browser"
     bl_description = "View the model in the browser"
@@ -35,6 +44,9 @@ class SPECKLE_OT_view_in_browser(bpy.types.Operator):
 
 # Operator for viewing the model versions in the browser
 class SPECKLE_OT_view_model_versions(bpy.types.Operator):
+    """
+    Operator for viewing the model versions in the browser.
+    """
     bl_idname = "speckle.view_model_versions"
     bl_label = "View Model Versions"
     bl_description = "View the model versions in the browser"

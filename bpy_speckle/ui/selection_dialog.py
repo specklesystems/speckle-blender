@@ -1,6 +1,9 @@
 import bpy
 
 class SPECKLE_OT_selection_dialog(bpy.types.Operator):
+    """
+    Operator for selecting objects.
+    """
     bl_idname = "speckle.selection_dialog"
     bl_label = "Select Objects"
 

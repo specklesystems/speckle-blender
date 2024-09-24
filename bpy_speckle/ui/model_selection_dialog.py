@@ -1,11 +1,24 @@
 import bpy
 
 class speckle_model(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing models.
+
+    This PropertyGroup is used to store information about a model,
+    such as its name, source application, and update time.
+
+    These are then used in the model selection dialog.
+    """
     name: bpy.props.StringProperty()
     source_app: bpy.props.StringProperty(name="Source")
     updated: bpy.props.StringProperty(name="Updated")
 
 class SPECKLE_UL_models_list(bpy.types.UIList):
+    """
+    UIList for displaying a list of models.
+
+    This UIList is used to display a list of models in model selection dialog.
+    """
     #TODO: Adjust column widths so name has the most space.
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -22,6 +35,9 @@ class SPECKLE_UL_models_list(bpy.types.UIList):
             layout.label(text=item.name)
 
 class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
+    """
+    Operator for displaying a dialog for selecting a model.
+    """
     bl_idname = "speckle.model_selection_dialog"
     bl_label = "Select Model"
 

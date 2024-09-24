@@ -1,11 +1,25 @@
 import bpy
 
 class speckle_project(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing projects.
+
+    This PropertyGroup is used to store information about a project,
+    such as its name, role, and update time.
+
+    This is used in the project selection dialog.
+    """
     name: bpy.props.StringProperty()
     role: bpy.props.StringProperty(name="Role")
     updated: bpy.props.StringProperty(name="Updated")
 
 class SPECKLE_UL_projects_list(bpy.types.UIList):
+    """
+    UIList for displaying a list of projects.
+
+    This UIList is used to display a list of projects in a Blender dialog.
+    This is used in the project selection dialog.
+    """
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
@@ -21,6 +35,9 @@ class SPECKLE_UL_projects_list(bpy.types.UIList):
             layout.label(text=item.name)
 
 class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
+    """
+    Operator for project selection dialog.
+    """
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
 
