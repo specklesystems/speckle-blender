@@ -1,5 +1,6 @@
 import bpy
 from bpy.types import UILayout, Context
+from .icons import get_icon
 
 # Main Panel
 class SPECKLE_PT_main_panel(bpy.types.Panel):
@@ -17,6 +18,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
     def draw(self, context: Context) -> None:
         layout : UILayout = self.layout
+        layout.label(text="Speckle Connector BETA", icon_value=get_icon("speckle_logo"))
         
         # Check to see if there are any speckle models in the file
         if not context.scene.speckle_model_cards:

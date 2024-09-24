@@ -12,6 +12,8 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from .ui import icons
+
 # UI
 from .ui.main_panel import SPECKLE_PT_main_panel
 from .ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url
@@ -37,6 +39,8 @@ classes = (
 
 # Register and Unregister
 def register():
+    icons.load_icons()
+
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Scene.speckle_projects = bpy.props.CollectionProperty(type=speckle_project)
@@ -47,6 +51,7 @@ def register():
     bpy.types.Scene.speckle_model_card_index = bpy.props.IntProperty(name="Model Card Index", default=0)
 
 def unregister():
+    icons.unload_icons()
     for cls in classes:
         bpy.utils.unregister_class(cls)
     del bpy.types.Scene.speckle_projects
