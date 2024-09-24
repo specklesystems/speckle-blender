@@ -22,10 +22,18 @@ from .ui.model_card import speckle_model_card
 # Operators
 from .operators.publish import SPECKLE_OT_publish
 from .operators.load import SPECKLE_OT_load
-from .operators.model_card_settings import SPECKLE_OT_model_card_settings
+from .operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions
 
 # Classes to load
-classes = (SPECKLE_PT_main_panel, SPECKLE_OT_publish, SPECKLE_OT_load, SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list, SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list, SPECKLE_OT_selection_dialog, speckle_model_card, SPECKLE_OT_model_card_settings)
+classes = (
+    SPECKLE_PT_main_panel, 
+    SPECKLE_OT_publish, 
+    SPECKLE_OT_load, 
+    SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, 
+    SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list, 
+    SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list, 
+    SPECKLE_OT_selection_dialog, 
+    speckle_model_card, SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions)
 
 # Register and Unregister
 def register():
