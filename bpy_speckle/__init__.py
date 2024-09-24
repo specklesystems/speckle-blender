@@ -12,15 +12,17 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
-
+# UI
 from .ui.main_panel import SPECKLE_PT_main_panel
-from .operators.publish import SPECKLE_OT_publish
-from .operators.load import SPECKLE_OT_load
 from .ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list
 from .ui.model_selection_dialog import SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list
 from .ui.version_selection_dialog import SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list
 from .ui.selection_dialog import SPECKLE_OT_selection_dialog
+# Operators
+from .operators.publish import SPECKLE_OT_publish
+from .operators.load import SPECKLE_OT_load
 
+# Classes to load
 classes = (SPECKLE_PT_main_panel, SPECKLE_OT_publish, SPECKLE_OT_load, SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list, SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list, SPECKLE_OT_selection_dialog)
 
 # Register and Unregister
