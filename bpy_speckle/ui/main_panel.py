@@ -12,10 +12,10 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         
-        # TODO: Add a check to see if there are any speckle models in the file
-        # Add greeting text
-        layout.label(text="Hello!")
-        layout.label(text="There are no Speckle models in this file yet.")
+        # Check to see if there are any speckle models in the file
+        if not context.scene.speckle_model_cards:
+            layout.label(text="Hello!") 
+            layout.label(text="There are no Speckle models in this file yet.")
         
         # Add some space
         layout.separator()
