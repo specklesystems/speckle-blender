@@ -31,14 +31,23 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             box = layout.box()
             row = box.row()
             icon = 'EXPORT' if model_card.is_publish else 'IMPORT'
-            row.label(icon=icon)
-            row.label(text=model_card.model_name)
-            row.label(text=model_card.project_name)
+            row.operator("speckle.publish", text="", icon=icon)
+            row.label(text=f"{model_card.model_name} - {model_card.project_name}")
             row.operator("speckle.model_card_settings", text="", icon='PREFERENCES').model_name = model_card.model_name
+            row = box.row()
             # Display selection summary or version ID
             if model_card.is_publish:
-                box.label(text=f"Selection: {model_card.selection_summary}")
+                # This adjusts the layout of the row (button 1/3, label 2/3 )
+                split = row.split(factor=0.33)
+                # TODO: Connect to selection operator
+                split.operator("speckle.publish", text="Selection")
+                split.label(text=f"{model_card.selection_summary}")
             else:
-                box.label(text=f"Version ID: {model_card.version_id}")
+                # This adjusts the layout of the row (button 1/3, label 2/3 )
+                split = row.split(factor=0.33)
+                # TODO: Connect to version operator
+                split.operator("speckle.load", text=f"{model_card.version_id}")
+                # TODO: Get last updated time
+                split.label(text="Last updated: 2 days ago")
 
 
