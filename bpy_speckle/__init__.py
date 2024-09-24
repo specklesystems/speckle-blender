@@ -14,7 +14,7 @@
 import bpy
 # UI
 from .ui.main_panel import SPECKLE_PT_main_panel
-from .ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list
+from .ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url
 from .ui.model_selection_dialog import SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list
 from .ui.version_selection_dialog import SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list
 from .ui.selection_dialog import SPECKLE_OT_selection_dialog
@@ -29,7 +29,7 @@ classes = (
     SPECKLE_PT_main_panel, 
     SPECKLE_OT_publish, 
     SPECKLE_OT_load, 
-    SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, 
+    SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url,
     SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list, 
     SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list, 
     SPECKLE_OT_selection_dialog, 
