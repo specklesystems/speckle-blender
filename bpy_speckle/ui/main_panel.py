@@ -1,4 +1,5 @@
 import bpy
+from bpy.types import UILayout, Context
 
 # Main Panel
 class SPECKLE_PT_main_panel(bpy.types.Panel):
@@ -14,8 +15,8 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'Speckle'
 
-    def draw(self, context):
-        layout = self.layout
+    def draw(self, context: Context) -> None:
+        layout : UILayout = self.layout
         
         # Check to see if there are any speckle models in the file
         if not context.scene.speckle_model_cards:

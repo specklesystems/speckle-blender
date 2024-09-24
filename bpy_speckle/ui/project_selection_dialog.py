@@ -1,4 +1,5 @@
 import bpy
+from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
 
 class speckle_project(bpy.types.PropertyGroup):
     """
@@ -20,7 +21,7 @@ class SPECKLE_UL_projects_list(bpy.types.UIList):
     This UIList is used to display a list of projects in a Blender dialog.
     This is used in the project selection dialog.
     """
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+    def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, icon: str, active_data: PropertyGroup, active_propname: str) -> None:
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
             split = row.split(factor=0.5) # This gives project name 1/2
@@ -54,7 +55,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         default=""
     )
 
-    projects = [
+    projects: list[tuple[str, str, str]] = [
         ("RICK'S PORTAL", "contributor", "6 hours ago"),
         ("[BETA] Revit Tests", "owner", "6 hours ago"),
         ("Community Tickets", "owner", "a day ago"),
@@ -64,12 +65,12 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
     project_index: bpy.props.IntProperty(name="Project Index", default=0)
     
-    def execute(self, context):
+    def execute(self, context: Context) -> set[str]:
         selected_project = context.scene.speckle_projects[self.project_index]
         bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name)
         return {'FINISHED'}
     
-    def invoke(self, context, event):
+    def invoke(self, context: Context, event: Event) -> set[str]:
         # Clear existing projects
         context.scene.speckle_projects.clear()
     
@@ -82,9 +83,9 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     
         return context.window_manager.invoke_props_dialog(self)
 
-    def draw(self, context):
+    def draw(self, context: Context) -> None:
         # TODO: Add UI elements here
-        layout = self.layout
+        layout : UILayout = self.layout
         # Account selection
         # TODO: Connect to Speckle API to get accounts
         layout.prop(self, "account", text="")

@@ -1,4 +1,5 @@
 import bpy
+from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
 
 class speckle_model(bpy.types.PropertyGroup):
     """
@@ -20,7 +21,7 @@ class SPECKLE_UL_models_list(bpy.types.UIList):
     This UIList is used to display a list of models in model selection dialog.
     """
     #TODO: Adjust column widths so name has the most space.
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+    def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, icon: str, active_data: PropertyGroup, active_propname: str) -> None:
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
             split = row.split(factor=0.5)
@@ -53,7 +54,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         default=""
     )
 
-    models = [
+    models: list[tuple[str, str, str]] = [
         ("94-workset name", "RVT", "1 day ago"),
         ("296/skp2skp3", "SKP", "16 days ago"),
         ("49/rhn2viewer", "RHN", "21 days ago"),
@@ -61,7 +62,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
 
     model_index: bpy.props.IntProperty(name="Model Index", default=0)
 
-    def execute(self, context):
+    def execute(self, context: Context) -> set[str]:
         selected_model = context.scene.speckle_models[self.model_index]
         if context.scene.speckle_ui_mode == "PUBLISH":
             bpy.ops.speckle.selection_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
@@ -69,7 +70,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
             bpy.ops.speckle.version_selection_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
         return {'FINISHED'}
 
-    def invoke(self, context, event):
+    def invoke(self, context: Context, event: Event) -> set[str]:
         # Clear existing models
         context.scene.speckle_models.clear()
         # Populate with new projects
@@ -80,8 +81,8 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
             model.updated = updated
         return context.window_manager.invoke_props_dialog(self)
     
-    def draw(self, context):
-        layout = self.layout
+    def draw(self, context: Context) -> None:
+        layout : UILayout = self.layout
         layout.label(text=f"Project: {self.project_name}")
         # Search field
         row = layout.row(align=True)
