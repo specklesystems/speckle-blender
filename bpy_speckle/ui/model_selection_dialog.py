@@ -65,7 +65,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
     def execute(self, context: Context) -> set[str]:
         selected_model = context.scene.speckle_models[self.model_index]
         if context.scene.speckle_ui_mode == "PUBLISH":
-            bpy.ops.speckle.selection_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
+            bpy.ops.speckle.selection_filter_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
         elif context.scene.speckle_ui_mode == "LOAD":
             bpy.ops.speckle.version_selection_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
         return {'FINISHED'}

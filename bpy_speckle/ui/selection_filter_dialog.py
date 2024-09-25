@@ -1,10 +1,10 @@
 import bpy
 
-class SPECKLE_OT_selection_dialog(bpy.types.Operator):
+class SPECKLE_OT_selection_filter_dialog(bpy.types.Operator): 
     """
     Operator for selecting objects.
     """
-    bl_idname = "speckle.selection_dialog"
+    bl_idname = "speckle.selection_filter_dialog"
     bl_label = "Select Objects"
 
     selection_type: bpy.props.EnumProperty(
