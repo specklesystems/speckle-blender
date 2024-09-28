@@ -13,6 +13,7 @@
 
 import bpy
 from .ui import icons
+import json
 
 # UI
 from .ui.main_panel import SPECKLE_PT_main_panel
@@ -26,6 +27,20 @@ from .operators.publish import SPECKLE_OT_publish
 from .operators.load import SPECKLE_OT_load
 from .operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions
 
+def save_model_cards(scene):
+    model_cards_data = [card.to_dict() for card in scene.speckle_model_cards]
+    scene["speckle_model_cards_data"] = json.dumps(model_cards_data)
+
+def load_model_cards(scene):
+    if "speckle_model_cards_data" in scene:
+        model_cards_data = json.loads(scene["speckle_model_cards_data"])
+        scene.speckle_model_cards.clear()
+        for card_data in model_cards_data:
+            card = speckle_model_card.from_dict(card_data)
+            scene.speckle_model_cards.add().update(card)
+
+
+
 # Classes to load
 classes = (
     SPECKLE_PT_main_panel, 
@@ -36,6 +51,14 @@ classes = (
     SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list, 
     SPECKLE_OT_selection_filter_dialog, 
     speckle_model_card, SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions)
+
+@bpy.app.handlers.persistent
+def load_handler(dummy):
+    load_model_cards(bpy.context.scene)
+
+@bpy.app.handlers.persistent
+def save_handler(dummy):
+    save_model_cards(bpy.context.scene)
 
 # Register and Unregister
 def register():
@@ -50,6 +73,9 @@ def register():
     bpy.types.Scene.speckle_model_cards = bpy.props.CollectionProperty(type=speckle_model_card)
     bpy.types.Scene.speckle_model_card_index = bpy.props.IntProperty(name="Model Card Index", default=0)
 
+    bpy.app.handlers.load_post.append(load_handler)
+    bpy.app.handlers.save_post.append(save_handler)
+
 def unregister():
     icons.unload_icons()
     for cls in classes:
@@ -60,6 +86,9 @@ def unregister():
     del bpy.types.Scene.speckle_ui_mode
     del bpy.types.Scene.speckle_model_cards
     del bpy.types.Scene.speckle_model_card_index
+
+    bpy.app.handlers.load_post.remove(load_handler)
+    bpy.app.handlers.save_post.remove(save_handler)
 
 # Run the register function when the script is executed
 if __name__ == "__main__":
