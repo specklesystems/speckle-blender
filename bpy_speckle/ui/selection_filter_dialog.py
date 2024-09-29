@@ -1,6 +1,7 @@
 import bpy
+from .mouse_position_mixin import MousePositionMixin
 
-class SPECKLE_OT_selection_filter_dialog(bpy.types.Operator): 
+class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, bpy.types.Operator): 
     """
     Operator for selecting objects.
     """
@@ -51,6 +52,8 @@ class SPECKLE_OT_selection_filter_dialog(bpy.types.Operator):
         return {'FINISHED'}
     
     def invoke(self, context, event):
+        # Initialize mouse position
+        self.init_mouse_position(context, event)
         return context.window_manager.invoke_props_dialog(self)
     
     def draw(self, context):
@@ -89,6 +92,9 @@ class SPECKLE_OT_selection_filter_dialog(bpy.types.Operator):
             row.label(text=str(count))
         
         layout.separator()
+
+        # Restore mouse position
+        self.restore_mouse_position(context)
     
     def get_icon_for_type(self, obj_type):
         icon_map = {

@@ -49,6 +49,7 @@ def register():
     bpy.types.Scene.speckle_ui_mode = bpy.props.StringProperty(name="UI Mode", default="NONE")
     bpy.types.Scene.speckle_model_cards = bpy.props.CollectionProperty(type=speckle_model_card)
     bpy.types.Scene.speckle_model_card_index = bpy.props.IntProperty(name="Model Card Index", default=0)
+    bpy.types.Scene.speckle_mouse_position = bpy.props.IntVectorProperty(size=2)
 
 def unregister():
     icons.unload_icons()
@@ -60,7 +61,7 @@ def unregister():
     del bpy.types.Scene.speckle_ui_mode
     del bpy.types.Scene.speckle_model_cards
     del bpy.types.Scene.speckle_model_card_index
-
+    del bpy.types.Scene.speckle_mouse_position
 # Run the register function when the script is executed
 if __name__ == "__main__":
     register()

@@ -1,4 +1,5 @@
 import bpy
+from .mouse_position_mixin import MousePositionMixin
 
 class speckle_version(bpy.types.PropertyGroup):
     """
@@ -34,7 +35,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
             layout.alignment = 'CENTER'
             layout.label(text=item.id)
 
-class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
+class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator):
     """
     Operator for selecting a version.
     """
@@ -87,6 +88,9 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             version.id = id
             version.message = message
             version.updated = updated
+        
+        # Initialize mouse position
+        self.init_mouse_position(context, event)
         return context.window_manager.invoke_props_dialog(self)
     
     def draw(self, context):
@@ -101,3 +105,6 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
         layout.template_list("SPECKLE_UL_versions_list", "", context.scene, "speckle_versions", self, "version_index")
 
         layout.separator()
+
+        # Restore mouse position
+        self.restore_mouse_position(context)

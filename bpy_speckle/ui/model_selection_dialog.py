@@ -1,5 +1,6 @@
 import bpy
 from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
+from .mouse_position_mixin import MousePositionMixin
 
 class speckle_model(bpy.types.PropertyGroup):
     """
@@ -35,7 +36,7 @@ class SPECKLE_UL_models_list(bpy.types.UIList):
             layout.alignment = 'CENTER'
             layout.label(text=item.name)
 
-class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
+class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
     """
     Operator for displaying a dialog for selecting a model.
     """
@@ -79,6 +80,10 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
             model.name = name
             model.source_app = source_app
             model.updated = updated
+        
+        # Store the original mouse position
+        self.init_mouse_position(context, event)
+
         return context.window_manager.invoke_props_dialog(self)
     
     def draw(self, context: Context) -> None:
@@ -92,3 +97,6 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         layout.template_list("SPECKLE_UL_models_list", "", context.scene, "speckle_models", self, "model_index")
 
         layout.separator()
+
+        # Move cursor to original position
+        self.restore_mouse_position(context)
