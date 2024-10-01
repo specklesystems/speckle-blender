@@ -26,6 +26,9 @@ from .ui.model_card import speckle_model_card
 from .operators.publish import SPECKLE_OT_publish
 from .operators.load import SPECKLE_OT_load
 from .operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions
+# Bindings
+from .bindings.account_binding import AccountBinding
+
 
 def save_model_cards(scene):
     model_cards_data = [card.to_dict() for card in scene.speckle_model_cards]
@@ -50,7 +53,8 @@ classes = (
     SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list, 
     SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list, 
     SPECKLE_OT_selection_filter_dialog, 
-    speckle_model_card, SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions)
+    speckle_model_card, SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions,
+    AccountBinding)
 
 @bpy.app.handlers.persistent
 def load_handler(dummy):

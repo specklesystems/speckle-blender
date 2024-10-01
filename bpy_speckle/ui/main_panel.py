@@ -1,6 +1,7 @@
 import bpy
 from bpy.types import UILayout, Context
 from .icons import get_icon
+from bindings.account_binding import AccountBinding
 
 # Main Panel
 class SPECKLE_PT_main_panel(bpy.types.Panel):
@@ -16,9 +17,14 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'Speckle'
 
+    bindings = {"accountBinding": AccountBinding()}
+
     def draw(self, context: Context) -> None:
         layout : UILayout = self.layout
         layout.label(text="Speckle Connector BETA", icon_value=get_icon("speckle_logo"))
+        
+        # for (binding_name, binding) in self.bindings:
+        #     context[binding_name] = binding
         
         # Check to see if there are any speckle models in the file
         if not context.scene.speckle_model_cards:

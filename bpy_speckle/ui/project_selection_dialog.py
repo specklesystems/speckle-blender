@@ -86,6 +86,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     def draw(self, context: Context) -> None:
         # TODO: Add UI elements here
         layout : UILayout = self.layout
+        accounts = context.accountBinding.get_accounts()
         # Account selection
         # TODO: Connect to Speckle API to get accounts
         layout.prop(self, "account", text="")
