@@ -16,7 +16,7 @@ from .ui import icons
 import json
 
 # Ensure dependencies
-from bpy_speckle.installer import ensure_dependencies
+from .installer import ensure_dependencies
 ensure_dependencies(f"Blender {bpy.app.version[0]}.{bpy.app.version[1]}")
 
 
