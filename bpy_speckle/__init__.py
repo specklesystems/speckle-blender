@@ -15,6 +15,11 @@ import bpy
 from .ui import icons
 import json
 
+# Ensure dependencies
+from bpy_speckle.installer import ensure_dependencies
+ensure_dependencies(f"Blender {bpy.app.version[0]}.{bpy.app.version[1]}")
+
+
 # UI
 from .ui.main_panel import SPECKLE_PT_main_panel
 from .ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url
