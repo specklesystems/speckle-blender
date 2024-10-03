@@ -42,13 +42,6 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
 
-    account: bpy.props.EnumProperty(
-        name="Account",
-        description="Select the account to filter projects by",
-        items=[("account1", "Account 1", "Account 1"), ("account2", "Account 2", "Account 2")],
-        default="account1"
-    )
-
     search_query: bpy.props.StringProperty(
         name="Search",
         description="Search a project",
@@ -88,7 +81,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         layout : UILayout = self.layout
         # Account selection
         # TODO: Connect to Speckle API to get accounts
-        layout.prop(self, "account", text="")
+        layout.prop(context.scene.speckle_state, "account", text="")
 
         # Search field
         row = layout.row(align=True)
