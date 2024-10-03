@@ -32,6 +32,10 @@ from .operators.publish import SPECKLE_OT_publish
 from .operators.load import SPECKLE_OT_load
 from .operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions
 
+# State
+from .speckle_state import SpeckleState
+from .bindings import account_binding
+
 def save_model_cards(scene):
     model_cards_data = [card.to_dict() for card in scene.speckle_model_cards]
     scene["speckle_model_cards_data"] = json.dumps(model_cards_data)
@@ -69,6 +73,10 @@ def save_handler(dummy):
 def register():
     icons.load_icons()
 
+    account_binding.register()
+    bpy.utils.register_class(SpeckleState)
+    bpy.types.Scene.speckle_state = bpy.props.PointerProperty(type=SpeckleState)
+
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Scene.speckle_projects = bpy.props.CollectionProperty(type=speckle_project)
@@ -82,6 +90,9 @@ def register():
     bpy.app.handlers.load_post.append(load_handler)
     bpy.app.handlers.save_post.append(save_handler)
 
+    bpy.types.Scene.speckle_state = bpy.props.PointerProperty(type=SpeckleState)
+    bpy.context.scene.speckle_state.initialize()
+
 def unregister():
     icons.unload_icons()
     for cls in classes:
@@ -93,6 +104,10 @@ def unregister():
     del bpy.types.Scene.speckle_model_cards
     del bpy.types.Scene.speckle_model_card_index
     del bpy.types.Scene.speckle_mouse_position
+
+    del bpy.types.Scene.speckle_state
+    bpy.utils.unregister_class(SpeckleState)
+    account_binding.unregister()
 
     bpy.app.handlers.load_post.remove(load_handler)
     bpy.app.handlers.save_post.remove(save_handler)

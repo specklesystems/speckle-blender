@@ -45,8 +45,9 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     account: bpy.props.EnumProperty(
         name="Account",
         description="Select the account to filter projects by",
-        items=[("account1", "Account 1", "Account 1"), ("account2", "Account 2", "Account 2")],
-        default="account1"
+        items= lambda self, context: [(acc.id, acc.userInfo.name, "") for acc in context.scene.speckle_state.account_binding.accounts],
+        update= lambda self, context: self.update_active_account(context)
+
     )
 
     search_query: bpy.props.StringProperty(
@@ -71,6 +72,9 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         return {'FINISHED'}
     
     def invoke(self, context: Context, event: Event) -> set[str]:
+        # Ste the initial account to the active account
+        self.account = context.scene.speckle_state.account_binding.active_account.id
+
         # Clear existing projects
         context.scene.speckle_projects.clear()
     
@@ -99,6 +103,13 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         layout.template_list("SPECKLE_UL_projects_list", "", context.scene, "speckle_projects", self, "project_index")
 
         layout.separator()
+    
+    def update_active_account(self, context):
+        account = next((acc for acc in context.scene.speckle_state.account_binding.accounts if acc.id == self.account), None)
+        if account:
+            context.scene.speckle_state.account_binding.set_active_account(account)
+
+
 
 class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
     """
