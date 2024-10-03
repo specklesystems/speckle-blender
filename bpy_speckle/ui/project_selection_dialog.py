@@ -80,7 +80,6 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # TODO: Add UI elements here
         layout : UILayout = self.layout
         # Account selection
-        # TODO: Connect to Speckle API to get accounts
         layout.prop(context.scene.speckle_state, "account", text="")
 
         # Search field
