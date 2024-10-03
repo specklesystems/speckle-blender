@@ -70,21 +70,21 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
 
 
     def execute(self, context):
-        model_card = context.scene.speckle_model_cards.add()
+        model_card = context.scene.speckle_state.model_cards.add()
         model_card.project_name = self.project_name
         model_card.model_name = self.model_name
         model_card.is_publish = False
         # Store the selected version ID
-        selected_version = context.scene.speckle_versions[self.version_index]
+        selected_version = context.scene.speckle_state.versions[self.version_index]
         model_card.version_id = selected_version.id
         return {'FINISHED'}
 
     def invoke(self, context, event):
         # Clear existing versions
-        context.scene.speckle_versions.clear()
+        context.scene.speckle_state.versions.clear()
         # Populate with new versions
         for id, message, updated in self.versions:
-            version = context.scene.speckle_versions.add()
+            version = context.scene.speckle_state.versions.add()
             version.id = id
             version.message = message
             version.updated = updated
@@ -102,7 +102,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         row = layout.row(align=True)
         row.prop(self, "search_query", icon='VIEWZOOM', text="")
         # Versions UIList
-        layout.template_list("SPECKLE_UL_versions_list", "", context.scene, "speckle_versions", self, "version_index")
+        layout.template_list("SPECKLE_UL_versions_list", "", context.scene.speckle_state, "versions", self, "version_index")
 
         layout.separator()
 

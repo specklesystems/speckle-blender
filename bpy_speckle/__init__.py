@@ -12,6 +12,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+from bpy.props import PointerProperty, CollectionProperty, StringProperty, IntProperty, IntVectorProperty
 from .ui import icons
 import json
 
@@ -32,18 +33,20 @@ from .operators.publish import SPECKLE_OT_publish
 from .operators.load import SPECKLE_OT_load
 from .operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions
 
+# States
+from .states.speckle_state import register as register_speckle_state, unregister as unregister_speckle_state
+
 def save_model_cards(scene):
-    model_cards_data = [card.to_dict() for card in scene.speckle_model_cards]
+    model_cards_data = [card.to_dict() for card in scene.speckle_state.model_cards]
     scene["speckle_model_cards_data"] = json.dumps(model_cards_data)
 
 def load_model_cards(scene):
     if "speckle_model_cards_data" in scene:
         model_cards_data = json.loads(scene["speckle_model_cards_data"])
-        scene.speckle_model_cards.clear()
+        scene.speckle_state.model_cards.clear()
         for card_data in model_cards_data:
             card = speckle_model_card.from_dict(card_data)
-            scene.speckle_model_cards.add().update(card)
-
+            scene.speckle_state.model_cards.add().update(card)
 
 
 # Classes to load
@@ -71,28 +74,16 @@ def register():
 
     for cls in classes:
         bpy.utils.register_class(cls)
-    bpy.types.Scene.speckle_projects = bpy.props.CollectionProperty(type=speckle_project)
-    bpy.types.Scene.speckle_models = bpy.props.CollectionProperty(type=speckle_model)
-    bpy.types.Scene.speckle_versions = bpy.props.CollectionProperty(type=speckle_version)
-    bpy.types.Scene.speckle_ui_mode = bpy.props.StringProperty(name="UI Mode", default="NONE")
-    bpy.types.Scene.speckle_model_cards = bpy.props.CollectionProperty(type=speckle_model_card)
-    bpy.types.Scene.speckle_model_card_index = bpy.props.IntProperty(name="Model Card Index", default=0)
-    bpy.types.Scene.speckle_mouse_position = bpy.props.IntVectorProperty(size=2)
+    register_speckle_state() # Register SpeckleState
 
     bpy.app.handlers.load_post.append(load_handler)
     bpy.app.handlers.save_post.append(save_handler)
 
 def unregister():
     icons.unload_icons()
+    unregister_speckle_state() # Unregister SpeckleState
     for cls in classes:
         bpy.utils.unregister_class(cls)
-    del bpy.types.Scene.speckle_projects
-    del bpy.types.Scene.speckle_models
-    del bpy.types.Scene.speckle_versions
-    del bpy.types.Scene.speckle_ui_mode
-    del bpy.types.Scene.speckle_model_cards
-    del bpy.types.Scene.speckle_model_card_index
-    del bpy.types.Scene.speckle_mouse_position
 
     bpy.app.handlers.load_post.remove(load_handler)
     bpy.app.handlers.save_post.remove(save_handler)

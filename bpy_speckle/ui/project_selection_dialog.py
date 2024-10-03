@@ -66,17 +66,17 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     project_index: bpy.props.IntProperty(name="Project Index", default=0)
     
     def execute(self, context: Context) -> set[str]:
-        selected_project = context.scene.speckle_projects[self.project_index]
+        selected_project = context.scene.speckle_state.projects[self.project_index]
         bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name)
         return {'FINISHED'}
     
     def invoke(self, context: Context, event: Event) -> set[str]:
         # Clear existing projects
-        context.scene.speckle_projects.clear()
+        context.scene.speckle_state.projects.clear()
     
     # Populate with new projects
         for name, role, updated in self.projects:
-            project = context.scene.speckle_projects.add()
+            project = context.scene.speckle_state.projects.add()
             project.name = name
             project.role = role
             project.updated = updated
@@ -96,7 +96,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         row.operator("speckle.add_project_by_url", icon='URL', text="")
         
         # Projects UIList
-        layout.template_list("SPECKLE_UL_projects_list", "", context.scene, "speckle_projects", self, "project_index")
+        layout.template_list("SPECKLE_UL_projects_list", "", context.scene.speckle_state, "projects", self, "project_index")
 
         layout.separator()
 

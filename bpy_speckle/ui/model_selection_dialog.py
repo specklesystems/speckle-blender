@@ -64,19 +64,19 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
     model_index: bpy.props.IntProperty(name="Model Index", default=0)
 
     def execute(self, context: Context) -> set[str]:
-        selected_model = context.scene.speckle_models[self.model_index]
-        if context.scene.speckle_ui_mode == "PUBLISH":
+        selected_model = context.scene.speckle_state.models[self.model_index]
+        if context.scene.speckle_state.ui_mode == "PUBLISH":
             bpy.ops.speckle.selection_filter_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
-        elif context.scene.speckle_ui_mode == "LOAD":
+        elif context.scene.speckle_state.ui_mode == "LOAD":
             bpy.ops.speckle.version_selection_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
         return {'FINISHED'}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
         # Clear existing models
-        context.scene.speckle_models.clear()
+        context.scene.speckle_state.models.clear()
         # Populate with new projects
         for name, source_app, updated in self.models:
-            model = context.scene.speckle_models.add()
+            model = context.scene.speckle_state.models.add()
             model.name = name
             model.source_app = source_app
             model.updated = updated
@@ -94,7 +94,7 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
         row.prop(self, "search_query", icon='VIEWZOOM', text="")
         
         # Models UIList
-        layout.template_list("SPECKLE_UL_models_list", "", context.scene, "speckle_models", self, "model_index")
+        layout.template_list("SPECKLE_UL_models_list", "", context.scene.speckle_state, "models", self, "model_index")
 
         layout.separator()
 

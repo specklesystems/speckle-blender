@@ -21,7 +21,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
         layout.label(text="Speckle Connector BETA", icon_value=get_icon("speckle_logo"))
         
         # Check to see if there are any speckle models in the file
-        if not context.scene.speckle_model_cards:
+        if not context.scene.speckle_state.model_cards:
             layout.label(text="Hello!") 
             layout.label(text="There are no Speckle models in this file yet.")
         
@@ -35,7 +35,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
         layout.separator()
 
-        for model_card in context.scene.speckle_model_cards:
+        for model_card in context.scene.speckle_state.model_cards:
             box = layout.box()
             row = box.row()
             icon = 'EXPORT' if model_card.is_publish else 'IMPORT'

@@ -7,7 +7,7 @@ class MousePositionMixin:
     def init_mouse_position(self, context, event):
         self.original_mouse_position = (event.mouse_x, event.mouse_y)
         self.mouse_snap = False
-        context.window.cursor_warp(context.scene.speckle_mouse_position[0], context.scene.speckle_mouse_position[1])
+        context.window.cursor_warp(context.scene.speckle_state.mouse_position[0], context.scene.speckle_state.mouse_position[1])
 
     def restore_mouse_position(self, context):
         if not self.mouse_snap:
