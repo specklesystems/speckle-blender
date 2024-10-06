@@ -6,6 +6,9 @@ from ..ui.model_selection_dialog import speckle_model
 from ..ui.version_selection_dialog import speckle_version
 from ..ui.model_card import speckle_model_card
 
+from specklepy.logging.exceptions import SpeckleException
+from specklepy.api.credentials import get_local_accounts
+
 class SpeckleState(bpy.types.PropertyGroup):    
     projects: CollectionProperty(type=speckle_project)
     models: CollectionProperty(type=speckle_model)
@@ -19,8 +22,23 @@ class SpeckleState(bpy.types.PropertyGroup):
     account: EnumProperty(
         name="Account", 
         description= "Selected account to filter projects by",
-        items= [("account1", "Account 1", "Account 1"), ("account2", "Account 2", "Account 2")],
-        default="account1",)
+        items= lambda self, context: get_account_enum_items(),
+        default=None)
+
+def get_account_enum_items():
+    try:
+        accounts = get_local_accounts()
+        return [
+            (
+            account.id,
+            f"{account.userInfo.name} - {account.userInfo.email} - {account.serverInfo.url}", 
+            f"{account.userInfo.name} - {account.userInfo.email} - {account.serverInfo.url}"
+            )
+            for account in accounts
+        ]
+    except SpeckleException as e:
+        print(f"Error fetching Speckle accounts: {e}")
+        return [("", "No accounts found", "")]
 
 def register():
     bpy.utils.register_class(SpeckleState)
