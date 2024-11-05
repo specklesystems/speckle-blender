@@ -45,8 +45,10 @@ ReceiveCompleteCallback = Optional[
 
 def get_project_workspace_id(client: SpeckleClient, project_id: str) -> Optional[str]:
     workspace_id = None
-    (maj, min, patch) = client.server.server_version
-    if maj > 2 or (maj == 2 and min > 21):
+    server_version = client.project.server_version or client.server.verison()
+    maj = server_version[0]
+    min = server_version[1]
+    if maj > 2 or (maj == 2 and min > 20):
         workspace_id = client.project.get(project_id).workspaceId
     return workspace_id
 
