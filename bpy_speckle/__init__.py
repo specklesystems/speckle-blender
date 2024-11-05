@@ -1,15 +1,16 @@
 import bpy
+
 from bpy_speckle.installer import ensure_dependencies
 
 ensure_dependencies(f"Blender {bpy.app.version[0]}.{bpy.app.version[1]}")
 
+from bpy.app.handlers import persistent
 from specklepy.logging import metrics
 
-from bpy_speckle.ui import *
-from bpy_speckle.properties import *
-from bpy_speckle.operators import *
 from bpy_speckle.callbacks import *
-from bpy.app.handlers import persistent
+from bpy_speckle.operators import *
+from bpy_speckle.properties import *
+from bpy_speckle.ui import *
 
 bl_info = {
     "name": "SpeckleBlender 2.0",
@@ -24,7 +25,6 @@ bl_info = {
 }
 
 
-
 """
 Import SpeckleBlender classes
 """
@@ -34,15 +34,17 @@ Add load handler to initialize Speckle when
 loading a Blender file
 """
 
+
 @persistent
 def load_handler(dummy):
     pass
     # Calling users_load is an expensive operation, one that force users to wait a good 10s every time blender loads.
     # Until we can do this non-blocking, we will make the user hit the refresh button each time.
-    #bpy.ops.speckle.users_load()
-    
+    # bpy.ops.speckle.users_load()
+
     # Instead, we shall just reset the user selection to an uninitiailised state
     bpy.ops.speckle.users_reset()
+
 
 """
 Permanent handle on callbacks
@@ -93,7 +95,6 @@ def register():
 
 
 def unregister():
-
     bpy.app.handlers.load_post.remove(load_handler)
 
     """

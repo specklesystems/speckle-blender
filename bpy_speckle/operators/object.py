@@ -5,13 +5,13 @@ Object operators
 import bpy
 from bpy.props import BoolProperty, EnumProperty
 from deprecated import deprecated
-from bpy_speckle.convert.to_speckle import (
-    convert_to_speckle,
-    ngons_to_speckle_polylines,
-)
-from bpy_speckle.functions import get_scale_length, _report
-from bpy_speckle.clients import speckle_clients
 from specklepy.logging import metrics
+
+from bpy_speckle.clients import speckle_clients
+from bpy_speckle.convert.to_speckle import (convert_to_speckle,
+                                            ngons_to_speckle_polylines)
+from bpy_speckle.functions import _report, get_scale_length
+
 
 @deprecated
 class UpdateObject(bpy.types.Operator):
@@ -28,7 +28,6 @@ class UpdateObject(bpy.types.Operator):
     client = None
 
     def execute(self, context):
-        user = context.scene.speckle.users[int(context.scene.speckle.active_user)]
         client = speckle_clients[int(context.scene.speckle.active_user)]
 
         active = context.active_object
@@ -59,15 +58,14 @@ class UpdateObject(bpy.types.Operator):
 
                 metrics.track(
                     "Connector Action",
-                    None, 
-                    custom_props={
-                        "name": "UpdateObject"
-                    },
+                    None,
+                    custom_props={"name": "UpdateObject"},
                 )
                 return {"FINISHED"}
 
             return {"CANCELLED"}
         return {"CANCELLED"}
+
 
 @deprecated
 class ResetObject(bpy.types.Operator):
@@ -80,7 +78,6 @@ class ResetObject(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-
         context.object.speckle.send_or_receive = "send"
         context.object.speckle.stream_id = ""
         context.object.speckle.object_id = ""
@@ -89,13 +86,12 @@ class ResetObject(bpy.types.Operator):
 
         metrics.track(
             "Connector Action",
-            None, 
-            custom_props={
-                "name": "ResetObject"
-            },
+            None,
+            custom_props={"name": "ResetObject"},
         )
 
         return {"FINISHED"}
+
 
 @deprecated
 class DeleteObject(bpy.types.Operator):
@@ -143,13 +139,12 @@ class DeleteObject(bpy.types.Operator):
 
             metrics.track(
                 "Connector Action",
-                None, 
-                custom_props={
-                    "name": "DeleteObject"
-                },
+                None,
+                custom_props={"name": "DeleteObject"},
             )
 
         return {"FINISHED"}
+
 
 @deprecated
 class UploadNgonsAsPolylines(bpy.types.Operator):
@@ -170,7 +165,6 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
     def execute(self, context):
         active = context.active_object
         if active is not None and active.type == "MESH":
-
             user = context.scene.speckle.users[int(context.scene.speckle.active_user)]
             client = speckle_clients[int(context.scene.speckle.active_user)]
             stream = user.streams[user.active_stream]
@@ -187,7 +181,6 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
 
             placeholders = []
             for polyline in sp:
-
                 res = client.objects.create([polyline])
 
                 if res is None:
@@ -223,10 +216,8 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
 
             metrics.track(
                 "Connector Action",
-                None, 
-                custom_props={
-                    "name": "UploadNgonsAsPolylines"
-                },
+                None,
+                custom_props={"name": "UploadNgonsAsPolylines"},
             )
         return {"FINISHED"}
 
@@ -240,13 +231,12 @@ class UploadNgonsAsPolylines(bpy.types.Operator):
 
 
 def get_custom_speckle_props(self, context):
-    ignore = ["speckle", "cycles", "cycles_visibility"]
-
     active = context.active_object
     if not active:
         return []
 
     return [(x, "{}".format(x), "") for x in active.keys()]
+
 
 @deprecated
 class SelectIfSameCustomProperty(bpy.types.Operator):
@@ -275,7 +265,6 @@ class SelectIfSameCustomProperty(bpy.types.Operator):
         return wm.invoke_props_dialog(self)
 
     def execute(self, context):
-
         active = context.active_object
         if not active:
             return {"CANCELLED"}
@@ -292,7 +281,6 @@ class SelectIfSameCustomProperty(bpy.types.Operator):
         )
 
         for obj in bpy.data.objects:
-
             if self.custom_prop in obj.keys() and obj[self.custom_prop] == value:
                 obj.select_set(True)
             else:
@@ -300,13 +288,12 @@ class SelectIfSameCustomProperty(bpy.types.Operator):
 
             metrics.track(
                 "Connector Action",
-                None, 
-                custom_props={
-                    "name": "SelectIfSameCustomProperty"
-                },
+                None,
+                custom_props={"name": "SelectIfSameCustomProperty"},
             )
-                
+
         return {"FINISHED"}
+
 
 @deprecated
 class SelectIfHasCustomProperty(bpy.types.Operator):
@@ -335,7 +322,6 @@ class SelectIfHasCustomProperty(bpy.types.Operator):
         return wm.invoke_props_dialog(self)
 
     def execute(self, context):
-
         active = context.active_object
         if not active:
             return {"CANCELLED"}
@@ -343,12 +329,9 @@ class SelectIfHasCustomProperty(bpy.types.Operator):
         if self.custom_prop not in active.keys():
             return {"CANCELLED"}
 
-        value = active[self.custom_prop]
-
         _report("Looking for '{}' property.".format(self.custom_prop))
 
         for obj in bpy.data.objects:
-
             if self.custom_prop in obj.keys():
                 obj.select_set(True)
             else:
@@ -356,11 +339,8 @@ class SelectIfHasCustomProperty(bpy.types.Operator):
 
         metrics.track(
             "Connector Action",
-            None, 
-            custom_props={
-                "name": "SelectIfHasCustomProperty"
-            },
+            None,
+            custom_props={"name": "SelectIfHasCustomProperty"},
         )
-
 
         return {"FINISHED"}

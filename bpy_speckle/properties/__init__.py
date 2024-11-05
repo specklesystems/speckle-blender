@@ -1,14 +1,9 @@
-from .scene import (
-    SpeckleSceneSettings,
-    SpeckleSceneObject,
-    SpeckleUserObject,
-    SpeckleStreamObject,
-    SpeckleBranchObject,
-    SpeckleCommitObject,
-)
-from .object import SpeckleObjectSettings
-from .collection import SpeckleCollectionSettings
 from .addon import SpeckleAddonPreferences
+from .collection import SpeckleCollectionSettings
+from .object import SpeckleObjectSettings
+from .scene import (SpeckleBranchObject, SpeckleCommitObject,
+                    SpeckleSceneObject, SpeckleSceneSettings,
+                    SpeckleStreamObject, SpeckleUserObject)
 
 property_classes = [
     SpeckleSceneObject,

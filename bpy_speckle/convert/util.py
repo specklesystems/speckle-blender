@@ -1,19 +1,23 @@
 import math
 from typing import Any, Dict, Optional, Tuple, Union, cast
-from bmesh.types import BMesh
-import bpy, idprop
 
+import bpy
+import idprop
+from bmesh.types import BMesh
+from bpy.types import Collection as BCollection
+from bpy.types import Material, Node, Object, ShaderNodeVertexColor
 from specklepy.objects.base import Base
 from specklepy.objects.geometry import Mesh
+from specklepy.objects.graph_traversal.traversal import TraversalContext
 from specklepy.objects.other import RenderMaterial
+
 from bpy_speckle.convert.constants import IGNORED_PROPERTY_KEYS
 from bpy_speckle.functions import _report
-from bpy.types import Material, Object, Collection as BCollection, Node, ShaderNodeVertexColor, NodeInputs
 
-from specklepy.objects.graph_traversal.traversal import TraversalContext
 
 class ConversionSkippedException(Exception):
     pass
+
 
 def to_rgba(argb_int: int) -> Tuple[float, float, float, float]:
     """Converts the int representation of a colour into a percent RGBA tuple"""
@@ -32,15 +36,21 @@ def to_argb_int(rgba_color: list[float]) -> int:
 
     return int.from_bytes(int_color, byteorder="big", signed=True)
 
+
 def set_custom_property(key: str, value: Any, blender_object: Object) -> None:
     try:
-        #Expected c types: float, int, string, float[], int[]
+        # Expected c types: float, int, string, float[], int[]
         blender_object[key] = value
     except (OverflowError, TypeError) as ex:
-        print(f"Skipping setting property ({key}={value}) on {blender_object.name_full}, Reason: {ex}")
+        print(
+            f"Skipping setting property ({key}={value}) on {blender_object.name_full}, Reason: {ex}"
+        )
     except Exception as ex:
-        #TODO: Log this as it's unexpected!!!
-        print(f"Skipping setting property ({key}={value}) on {blender_object.name_full}, Reason: {ex}")
+        # TODO: Log this as it's unexpected!!!
+        print(
+            f"Skipping setting property ({key}={value}) on {blender_object.name_full}, Reason: {ex}"
+        )
+
 
 def add_custom_properties(speckle_object: Base, blender_object: Object):
     if blender_object is None:
@@ -51,7 +61,11 @@ def add_custom_properties(speckle_object: Base, blender_object: Object):
     app_id = getattr(speckle_object, "applicationId", None)
     if app_id:
         blender_object["applicationId"] = speckle_object.applicationId
-    keys = speckle_object.get_dynamic_member_names() if "Geometry" in speckle_object.speckle_type else (set(speckle_object.get_member_names()) - IGNORED_PROPERTY_KEYS)
+    keys = (
+        speckle_object.get_dynamic_member_names()
+        if "Geometry" in speckle_object.speckle_type
+        else (set(speckle_object.get_member_names()) - IGNORED_PROPERTY_KEYS)
+    )
     for key in keys:
         val = getattr(speckle_object, key, None)
         if val is None:
@@ -66,14 +80,13 @@ def add_custom_properties(speckle_object: Base, blender_object: Object):
             items = [item for item in val if not isinstance(item, Base)]
             if items:
                 set_custom_property(key, items, blender_object)
-        elif isinstance(val,dict):
-            for (k,v) in val.items():
+        elif isinstance(val, dict):
+            for k, v in val.items():
                 if not isinstance(v, Base):
                     set_custom_property(k, v, blender_object)
 
 
 def render_material_to_native(speckle_mat: RenderMaterial) -> Material:
-    
     mat_name = speckle_mat.name
     if not mat_name:
         mat_name = speckle_mat.applicationId or speckle_mat.id or speckle_mat.get_id()
@@ -87,42 +100,47 @@ def render_material_to_native(speckle_mat: RenderMaterial) -> Material:
         blender_mat.use_nodes = True
         inputs = blender_mat.node_tree.nodes["Principled BSDF"].inputs
 
-        inputs["Base Color"].default_value = to_rgba(speckle_mat.diffuse) # type: ignore
-        inputs["Roughness"].default_value = speckle_mat.roughness # type: ignore
-        inputs["Metallic"].default_value = speckle_mat.metalness # type: ignore
-        inputs["Alpha"].default_value = speckle_mat.opacity # type: ignore
+        inputs["Base Color"].default_value = to_rgba(speckle_mat.diffuse)  # type: ignore
+        inputs["Roughness"].default_value = speckle_mat.roughness  # type: ignore
+        inputs["Metallic"].default_value = speckle_mat.metalness  # type: ignore
+        inputs["Alpha"].default_value = speckle_mat.opacity  # type: ignore
 
         # Blender >=4.0 use "Emission Color"
-        emission_color = "Emission" if "Emission" in inputs else "Emission Color" # type: ignore 
-        inputs[emission_color].default_value = to_rgba(speckle_mat.emissive) # type: ignore
+        emission_color = "Emission" if "Emission" in inputs else "Emission Color"  # type: ignore
+        inputs[emission_color].default_value = to_rgba(speckle_mat.emissive)  # type: ignore
 
     if speckle_mat.opacity < 1.0:
         blender_mat.blend_method = "BLEND"
 
     return blender_mat
 
+
 _vertex_color_material: Optional[Material] = None
+
 
 def get_vertex_color_material() -> Material:
     global _vertex_color_material
-    
-    #see https://stackoverflow.com/a/69807985
+
+    # see https://stackoverflow.com/a/69807985
     if not _vertex_color_material:
         _vertex_color_material = bpy.data.materials.new("Vertex Color Material")
         _vertex_color_material.use_nodes = True
         nodes = _vertex_color_material.node_tree.nodes
         principled_bsdf_node = cast(Node, nodes.get("Principled BSDF"))
-    
-        if not "VERTEX_COLOR" in [node.type for node in nodes]:
-            vertex_color_node = cast(ShaderNodeVertexColor, nodes.new(type = "ShaderNodeVertexColor"))
+
+        if "VERTEX_COLOR" not in [node.type for node in nodes]:
+            vertex_color_node = cast(
+                ShaderNodeVertexColor, nodes.new(type="ShaderNodeVertexColor")
+            )
         else:
             vertex_color_node = cast(ShaderNodeVertexColor, nodes.get("Vertex Color"))
         vertex_color_node.layer_name = "Col"
 
         links = _vertex_color_material.node_tree.links
-        link = links.new(vertex_color_node.outputs[0], principled_bsdf_node.inputs[0])
+        _ = links.new(vertex_color_node.outputs[0], principled_bsdf_node.inputs[0])
 
     return _vertex_color_material
+
 
 def get_render_material(speckle_object: Base) -> Optional[RenderMaterial]:
     """Trys to get a RenderMaterial on given speckle_object"""
@@ -137,7 +155,6 @@ def get_render_material(speckle_object: Base) -> Optional[RenderMaterial]:
         return speckle_mat
 
     return None
-    
 
 
 def add_vertices(speckle_mesh: Mesh, blender_mesh: BMesh, scale=1.0):
@@ -154,10 +171,15 @@ def add_vertices(speckle_mesh: Mesh, blender_mesh: BMesh, scale=1.0):
             )
 
 
-
-def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, indexOffset: int, materialIndex: int = 0, smooth:bool = True):
+def add_faces(
+    speckle_mesh: Mesh,
+    blender_mesh: BMesh,
+    indexOffset: int,
+    materialIndex: int = 0,
+    smooth: bool = True,
+):
     sfaces = speckle_mesh.faces
-    
+
     if sfaces and len(sfaces) > 0:
         i = 0
         while i < len(sfaces):
@@ -178,13 +200,11 @@ def add_faces(speckle_mesh: Mesh, blender_mesh: BMesh, indexOffset: int, materia
 
 
 def add_colors(speckle_mesh: Mesh, blender_mesh: BMesh):
-
     scolors = speckle_mesh.colors
 
     if scolors:
         colors = []
         if len(scolors) > 0:
-
             for i in range(len(scolors)):
                 argb = int(scolors[i])
                 (a, r, g, b) = argb_split(argb)
@@ -205,6 +225,7 @@ def add_colors(speckle_mesh: Mesh, blender_mesh: BMesh):
                 for loop in face.loops:
                     loop[color_layer] = colors[loop.vert.index]
 
+
 def argb_split(argb: int) -> Tuple[int, int, int, int]:
     alpha = (argb >> 24) & 0xFF
     red = (argb >> 16) & 0xFF
@@ -212,6 +233,7 @@ def argb_split(argb: int) -> Tuple[int, int, int, int]:
     blue = argb & 0xFF
 
     return (alpha, red, green, blue)
+
 
 def add_uv_coords(speckle_mesh: Mesh, blender_mesh: BMesh):
     s_uvs = speckle_mesh.textureCoordinates
@@ -222,8 +244,7 @@ def add_uv_coords(speckle_mesh: Mesh, blender_mesh: BMesh):
 
         if len(s_uvs) // 2 == len(blender_mesh.verts):
             uv.extend(
-                (float(s_uvs[i]), float(s_uvs[i + 1]))
-                for i in range(0, len(s_uvs), 2)
+                (float(s_uvs[i]), float(s_uvs[i + 1])) for i in range(0, len(s_uvs), 2)
             )
         else:
             _report(
@@ -235,9 +256,9 @@ def add_uv_coords(speckle_mesh: Mesh, blender_mesh: BMesh):
         uv_layer = blender_mesh.loops.layers.uv.verify()
 
         for f in blender_mesh.faces:
-            for l in f.loops:
-                luv = l[uv_layer]
-                luv.uv = uv[l.vert.index]
+            for loop in f.loops:
+                luv = loop[uv_layer]
+                luv.uv = uv[loop.vert.index]
     except:
         _report("Failed to decode texture coordinates.")
         raise
@@ -246,8 +267,7 @@ def add_uv_coords(speckle_mesh: Mesh, blender_mesh: BMesh):
 ignored_keys = {
     "id",
     "speckle",
-    "speckle_type"
-    "_speckle_type",
+    "speckle_type" "_speckle_type",
     "_speckle_name",
     "_speckle_transform",
     "_RNA_UI",
@@ -256,6 +276,7 @@ ignored_keys = {
     "_units",
     "_chunkable",
 }
+
 
 def get_blender_custom_properties(obj, max_depth: int = 63):
     """Recursively grabs custom properties on blender objects. Max depth is determined by the max allowed by Newtonsoft.NET, don't exceed unless you know what you're doing"""
@@ -271,9 +292,10 @@ def get_blender_custom_properties(obj, max_depth: int = 63):
         }
 
     if isinstance(obj, (list, tuple, idprop.types.IDPropertyArray)):
-        return [get_blender_custom_properties(o, max_depth - 1) for o in obj] # type: ignore
-    
+        return [get_blender_custom_properties(o, max_depth - 1) for o in obj]  # type: ignore
+
     return obj
+
 
 """
 Python implementation of Blender's NURBS curve generation for to Speckle conversion
@@ -281,11 +303,14 @@ from: https://blender.stackexchange.com/a/34276
 based on https://projects.blender.org/blender/blender/src/branch/main/source/blender/blenkernel/intern/curve.cc (check old version)
 """
 
+
 def macro_knotsu(nu: bpy.types.Spline) -> int:
     return nu.order_u + nu.point_count_u + (nu.order_u - 1 if nu.use_cyclic_u else 0)
 
+
 def macro_segmentsu(nu: bpy.types.Spline) -> int:
     return nu.point_count_u if nu.use_cyclic_u else nu.point_count_u - 1
+
 
 def make_knots(nu: bpy.types.Spline) -> list[float]:
     knots = [0.0] * macro_knotsu(nu)
@@ -299,13 +324,13 @@ def make_knots(nu: bpy.types.Spline) -> list[float]:
 
 def calc_knots(knots: list[float], point_count: int, order: int, flag: int) -> None:
     pts_order = point_count + order
-    if flag == 1: # CU_NURB_ENDPOINT
+    if flag == 1:  # CU_NURB_ENDPOINT
         k = 0.0
         for a in range(1, pts_order + 1):
             knots[a - 1] = k
             if a >= order and a <= point_count:
                 k += 1.0
-    elif flag == 2: # CU_NURB_BEZIER
+    elif flag == 2:  # CU_NURB_BEZIER
         if order == 4:
             k = 0.34
             for a in range(pts_order):
@@ -323,11 +348,20 @@ def calc_knots(knots: list[float], point_count: int, order: int, flag: int) -> N
 
         knots[-1] = knots[-2]
 
-def basis_nurb(t: float, order: int, point_count: int, knots: list[float], basis: list[float], start: int, end: int) -> Tuple[int, int]:
+
+def basis_nurb(
+    t: float,
+    order: int,
+    point_count: int,
+    knots: list[float],
+    basis: list[float],
+    start: int,
+    end: int,
+) -> Tuple[int, int]:
     i1 = i2 = 0
     orderpluspnts = order + point_count
     opp2 = orderpluspnts - 1
-    
+
     # this is for float inaccuracy
     if t < knots[0]:
         t = knots[0]
@@ -352,11 +386,10 @@ def basis_nurb(t: float, order: int, point_count: int, knots: list[float], basis
         else:
             basis[i] = 0.0
 
-    basis[i] = 0.0 #type: ignore
+    basis[i] = 0.0  # type: ignore
 
     # this is order 2, 3, ...
     for j in range(2, order + 1):
-
         if i2 + j >= orderpluspnts:
             i2 = opp2 - j
 
@@ -384,8 +417,9 @@ def basis_nurb(t: float, order: int, point_count: int, knots: list[float], basis
 
     return start, end
 
+
 def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[float]:
-    """"BKE_nurb_makeCurve"""
+    """ "BKE_nurb_makeCurve"""
     EPS = 1e-6
     coord_index = istart = iend = 0
 
@@ -396,17 +430,22 @@ def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[
 
     resolu = resolu * macro_segmentsu(nu)
     ustart = knots[nu.order_u - 1]
-    uend   = knots[nu.point_count_u + nu.order_u - 1] if nu.use_cyclic_u else \
-             knots[nu.point_count_u]
-    ustep  = (uend - ustart) / (resolu - (0 if nu.use_cyclic_u else 1))
+    uend = (
+        knots[nu.point_count_u + nu.order_u - 1]
+        if nu.use_cyclic_u
+        else knots[nu.point_count_u]
+    )
+    ustep = (uend - ustart) / (resolu - (0 if nu.use_cyclic_u else 1))
     cycl = nu.order_u - 1 if nu.use_cyclic_u else 0
 
     u = ustart
     while resolu:
         resolu -= 1
-        istart, iend = basis_nurb(u, nu.order_u, nu.point_count_u + cycl, knots, basisu, istart, iend)
+        istart, iend = basis_nurb(
+            u, nu.order_u, nu.point_count_u + cycl, knots, basisu, istart, iend
+        )
 
-        #/* calc sum */
+        # /* calc sum */
         sumdiv = 0.0
         sum_index = 0
         pt_index = istart - 1
@@ -416,17 +455,17 @@ def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[
             else:
                 pt_index += 1
 
-            sum_array[sum_index] = basisu[i] * nu.points[pt_index].co[3] #type: ignore
+            sum_array[sum_index] = basisu[i] * nu.points[pt_index].co[3]  # type: ignore
             sumdiv += sum_array[sum_index]
             sum_index += 1
 
         if (sumdiv != 0.0) and (sumdiv < 1.0 - EPS or sumdiv > 1.0 + EPS):
             sum_index = 0
             for i in range(istart, iend + 1):
-                sum_array[sum_index] /= sumdiv #type: ignore
+                sum_array[sum_index] /= sumdiv  # type: ignore
                 sum_index += 1
 
-        coord_array[coord_index: coord_index + 3] = (0.0, 0.0, 0.0)
+        coord_array[coord_index : coord_index + 3] = (0.0, 0.0, 0.0)
 
         sum_index = 0
         pt_index = istart - 1
@@ -438,7 +477,9 @@ def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[
 
             if sum_array[sum_index] != 0.0:
                 for j in range(3):
-                    coord_array[coord_index + j] += sum_array[sum_index] * nu.points[pt_index].co[j]
+                    coord_array[coord_index + j] += (
+                        sum_array[sum_index] * nu.points[pt_index].co[j]
+                    )
             sum_index += 1
 
         coord_index += stride
@@ -446,14 +487,21 @@ def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[
 
     return coord_array
 
+
 def link_object_to_collection_nested(obj: Object, col: BCollection):
-    if obj.name not in col.objects: #type: ignore
+    if obj.name not in col.objects:  # type: ignore
         col.objects.link(obj)
 
     for child in obj.children:
         link_object_to_collection_nested(child, col)
 
-def add_to_hierarchy(converted: Union[Object, BCollection], traversalContext : 'TraversalContext', converted_objects: Dict[str, Union[Object, BCollection]], preserve_transform: bool) -> None:
+
+def add_to_hierarchy(
+    converted: Union[Object, BCollection],
+    traversalContext: "TraversalContext",
+    converted_objects: Dict[str, Union[Object, BCollection]],
+    preserve_transform: bool,
+) -> None:
     nextParent = traversalContext.parent
 
     # Traverse up the tree to find a direct parent object, and a containing collection
@@ -467,7 +515,7 @@ def add_to_hierarchy(converted: Union[Object, BCollection], traversalContext : '
             if isinstance(c, BCollection):
                 parent_collection = c
                 break
-            else: #isinstance(c, Object):
+            else:  # isinstance(c, Object):
                 parent_object = parent_object or c
 
         nextParent = nextParent.parent
@@ -485,8 +533,8 @@ def add_to_hierarchy(converted: Union[Object, BCollection], traversalContext : '
 
 
 def set_parent(child: Object, parent: Object, preserve_transform: bool = False) -> None:
-    if preserve_transform :
-        previous = child.matrix_world.copy() # type: ignore
+    if preserve_transform:
+        previous = child.matrix_world.copy()  # type: ignore
         child.parent = parent
         child.matrix_world = previous
     else:
