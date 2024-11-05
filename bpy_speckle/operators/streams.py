@@ -388,7 +388,7 @@ class SendStreamObjects(bpy.types.Operator):
                 "branches": len(stream.branches),
                 # "collaborators": 0, #TODO:
                 "isMain": branch.name == "main",
-                "workspace_id": get_project_workspace_id(stream.id),
+                "workspace_id": get_project_workspace_id(client, stream.id),
             },
         )
 
