@@ -1,8 +1,7 @@
-import bpy
 import webbrowser
-from specklepy.logging import metrics 
 
-
+import bpy
+from specklepy.logging import metrics
 
 
 class OpenSpeckleGuide(bpy.types.Operator):
@@ -12,15 +11,13 @@ class OpenSpeckleGuide(bpy.types.Operator):
     bl_label = "Speckle Docs"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = f"Browse the documentation on the Speckle Guide ({_guide_url})"
-    
+
     def execute(self, context):
         webbrowser.open(self._guide_url)
         metrics.track(
             "Connector Action",
-            None, 
-            custom_props={
-                "name": "OpenSpeckleGuide"
-            },
+            None,
+            custom_props={"name": "OpenSpeckleGuide"},
         )
         return {"FINISHED"}
 
@@ -31,16 +28,16 @@ class OpenSpeckleTutorials(bpy.types.Operator):
     bl_idname = "speckle.open_speckle_tutorials"
     bl_label = "Tutorials Portal"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = f"Visit our tutorials portal for learning resources ({_tutorials_url})"
+    bl_description = (
+        f"Visit our tutorials portal for learning resources ({_tutorials_url})"
+    )
 
     def execute(self, context):
         webbrowser.open(self._tutorials_url)
         metrics.track(
             "Connector Action",
-            None, 
-            custom_props={
-                "name": "OpenSpeckleTutorials"
-            },
+            None,
+            custom_props={"name": "OpenSpeckleTutorials"},
         )
         return {"FINISHED"}
 
@@ -51,15 +48,15 @@ class OpenSpeckleForum(bpy.types.Operator):
     bl_idname = "speckle.open_speckle_forum"
     bl_label = "Community Forum"
     bl_options = {"REGISTER", "UNDO"}
-    bl_description = f"Ask questions and join the discussion on our community forum ({_forum_url})"
+    bl_description = (
+        f"Ask questions and join the discussion on our community forum ({_forum_url})"
+    )
 
     def execute(self, context):
         webbrowser.open(self._forum_url)
         metrics.track(
             "Connector Action",
-            None, 
-            custom_props={
-                "name": "OpenSpeckleForum"
-            },
+            None,
+            custom_props={"name": "OpenSpeckleForum"},
         )
         return {"FINISHED"}

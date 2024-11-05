@@ -1,83 +1,98 @@
 """
 Stream operators
 """
+import webbrowser
 from math import radians
 from typing import Callable, Dict, Optional, Tuple, Union, cast
-import webbrowser
+
 import bpy
-from bpy.props import (
-    StringProperty,
-    BoolProperty,
-    EnumProperty,
-)
-from bpy.types import (
-    Context,
-    Object,
-    Collection
-)
+from bpy.props import BoolProperty, EnumProperty, StringProperty
+from bpy.types import Collection, Context, Object
 from deprecated import deprecated
-from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
-from bpy_speckle.convert.to_native import (
-    can_convert_to_native,
-    collection_to_native,
-    convert_to_native,
-    set_convert_instances_as,
-)
-from bpy_speckle.convert.to_speckle import (
-    convert_to_speckle,
-)
-from bpy_speckle.functions import (
-    get_default_traversal_func,
-    _report,
-    get_scale_length,
-)
-from bpy_speckle.clients import speckle_clients
-from bpy_speckle.operators.users import LoadUserStreams, add_user_stream
-from bpy_speckle.properties.scene import SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle, selection_state
-from bpy_speckle.convert.util import ConversionSkippedException, add_to_hierarchy
-from specklepy.core.api.models import Commit
-from specklepy.core.api import operations, host_applications
+from specklepy.core.api import host_applications, operations
+from specklepy.core.api.client import SpeckleClient
+from specklepy.core.api.models import Commit, Stream
 from specklepy.core.api.wrapper import StreamWrapper
-from specklepy.core.api.resources.stream import Stream
-from specklepy.transports.server import ServerTransport
+from specklepy.logging import metrics
+from specklepy.logging.exceptions import SpeckleException
 from specklepy.objects import Base
 from specklepy.objects.other import Collection as SCollection
-from specklepy.logging.exceptions import SpeckleException
-from specklepy.logging import metrics
+from specklepy.transports.server import ServerTransport
+
+from bpy_speckle.blender_commit_object_builder import \
+    BlenderCommitObjectBuilder
+from bpy_speckle.clients import speckle_clients
+from bpy_speckle.convert.to_native import (can_convert_to_native,
+                                           collection_to_native,
+                                           convert_to_native,
+                                           set_convert_instances_as)
+from bpy_speckle.convert.to_speckle import convert_to_speckle
+from bpy_speckle.convert.util import (ConversionSkippedException,
+                                      add_to_hierarchy)
+from bpy_speckle.functions import (_report, get_default_traversal_func,
+                                   get_scale_length)
+from bpy_speckle.operators.users import LoadUserStreams, add_user_stream
+from bpy_speckle.properties.scene import (SpeckleSceneSettings,
+                                          SpeckleStreamObject,
+                                          SpeckleUserObject, get_speckle,
+                                          selection_state)
 
 ObjectCallback = Optional[Callable[[bpy.types.Context, Object, Base], Object]]
-ReceiveCompleteCallback = Optional[Callable[[bpy.types.Context, Dict[str, Union[Object, Collection]]], None]]
+ReceiveCompleteCallback = Optional[
+    Callable[[bpy.types.Context, Dict[str, Union[Object, Collection]]], None]
+]
 
-def get_receive_funcs(speckle: SpeckleSceneSettings) -> tuple[ObjectCallback, ReceiveCompleteCallback]:
+
+def get_project_workspace_id(client: SpeckleClient, project_id: str) -> Optional[str]:
+    workspace_id = None
+    (maj, min, patch) = client.server.server_version
+    if maj > 2 or (maj == 2 and min > 21):
+        workspace_id = client.project.get(project_id).workspaceId
+    return workspace_id
+
+
+def get_receive_funcs(
+    speckle: SpeckleSceneSettings,
+) -> tuple[ObjectCallback, ReceiveCompleteCallback]:
     """
     Fetches the injected callback functions from user specified "Receive Script"
     """
 
     objectCallback: ObjectCallback = None
     receiveCompleteCallback: ReceiveCompleteCallback = None
-    
+
     if speckle.receive_script in bpy.data.texts:
         mod = bpy.data.texts[speckle.receive_script].as_module()
         if hasattr(mod, "execute_for_each"):
-            objectCallback = mod.execute_for_each #type: ignore
-        elif hasattr(mod, "execute"): 
-            objectCallback = lambda c, o, _ : mod.execute(c.scene, o) #type: ignore
+            objectCallback = mod.execute_for_each  # type: ignore
+        elif hasattr(mod, "execute"):
+            objectCallback = lambda c, o, _: mod.execute(c.scene, o)  # type: ignore
 
         if hasattr(mod, "execute_for_all"):
-            receiveCompleteCallback = mod.execute_for_all #type: ignore
+            receiveCompleteCallback = mod.execute_for_all  # type: ignore
 
     return (objectCallback, receiveCompleteCallback)
 
-#RECEIVE_MODES = [#TODO: modes
+
+# RECEIVE_MODES = [#TODO: modes
 #    ("create", "Create", "Add new geometry, without removing any existing objects"),
 #    ("replace", "Replace", "Replace objects from previous receive operations from the same stream"),
 #    #("update","Update", "") #TODO: update mode!
-#]
+# ]
 
 INSTANCES_SETTINGS = [
-    ("collection_instance", "Collection Instance", "Receive Instances as Collection Instances"),
-    ("linked_duplicates", "Linked Duplicates", "Receive Instances as Linked Duplicates"),
+    (
+        "collection_instance",
+        "Collection Instance",
+        "Receive Instances as Collection Instances",
+    ),
+    (
+        "linked_duplicates",
+        "Linked Duplicates",
+        "Receive Instances as Linked Duplicates",
+    ),
 ]
+
 
 class ReceiveStreamObjects(bpy.types.Operator):
     """
@@ -89,64 +104,63 @@ class ReceiveStreamObjects(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Receive objects from selected model version"
 
-    clean_meshes: BoolProperty(name="Clean Meshes", default=False) # type: ignore 
+    clean_meshes: BoolProperty(name="Clean Meshes", default=False)  # type: ignore
 
-    #receive_mode: EnumProperty(items=RECEIVE_MODES, name="Receive Type", default="replace", description="The behaviour of the receive operation")
-    receive_instances_as: EnumProperty(items=INSTANCES_SETTINGS, name="Receive Instances As", default="collection_instance", description="How to receive speckle Instances") # type: ignore 
-    
+    # receive_mode: EnumProperty(items=RECEIVE_MODES, name="Receive Type", default="replace", description="The behaviour of the receive operation")
+    receive_instances_as: EnumProperty(items=INSTANCES_SETTINGS, name="Receive Instances As", default="collection_instance", description="How to receive speckle Instances")  # type: ignore
 
     def draw(self, context):
         layout = self.layout
         col = layout.column()
         col.prop(self, "clean_meshes")
-        #col.prop(self, "receive_mode")
+        # col.prop(self, "receive_mode")
         col.prop(self, "receive_instances_as")
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
 
     @staticmethod
-    def clean_converted_meshes(context: bpy.types.Context, convertedObjects: dict[str, Object]):
-        
-        bpy.ops.object.select_all(action='DESELECT')
+    def clean_converted_meshes(
+        context: bpy.types.Context, convertedObjects: dict[str, Object]
+    ):
+        bpy.ops.object.select_all(action="DESELECT")
 
         active = None
         for obj in convertedObjects.values():
-            if obj.type != 'MESH':
+            if obj.type != "MESH":
                 continue
 
             obj.select_set(True, view_layer=context.scene.view_layers[0])
             active = obj
-        
 
-        if active == None:
+        if active is None:
             return
         context.view_layer.objects.active = active
 
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
         bpy.ops.mesh.dissolve_limited(angle_limit=radians(0.1))
 
         # Reset state to previous (not quite sure if this is 100% necessary)
-        bpy.ops.object.mode_set(mode='OBJECT')
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.context.view_layer.objects.active = None # type: ignore 
+        bpy.ops.object.mode_set(mode="OBJECT")
+        bpy.ops.object.select_all(action="DESELECT")
+        bpy.context.view_layer.objects.active = None  # type: ignore
 
     def execute(self, context):
         self.receive(context)
         return {"FINISHED"}
 
     def receive(self, context: Context) -> None:
-        bpy.context.view_layer.objects.active = None # type: ignore 
+        bpy.context.view_layer.objects.active = None  # type: ignore
 
         speckle = get_speckle(context)
-        
+
         (user, stream, branch, commit) = speckle.validate_commit_selection()
-        
+
         client = speckle_clients[int(speckle.active_user)]
 
         transport = ServerTransport(stream.id, client)
-        
+
         # Fetch commit data
         commit_object = operations.receive(commit.referenced_object, transport)
         client.commit.received(
@@ -158,20 +172,24 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         metrics.track(
             metrics.RECEIVE,
-            getattr(transport, "account", None), 
+            getattr(transport, "account", None),
             custom_props={
-                "sourceHostApp": host_applications.get_host_app_from_string(commit.source_application).slug,
+                "sourceHostApp": host_applications.get_host_app_from_string(
+                    commit.source_application
+                ).slug,
                 "sourceHostAppVersion": commit.source_application,
                 "isMultiplayer": commit.author_id != user.id,
-                #"connector_version": "unknown", #TODO
+                "workspace_id": get_project_workspace_id(client, stream.id)
+                # "connector_version": "unknown", #TODO
             },
         )
-
 
         # Convert received data
         context.window_manager.progress_begin(0, commit_object.totalChildrenCount or 1)
 
-        set_convert_instances_as(self.receive_instances_as) #HACK: we need a better way to pass settings down to the converter
+        set_convert_instances_as(
+            self.receive_instances_as
+        )  # HACK: we need a better way to pass settings down to the converter
 
         traversalFunc = get_default_traversal_func(can_convert_to_native)
         converted_objects: Dict[str, Union[Object, Collection]] = {}
@@ -189,10 +207,9 @@ class ReceiveStreamObjects(bpy.types.Operator):
 
         # ensure commit object has a name if not already
         if not commit_object.name:
-            commit_object.name = f"{stream.name} [ {branch.name} @ {commit.id} ]" # Matches Rhino "Create" naming
+            commit_object.name = f"{stream.name} [ {branch.name} @ {commit.id} ]"  # Matches Rhino "Create" naming
 
         for item in traversalFunc.traverse(commit_object):
-            
             current: Base = item.current
 
             if can_convert_to_native(current) or isinstance(current, SCollection):
@@ -200,47 +217,62 @@ class ReceiveStreamObjects(bpy.types.Operator):
                     if not current or not current.id:
                         raise Exception(f"{current} was an invalid Speckle object")
 
-                    #Convert the object!
+                    # Convert the object!
                     converted_data_type: str
                     converted: Union[Object, Collection, None]
                     if isinstance(current, SCollection):
-                        if(current.collectionType == "Scene Collection"): raise ConversionSkippedException()
+                        if current.collectionType == "Scene Collection":
+                            raise ConversionSkippedException()
                         converted = collection_to_native(current)
                         converted_data_type = "COLLECTION"
                     else:
                         converted = convert_to_native(current)
-                        converted_data_type = "COLLECTION_INSTANCE" if converted.instance_collection else str(converted.type)
-                        
-                        #Run the user specified callback function (AKA receive script)
+                        converted_data_type = (
+                            "COLLECTION_INSTANCE"
+                            if converted.instance_collection
+                            else str(converted.type)
+                        )
+
+                        # Run the user specified callback function (AKA receive script)
                         if object_converted_callback:
-                            converted = object_converted_callback(context, converted, current)
-                    
+                            converted = object_converted_callback(
+                                context, converted, current
+                            )
+
                     if converted is None:
                         raise Exception("Conversion returned None")
-                        
+
                     converted_objects[current.id] = converted
 
                     add_to_hierarchy(converted, item, converted_objects, True)
 
-                    _report(f"Successfully converted {type(current).__name__} {current.id} as '{converted_data_type}'")
+                    _report(
+                        f"Successfully converted {type(current).__name__} {current.id} as '{converted_data_type}'"
+                    )
                 except ConversionSkippedException as ex:
-                    _report(f"Skipped converting {type(current).__name__} {current.id}: {ex}")
+                    _report(
+                        f"Skipped converting {type(current).__name__} {current.id}: {ex}"
+                    )
                 except Exception as ex:
-                    _report(f"Failed to converted {type(current).__name__} {current.id}: {ex}")
+                    _report(
+                        f"Failed to converted {type(current).__name__} {current.id}: {ex}"
+                    )
 
             converted_count += 1
-            context.window_manager.progress_update(converted_count) #NOTE: We don't expect to ever reach 100% since not every object will be traversed
-
+            context.window_manager.progress_update(
+                converted_count
+            )  # NOTE: We don't expect to ever reach 100% since not every object will be traversed
 
         context.window_manager.progress_end()
 
         if self.clean_meshes:
-            objects = {k: v for k, v in converted_objects.items() if isinstance(v, Object)}
+            objects = {
+                k: v for k, v in converted_objects.items() if isinstance(v, Object)
+            }
             self.clean_converted_meshes(context, objects)
 
         if on_complete_callback:
             on_complete_callback(context, converted_objects)
-
 
 
 class SendStreamObjects(bpy.types.Operator):
@@ -253,11 +285,11 @@ class SendStreamObjects(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Send selected objects to selected model"
 
-    apply_modifiers: BoolProperty(name="Apply modifiers", default=True) # type: ignore 
+    apply_modifiers: BoolProperty(name="Apply modifiers", default=True)  # type: ignore
     commit_message: StringProperty(
         name="Message",
         default="Sent elements from Blender.",
-    ) # type: ignore 
+    )  # type: ignore
 
     def draw(self, context):
         layout = self.layout
@@ -271,7 +303,7 @@ class SendStreamObjects(bpy.types.Operator):
         if len(speckle.users) <= 0:
             _report("No user accounts")
             return {"CANCELLED"}
-        
+
         N = len(context.selected_objects)
         if N == 1:
             self.commit_message = f"Sent {N} element from Blender."
@@ -279,13 +311,11 @@ class SendStreamObjects(bpy.types.Operator):
             self.commit_message = f"Sent {N} elements from Blender."
         return wm.invoke_props_dialog(self)
 
-
     def execute(self, context):
         self.send(context)
         return {"FINISHED"}
 
     def send(self, context: Context) -> None:
-
         selected = context.selected_objects
         if len(selected) < 1:
             raise Exception("No objects are selected, sending canceled")
@@ -304,12 +334,14 @@ class SendStreamObjects(bpy.types.Operator):
         if speckle.send_script in bpy.data.texts:
             mod = bpy.data.texts[speckle.send_script].as_module()
             if hasattr(mod, "execute"):
-                func = mod.execute #type: ignore
+                func = mod.execute  # type: ignore
 
         num_converted = 0
         context.window_manager.progress_begin(0, max(len(selected), 1))
 
-        depsgraph = bpy.context.evaluated_depsgraph_get() if self.apply_modifiers else None
+        depsgraph = (
+            bpy.context.evaluated_depsgraph_get() if self.apply_modifiers else None
+        )
 
         commit_builder = BlenderCommitObjectBuilder()
         for obj in selected:
@@ -319,27 +351,26 @@ class SendStreamObjects(bpy.types.Operator):
                 if func:
                     new_object = func(context.scene, obj)
 
-                    if (new_object is None):
-                        raise ConversionSkippedException(f"Script '{func.__module__}' returned None.")
+                    if new_object is None:
+                        raise ConversionSkippedException(
+                            f"Script '{func.__module__}' returned None."
+                        )
 
-                converted = convert_to_speckle(
-                    obj,
-                    units_scale,
-                    units,
-                    depsgraph
-                )
+                converted = convert_to_speckle(obj, units_scale, units, depsgraph)
 
                 if not converted:
                     raise Exception("Converter returned None")
 
                 commit_builder.include_object(converted, obj)
 
-                _report(f"Successfully converted '{obj.name_full}' as '{converted.speckle_type}'")
+                _report(
+                    f"Successfully converted '{obj.name_full}' as '{converted.speckle_type}'"
+                )
             except ConversionSkippedException as ex:
                 _report(f"Skipped converting '{obj.name_full}': '{ex}'")
             except Exception as ex:
                 _report(f"Failed to converted '{obj.name_full}': '{ex}'")
-                
+
             num_converted += 1
             context.window_manager.progress_update(num_converted)
 
@@ -350,14 +381,15 @@ class SendStreamObjects(bpy.types.Operator):
 
         metrics.track(
             metrics.SEND,
-            client.account, 
+            client.account,
             custom_props={
                 "branches": len(stream.branches),
-                #"collaborators": 0, #TODO: 
+                # "collaborators": 0, #TODO:
                 "isMain": branch.name == "main",
+                "workspace_id": get_project_workspace_id(stream.id),
             },
         )
-    
+
         _report(f"Sending data to {stream.name}")
         transport = ServerTransport(stream.id, client)
         OBJECT_ID = operations.send(
@@ -374,7 +406,9 @@ class SendStreamObjects(bpy.types.Operator):
         )
 
         if client.account.serverInfo.frontend2:
-            sent_url = f"{user.server_url}/projects/{stream.id}/models/{branch.id}@{COMMIT_ID}"
+            sent_url = (
+                f"{user.server_url}/projects/{stream.id}/models/{branch.id}@{COMMIT_ID}"
+            )
         else:
             sent_url = f"{user.server_url}/streams/{stream.id}/commits/{COMMIT_ID}"
 
@@ -385,12 +419,11 @@ class SendStreamObjects(bpy.types.Operator):
         selection_state.selected_stream_id = stream.id
         selection_state.selected_user_id = user.id
 
-        bpy.ops.speckle.load_user_streams() # refresh loaded commits
+        bpy.ops.speckle.load_user_streams()  # refresh loaded commits
         context.view_layer.update()
 
         if context.area:
             context.area.tag_redraw()
-
 
 
 class ViewStreamDataApi(bpy.types.Operator):
@@ -409,21 +442,18 @@ class ViewStreamDataApi(bpy.types.Operator):
         url = self._get_url_from_selection(speckle)
 
         _report(f"Opening {url} in web browser")
-        
+
         if not webbrowser.open(url, new=2):
             raise Exception(f"Failed to open model in browser ({url})")
-        
+
         metrics.track(
             "Connector Action",
-            None, 
-            custom_props={
-                "name": "view_stream_data_api"
-            },
+            None,
+            custom_props={"name": "view_stream_data_api"},
         )
 
     @staticmethod
-    def _get_url_from_selection(speckleScene : SpeckleSceneSettings) -> str:
-
+    def _get_url_from_selection(speckleScene: SpeckleSceneSettings) -> str:
         client = speckle_clients[int(speckleScene.active_user)]
         (user, stream) = speckleScene.validate_stream_selection()
         branch = stream.get_active_branch()
@@ -443,7 +473,8 @@ class ViewStreamDataApi(bpy.types.Operator):
                 server_url += f"branches/{branch.name}"
 
         return server_url
-    
+
+
 class AddStreamFromURL(bpy.types.Operator):
     """
     Add / select an existing project by providing its URL
@@ -453,9 +484,7 @@ class AddStreamFromURL(bpy.types.Operator):
     bl_label = "Add Project From URL"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Add / select an existing project by providing its URL"
-    stream_url: StringProperty(
-        name="Project URL", default=""
-    ) # type: ignore 
+    stream_url: StringProperty(name="Project URL", default="")  # type: ignore
 
     def draw(self, context):
         layout = self.layout
@@ -475,21 +504,28 @@ class AddStreamFromURL(bpy.types.Operator):
         return {"FINISHED"}
 
     @staticmethod
-    def _get_or_add_stream(user : SpeckleUserObject, stream : Stream) -> Tuple[int, SpeckleStreamObject]:
+    def _get_or_add_stream(
+        user: SpeckleUserObject, stream: Stream
+    ) -> Tuple[int, SpeckleStreamObject]:
         index, b_stream = next(
-            ((i, cast(SpeckleStreamObject, s)) for i, s in enumerate(user.streams) if s.id == stream.id),
+            (
+                (i, cast(SpeckleStreamObject, s))
+                for i, s in enumerate(user.streams)
+                if s.id == stream.id
+            ),
             (None, None),
         )
 
         if index is not None:
-            assert(b_stream)
+            assert b_stream
             return (index, b_stream)
-        
+
         add_user_stream(user, stream)
         return next(
-            (i, cast(SpeckleStreamObject, s)) for i, s in enumerate(user.streams) if s.id == stream.id
+            (i, cast(SpeckleStreamObject, s))
+            for i, s in enumerate(user.streams)
+            if s.id == stream.id
         )
-            
 
     def add_stream_from_url(self, context: Context) -> None:
         speckle = get_speckle(context)
@@ -500,15 +536,23 @@ class AddStreamFromURL(bpy.types.Operator):
             None,
         )
         if user_index is None:
-            raise Exception(f"No user account credentials for {wrapper.host}, have you added your account in Manager?")
-        
+            raise Exception(
+                f"No user account credentials for {wrapper.host}, have you added your account in Manager?"
+            )
+
         speckle.active_user = str(user_index)
         user = cast(SpeckleUserObject, speckle.users[user_index])
 
         client = speckle_clients[user_index]
-        stream = client.stream.get(wrapper.stream_id, branch_limit=LoadUserStreams.branch_limit, commit_limit=LoadUserStreams.commits_limit)
+        stream = client.stream.get(
+            wrapper.stream_id,
+            branch_limit=LoadUserStreams.branch_limit,
+            commit_limit=LoadUserStreams.commits_limit,
+        )
         if not isinstance(stream, Stream):
-            raise SpeckleException(f"Could not get the requested project {wrapper.stream_id}")
+            raise SpeckleException(
+                f"Could not get the requested project {wrapper.stream_id}"
+            )
 
         (index, b_stream) = self._get_or_add_stream(user, stream)
         user.active_stream = index
@@ -533,13 +577,11 @@ class AddStreamFromURL(bpy.types.Operator):
 
         if context.area:
             context.area.tag_redraw()
-        
+
         metrics.track(
             "Connector Action",
-            client.account, 
-            custom_props={
-                "name": "add_stream_from_url"
-            },
+            client.account,
+            custom_props={"name": "add_stream_from_url"},
         )
 
 
@@ -553,10 +595,10 @@ class CreateStream(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = "Create a new Speckle project using the selected user account"
 
-    stream_name: StringProperty(name="Project name") # type: ignore 
+    stream_name: StringProperty(name="Project name")  # type: ignore
     stream_description: StringProperty(
         name="Project description", default="My new project"
-    ) # type: ignore 
+    )  # type: ignore
 
     def draw(self, context):
         layout = self.layout
@@ -575,7 +617,7 @@ class CreateStream(bpy.types.Operator):
     def execute(self, context):
         self.create_stream(context)
         return {"FINISHED"}
-        
+
     def create_stream(self, context: Context) -> None:
         speckle = get_speckle(context)
 
@@ -584,9 +626,7 @@ class CreateStream(bpy.types.Operator):
         client = speckle_clients[int(speckle.active_user)]
 
         client.stream.create(
-            name=self.stream_name, 
-            description=self.stream_description, 
-            is_public=True
+            name=self.stream_name, description=self.stream_description, is_public=True
         )
 
         bpy.ops.speckle.load_user_streams()
@@ -597,13 +637,11 @@ class CreateStream(bpy.types.Operator):
 
         if context.area:
             context.area.tag_redraw()
-        
+
         metrics.track(
             "Connector Action",
-            client.account, 
-            custom_props={
-                "name": "create_stream"
-            },
+            client.account,
+            custom_props={"name": "create_stream"},
         )
 
 
@@ -622,9 +660,9 @@ class DeleteStream(bpy.types.Operator):
         name="Confirm",
         description="⚠ This action will delete your entire stream permanently ⚠",
         default=False,
-    ) # type: ignore 
+    )  # type: ignore
 
-    delete_collection: BoolProperty(name="Delete collection", default=False) # type: ignore 
+    delete_collection: BoolProperty(name="Delete collection", default=False)  # type: ignore
 
     def draw(self, context):
         layout = self.layout
@@ -673,11 +711,10 @@ class DeleteStream(bpy.types.Operator):
 
         metrics.track(
             "Connector Action",
-            client.account, 
-            custom_props={
-                "name": "delete_stream"
-            },
+            client.account,
+            custom_props={"name": "delete_stream"},
         )
+
 
 @deprecated
 class SelectOrphanObjects(bpy.types.Operator):
@@ -694,7 +731,6 @@ class SelectOrphanObjects(bpy.types.Operator):
         layout = self.layout
 
     def execute(self, context):
-
         for o in context.scene.objects:
             if (
                 o.speckle.stream_id
@@ -705,13 +741,12 @@ class SelectOrphanObjects(bpy.types.Operator):
                 o.select = False
 
         metrics.track(
-            "Connector Action", 
-            custom_props={
-                "name": "SelectOrphanObjects"
-            },
+            "Connector Action",
+            custom_props={"name": "SelectOrphanObjects"},
         )
 
         return {"FINISHED"}
+
 
 class CopyStreamId(bpy.types.Operator):
     """
@@ -726,7 +761,7 @@ class CopyStreamId(bpy.types.Operator):
     def execute(self, context):
         self.copy_stream_id(context)
         return {"FINISHED"}
-        
+
     def copy_stream_id(self, context) -> None:
         speckle = get_speckle(context)
 
@@ -735,10 +770,9 @@ class CopyStreamId(bpy.types.Operator):
 
         metrics.track(
             "Connector Action",
-            custom_props={
-                "name": "copy_stream_id"
-            },
+            custom_props={"name": "copy_stream_id"},
         )
+
 
 class CopyCommitId(bpy.types.Operator):
     """
@@ -754,7 +788,6 @@ class CopyCommitId(bpy.types.Operator):
         self.copy_commit_id(context)
         return {"FINISHED"}
 
-        
     def copy_commit_id(self, context) -> None:
         speckle = get_speckle(context)
 
@@ -763,11 +796,8 @@ class CopyCommitId(bpy.types.Operator):
 
         metrics.track(
             "Connector Action",
-            custom_props={
-                "name": "copy_commit_id"
-            },
+            custom_props={"name": "copy_commit_id"},
         )
-
 
 
 class CopyModelId(bpy.types.Operator):
@@ -784,7 +814,6 @@ class CopyModelId(bpy.types.Operator):
         self.copy_model_id(context)
         return {"FINISHED"}
 
-        
     def copy_model_id(self, context) -> None:
         speckle = get_speckle(context)
 
@@ -794,10 +823,9 @@ class CopyModelId(bpy.types.Operator):
 
         metrics.track(
             "Connector Action",
-            custom_props={
-                "name": "copy_branch_id"
-            },
+            custom_props={"name": "copy_branch_id"},
         )
+
 
 @deprecated
 class CopyBranchName(bpy.types.Operator):
@@ -814,7 +842,6 @@ class CopyBranchName(bpy.types.Operator):
         self.copy_branch_id(context)
         return {"FINISHED"}
 
-        
     def copy_branch_id(self, context) -> None:
         speckle = get_speckle(context)
 
@@ -824,10 +851,9 @@ class CopyBranchName(bpy.types.Operator):
 
         metrics.track(
             "Connector Action",
-            custom_props={
-                "name": "copy_branch_id"
-            },
+            custom_props={"name": "copy_branch_id"},
         )
+
 
 @deprecated
 class SelectOrphanObjects(bpy.types.Operator):
@@ -841,10 +867,9 @@ class SelectOrphanObjects(bpy.types.Operator):
     bl_description = "Select Speckle objects that don't belong to any stream"
 
     def draw(self, context):
-        layout = self.layout
+        pass
 
     def execute(self, context):
-
         for o in context.scene.objects:
             if (
                 o.speckle.stream_id
@@ -855,10 +880,8 @@ class SelectOrphanObjects(bpy.types.Operator):
                 o.select = False
 
         metrics.track(
-            "Connector Action", 
-            custom_props={
-                "name": "SelectOrphanObjects"
-            },
+            "Connector Action",
+            custom_props={"name": "SelectOrphanObjects"},
         )
 
         return {"FINISHED"}

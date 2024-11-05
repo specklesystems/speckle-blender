@@ -3,14 +3,8 @@ Object UI elements
 """
 
 import bpy
-from bpy.props import (
-    StringProperty,
-    BoolProperty,
-    FloatProperty,
-    CollectionProperty,
-    EnumProperty,
-)
 from deprecated import deprecated
+
 
 @deprecated
 class OBJECT_PT_speckle(bpy.types.Panel):

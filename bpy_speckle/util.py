@@ -22,7 +22,7 @@ def get_iddata(base, uuid, name, obdata):
     """
     This is taken from the import_3dm add-on:
     https://github.com/jesterKing/import_3dm
-    # Copyright (c) 2018-2019 Nathan Letwory, Joel Putnam, 
+    # Copyright (c) 2018-2019 Nathan Letwory, Joel Putnam,
     Tom Svilans
 
     Get an iddata. If an object with given uuid is found in

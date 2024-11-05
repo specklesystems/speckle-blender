@@ -3,9 +3,9 @@ Speckle UI elements for the 3d viewport
 """
 
 
-import bpy
-
 from datetime import datetime
+
+import bpy
 
 from bpy_speckle.properties.scene import get_speckle
 
@@ -114,6 +114,7 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
 
         col.operator("speckle.users_load", text="", icon="FILE_REFRESH")
 
+
 class VIEW3D_PT_SpeckleStreams(bpy.types.Panel):
     """
     Speckle projects UI panel in the 3d viewport
@@ -161,7 +162,7 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
             col.label(text="No projects")
         else:
             user = speckle.validate_user_selection()
-            #user = speckle.users[int(speckle.active_user)]
+            # user = speckle.users[int(speckle.active_user)]
             if len(user.streams) < 1:
                 col.label(text="No active project")
             else:

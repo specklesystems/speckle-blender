@@ -1,29 +1,13 @@
-from .users import LoadUsers, LoadUserStreams, ResetUsers
-from .object import (
-    UpdateObject,
-    ResetObject,
-    DeleteObject,
-    UploadNgonsAsPolylines,
-    SelectIfSameCustomProperty,
-    SelectIfHasCustomProperty,
-)
-from .streams import (
-    ReceiveStreamObjects,
-    SendStreamObjects,
-    ViewStreamDataApi,
-    DeleteStream,
-    SelectOrphanObjects,
-)
-from .streams import (
-    AddStreamFromURL,
-    CreateStream,
-    CopyStreamId,
-    CopyCommitId,
-    CopyBranchName,
-    CopyModelId,
-)
 from .commit import DeleteCommit
-from .misc import OpenSpeckleGuide, OpenSpeckleTutorials, OpenSpeckleForum
+from .misc import OpenSpeckleForum, OpenSpeckleGuide, OpenSpeckleTutorials
+from .object import (DeleteObject, ResetObject, SelectIfHasCustomProperty,
+                     SelectIfSameCustomProperty, UpdateObject,
+                     UploadNgonsAsPolylines)
+from .streams import (AddStreamFromURL, CopyBranchName, CopyCommitId,
+                      CopyModelId, CopyStreamId, CreateStream, DeleteStream,
+                      ReceiveStreamObjects, SelectOrphanObjects,
+                      SendStreamObjects, ViewStreamDataApi)
+from .users import LoadUsers, LoadUserStreams, ResetUsers
 
 operator_classes = [
     LoadUsers,

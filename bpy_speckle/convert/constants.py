@@ -10,7 +10,7 @@ IGNORED_PROPERTY_KEYS = {
     "vertices",
     "renderMaterial",
     "textureCoordinates",
-    "totalChildrenCount"
+    "totalChildrenCount",
 }
 
 DISPLAY_VALUE_PROPERTY_ALIASES = {"displayValue", "@displayValue"}
@@ -19,4 +19,4 @@ ELEMENTS_PROPERTY_ALIASES = {"elements", "@elements"}
 OBJECT_NAME_MAX_LENGTH = 62
 SPECKLE_ID_LENGTH = 32
 OBJECT_NAME_SPECKLE_SEPARATOR = " -- "
-OBJECT_NAME_NUMERAL_SEPARATOR = '.'
+OBJECT_NAME_NUMERAL_SEPARATOR = "."

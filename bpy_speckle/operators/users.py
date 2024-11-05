@@ -1,16 +1,22 @@
 """
 User account operators
 """
-from typing import List, cast
+from typing import cast
+
 import bpy
 from bpy.types import Context
-from bpy_speckle.functions import _report
-from bpy_speckle.clients import speckle_clients
-from bpy_speckle.properties.scene import SpeckleBranchObject, SpeckleCommitObject, SpeckleSceneSettings, SpeckleStreamObject, SpeckleUserObject, get_speckle, restore_selection_state
 from specklepy.core.api.client import SpeckleClient
+from specklepy.core.api.credentials import Account, get_local_accounts
 from specklepy.core.api.models import Stream
-from specklepy.core.api.credentials import get_local_accounts, Account
 from specklepy.logging import metrics
+
+from bpy_speckle.clients import speckle_clients
+from bpy_speckle.functions import _report
+from bpy_speckle.properties.scene import (SpeckleSceneSettings,
+                                          SpeckleStreamObject,
+                                          SpeckleUserObject, get_speckle,
+                                          restore_selection_state)
+
 
 class ResetUsers(bpy.types.Operator):
     """
@@ -26,10 +32,8 @@ class ResetUsers(bpy.types.Operator):
 
         metrics.track(
             "Connector Action",
-            None, 
-            custom_props={
-                "name": "ResetUsers"
-            },
+            None,
+            custom_props={"name": "ResetUsers"},
         )
 
         bpy.context.view_layer.update()
@@ -44,6 +48,7 @@ class ResetUsers(bpy.types.Operator):
         speckle.users.clear()
         speckle_clients.clear()
 
+
 class LoadUsers(bpy.types.Operator):
     """
     Loads all user accounts from the credentials in the local database.
@@ -56,7 +61,6 @@ class LoadUsers(bpy.types.Operator):
     bl_description = "Loads all user accounts from the credentials in the local database.\nSee docs to add accounts via Manager"
 
     def execute(self, context):
-
         _report("Loading users...")
 
         speckle = get_speckle(context)
@@ -69,20 +73,24 @@ class LoadUsers(bpy.types.Operator):
 
         metrics.track(
             "Connector Action",
-            None, 
+            None,
             custom_props={
                 "name": "LoadUsers",
             },
         )
 
         if not profiles:
-            raise Exception("Zero accounts were found, please add one through Speckle Manager or a local account")
+            raise Exception(
+                "Zero accounts were found, please add one through Speckle Manager or a local account"
+            )
 
         for profile in profiles:
             try:
                 add_user_account(profile, speckle)
             except Exception as ex:
-                _report(f"Failed to authenticate user account {profile.userInfo.email} with server {profile.serverInfo.url}: {ex}")
+                _report(
+                    f"Failed to authenticate user account {profile.userInfo.email} with server {profile.serverInfo.url}: {ex}"
+                )
                 users_list.remove(len(users_list) - 1)
                 continue
 
@@ -100,11 +108,16 @@ class LoadUsers(bpy.types.Operator):
             context.area.tag_redraw()
 
         if not users_list:
-            raise Exception("Zero valid user accounts were found, please ensure account is valid and the server is running")
+            raise Exception(
+                "Zero valid user accounts were found, please ensure account is valid and the server is running"
+            )
 
         return {"FINISHED"}
 
-def add_user_account(account: Account, speckle: SpeckleSceneSettings) -> SpeckleUserObject:
+
+def add_user_account(
+    account: Account, speckle: SpeckleSceneSettings
+) -> SpeckleUserObject:
     """Creates a new new SpeckleUserObject for the provided user Account and adds it to the SpeckleSceneSettings"""
     users_list = speckle.users
 
@@ -118,7 +131,7 @@ def add_user_account(account: Account, speckle: SpeckleSceneSettings) -> Speckle
     user.email = account.userInfo.email
     user.company = account.userInfo.company or ""
 
-    assert(URL)
+    assert URL
     client = SpeckleClient(
         host=URL,
         use_ssl="https" in URL,
@@ -136,7 +149,7 @@ def add_user_stream(user: SpeckleUserObject, stream: Stream):
     s.description = stream.description
 
     _report(f"Adding stream {s.id} - {s.name}")
-    
+
     if stream.branches:
         s.load_stream_branches(stream)
 
@@ -159,7 +172,6 @@ class LoadUserStreams(bpy.types.Operator):
         self.load_user_stream(context)
         return {"FINISHED"}
 
-        
     def load_user_stream(self, context: Context) -> None:
         speckle = get_speckle(context)
 
@@ -169,12 +181,11 @@ class LoadUserStreams(bpy.types.Operator):
         try:
             streams = client.stream.list(stream_limit=self.stream_limit)
         except Exception as ex:
-            raise Exception(f"Failed to retrieve projects") from ex
-        
+            raise Exception("Failed to retrieve projects") from ex
+
         if not streams:
             _report("Zero projects found")
             return
-
 
         active_stream_id = None
         if active_stream := user.get_active_stream():
@@ -185,10 +196,12 @@ class LoadUserStreams(bpy.types.Operator):
         user.streams.clear()
 
         for i, s in enumerate(streams):
-            assert(s.id)
+            assert s.id
             load_branches = s.id == active_stream_id if active_stream_id else i == 0
             if load_branches:
-                sstream = client.stream.get(id=s.id, branch_limit=self.branch_limit, commit_limit=10)
+                sstream = client.stream.get(
+                    id=s.id, branch_limit=self.branch_limit, commit_limit=10
+                )
                 add_user_stream(user, sstream)
             else:
                 add_user_stream(user, s)
@@ -199,13 +212,9 @@ class LoadUserStreams(bpy.types.Operator):
 
         if context.area:
             context.area.tag_redraw()
-                
+
         metrics.track(
             "Connector Action",
-            client.account, 
-            custom_props={
-                "name": "LoadUserStreams"
-            },
+            client.account,
+            custom_props={"name": "LoadUserStreams"},
         )
-
-

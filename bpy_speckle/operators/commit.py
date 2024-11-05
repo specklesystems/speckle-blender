@@ -3,10 +3,11 @@ Commit operators
 """
 import bpy
 from bpy.props import BoolProperty
+from specklepy.logging import metrics
+
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.functions import _report
 from bpy_speckle.properties.scene import get_speckle
-from specklepy.logging import metrics
 
 
 class DeleteCommit(bpy.types.Operator):
@@ -23,7 +24,7 @@ class DeleteCommit(bpy.types.Operator):
     are_you_sure: BoolProperty(
         name="Confirm",
         default=False,
-    ) # type: ignore
+    )  # type: ignore
 
     def draw(self, context):
         layout = self.layout
@@ -48,7 +49,7 @@ class DeleteCommit(bpy.types.Operator):
         return {"FINISHED"}
 
     @staticmethod
-    def delete_commit(context: bpy.types.Context) -> None: 
+    def delete_commit(context: bpy.types.Context) -> None:
         speckle = get_speckle(context)
 
         (_, stream, branch, commit) = speckle.validate_commit_selection()
@@ -59,14 +60,13 @@ class DeleteCommit(bpy.types.Operator):
 
         metrics.track(
             "Connector Action",
-            client.account, 
-            custom_props={
-                "name": "delete_commit"
-            },
+            client.account,
+            custom_props={"name": "delete_commit"},
         )
-        
+
         if not deleted:
             raise Exception("Delete operation failed")
 
-        print(f"Version {commit.id} ({commit.message}) of model {branch.id} ({branch.name}) has been deleted from project {stream.id} ({stream.name})")
-
+        print(
+            f"Version {commit.id} ({commit.message}) of model {branch.id} ({branch.name}) has been deleted from project {stream.id} ({stream.name})"
+        )
