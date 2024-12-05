@@ -1,5 +1,11 @@
 import bpy
-from bpy.props import CollectionProperty, StringProperty, IntProperty, IntVectorProperty, EnumProperty
+from bpy.props import (
+    CollectionProperty,
+    StringProperty,
+    IntProperty,
+    IntVectorProperty,
+    EnumProperty,
+)
 
 from ..ui.project_selection_dialog import speckle_project
 from ..ui.model_selection_dialog import speckle_model
@@ -8,7 +14,8 @@ from ..ui.model_card import speckle_model_card
 
 from ..utils.account_manager import get_account_enum_items, get_default_account_id
 
-class SpeckleState(bpy.types.PropertyGroup):    
+
+class SpeckleState(bpy.types.PropertyGroup):
     projects: CollectionProperty(type=speckle_project)
     models: CollectionProperty(type=speckle_model)
     versions: CollectionProperty(type=speckle_version)
@@ -19,14 +26,17 @@ class SpeckleState(bpy.types.PropertyGroup):
 
     # Speckle Accounts
     account: EnumProperty(
-        name="Account", 
-        description= "Selected account to filter projects by",
+        name="Account",
+        description="Selected account to filter projects by",
         items=get_account_enum_items(),
-        default = get_default_account_id()
+        default=get_default_account_id(),
     )
+
+
 def register():
     bpy.utils.register_class(SpeckleState)
     bpy.types.Scene.speckle_state = bpy.props.PointerProperty(type=SpeckleState)
+
 
 def unregister():
     del bpy.types.Scene.speckle_state
