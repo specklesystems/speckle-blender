@@ -1,7 +1,5 @@
 import bpy
 from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
-from specklepy.api.credentials import get_local_accounts
-from specklepy.api.client import SpeckleClient
 class speckle_project(bpy.types.PropertyGroup):
     """
     PropertyGroup for storing projects.
@@ -67,17 +65,13 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     def invoke(self, context: Context, event: Event) -> set[str]:
         # Clear existing projects
         context.scene.speckle_state.projects.clear()
-        speckle_account = next(filter(lambda x: x.id == context.scene.speckle_state.account, get_local_accounts()))
-        client = SpeckleClient(speckle_account.serverInfo.url)
-        client.authenticate_with_account(speckle_account)
-        projects = [(project.name, project.role, project.updatedAt) for project in client.stream.list(10)]
     
         # Populate with new projects
-        for name, role, updatedAt in projects:
+        for name, role, updated in self.projects:
             project = context.scene.speckle_state.projects.add()
             project.name = name
-            project.role = role.split(":")[-1] # Convert to string
-            project.updated = updatedAt.strftime("%Y-%m-%d %H:%M:%S") # Convert to string
+            project.role = role
+            project.updated = updated
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context: Context) -> None:
