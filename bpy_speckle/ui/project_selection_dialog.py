@@ -44,20 +44,15 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
 
-    search_query: bpy.props.StringProperty(
-        name="Search",
-        description="Search a project",
-        default=""
-    )
-
     def update_projects_list(self, context):
         wm = context.window_manager
         
         # Clear existing projects
         wm.speckle_projects.clear()
         
-        # Get projects for the newly selected account
-        projects = get_projects_for_account(self.selected_account)
+        # Get projects for the selected account, using search if provided
+        search = self.search_query if self.search_query.strip() else None
+        projects = get_projects_for_account(self.accounts, search=search)
         
         # Populate projects list in WindowManager
         for name, role, updated in projects:
@@ -68,7 +63,14 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             
         return None
 
-    selected_account: bpy.props.EnumProperty(
+    search_query: bpy.props.StringProperty(
+        name="Search",
+        description="Search a project",
+        default="",
+        update=update_projects_list
+    )
+
+    accounts: bpy.props.EnumProperty(
         name="Account",
         description="Selected account to filter projects by",
         items=get_account_enum_items(),
@@ -97,10 +99,10 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         wm.speckle_projects.clear()
         
         # Get the selected account
-        account_id = self.selected_account
+        selected_account_id = self.accounts
         
         # Fetch projects from server
-        projects = get_projects_for_account(account_id)
+        projects = get_projects_for_account(selected_account_id)
         
         # Populate projects list in WindowManager
         for name, role, updated in projects:
@@ -115,7 +117,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         layout: UILayout = self.layout
         
         # Account selection
-        layout.prop(self, "selected_account")
+        layout.prop(self, "accounts")
         
         # Search field
         row = layout.row(align=True)
