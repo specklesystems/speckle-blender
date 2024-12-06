@@ -1,21 +1,12 @@
 import bpy
-from bpy.props import (
-    CollectionProperty,
-    StringProperty,
-    IntProperty,
-    IntVectorProperty,
-    EnumProperty,
-)
+from bpy.props import CollectionProperty, StringProperty, IntProperty, IntVectorProperty
 
 from ..ui.project_selection_dialog import speckle_project
 from ..ui.model_selection_dialog import speckle_model
 from ..ui.version_selection_dialog import speckle_version
 from ..ui.model_card import speckle_model_card
 
-from ..utils.account_manager import get_account_enum_items, get_default_account_id
-
-
-class SpeckleState(bpy.types.PropertyGroup):
+class SpeckleState(bpy.types.PropertyGroup):    
     projects: CollectionProperty(type=speckle_project)
     models: CollectionProperty(type=speckle_model)
     versions: CollectionProperty(type=speckle_version)
@@ -23,15 +14,6 @@ class SpeckleState(bpy.types.PropertyGroup):
     model_cards: CollectionProperty(type=speckle_model_card)
     model_card_index: IntProperty(name="Model Card Index", default=0)
     mouse_position: IntVectorProperty(size=2)
-
-    # Speckle Accounts
-    account: EnumProperty(
-        name="Account",
-        description="Selected account to filter projects by",
-        items=get_account_enum_items(),
-        default=get_default_account_id(),
-    )
-
 
 def register():
     bpy.utils.register_class(SpeckleState)

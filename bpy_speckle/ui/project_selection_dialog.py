@@ -1,6 +1,7 @@
 import bpy
 from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
 from ..utils.project_manager import get_projects_for_account
+from ..utils.account_manager import get_account_enum_items, get_default_account_id
 
 class speckle_project(bpy.types.PropertyGroup):
     """
@@ -49,6 +50,13 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         default=""
     )
 
+    selected_account: bpy.props.EnumProperty(
+        name="Account",
+        description="Selected account to filter projects by",
+        items=get_account_enum_items(),
+        default=get_default_account_id()
+    )
+
     project_index: bpy.props.IntProperty(name="Project Index", default=0)
     
     def execute(self, context: Context) -> set[str]:
@@ -79,8 +87,8 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # TODO: Add UI elements here
         layout : UILayout = self.layout
         # Account selection
-        layout.prop(context.scene.speckle_state, "account", text="")
-
+        layout.prop(self, "selected_account")
+        
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon='VIEWZOOM', text="")
