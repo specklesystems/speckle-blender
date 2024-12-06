@@ -1,7 +1,7 @@
 from specklepy.api.client import SpeckleClient
 from specklepy.api.credentials import get_local_accounts
 from typing import List, Tuple
-from .misc import format_relative_time
+from .misc import format_relative_time, format_role
 
 def get_projects_for_account(account_id: str) -> List[Tuple[str, str, str]]:
     """
@@ -27,7 +27,7 @@ def get_projects_for_account(account_id: str) -> List[Tuple[str, str, str]]:
         # Fetch projects
         projects = client.active_user.get_projects(limit=10).items
         
-        return [(project.name, project.role, format_relative_time(project.updatedAt) ) for project in projects]
+        return [(project.name, format_role(project.role), format_relative_time(project.updatedAt) ) for project in projects]
         
     except Exception as e:
         import traceback

@@ -44,3 +44,7 @@ def format_relative_time(timestamp) -> str:
             return f"{delta.days} days ago"
     except ValueError:
         return "Invalid timestamp"
+
+def format_role(role: str) -> str:
+    split_role = role.split(":")
+    return f"{split_role[1]}"

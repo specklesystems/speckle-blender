@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
+from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event, WindowManager
 from ..utils.project_manager import get_projects_for_account
 from ..utils.account_manager import get_account_enum_items, get_default_account_id
 
@@ -60,23 +60,32 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     project_index: bpy.props.IntProperty(name="Project Index", default=0)
     
     def execute(self, context: Context) -> set[str]:
-        selected_project = context.scene.speckle_state.projects[self.project_index]
-        bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name)
+        wm = context.window_manager
+        if 0 <= self.project_index < len(wm.speckle_projects):
+            selected_project = wm.speckle_projects[self.project_index]
+            bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name)
         return {'FINISHED'}
     
     def invoke(self, context: Context, event: Event) -> set[str]:
+        wm = context.window_manager
+        
+        # Ensure WindowManager has the projects collection
+        if not hasattr(WindowManager, "speckle_projects"):
+            # Register the collection property
+            WindowManager.speckle_projects = bpy.props.CollectionProperty(type=speckle_project)
+        
         # Clear existing projects
-        context.scene.speckle_state.projects.clear()
-    
+        wm.speckle_projects.clear()
+        
         # Get the selected account
-        account_id = context.scene.speckle_state.account
+        account_id = self.selected_account
         
         # Fetch projects from server
         projects = get_projects_for_account(account_id)
         
-        # Populate projects list
+        # Populate projects list in WindowManager
         for name, role, updated in projects:
-            project = context.scene.speckle_state.projects.add()
+            project = wm.speckle_projects.add()
             project.name = name
             project.role = role
             project.updated = updated
@@ -84,8 +93,8 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context: Context) -> None:
-        # TODO: Add UI elements here
-        layout : UILayout = self.layout
+        layout: UILayout = self.layout
+        
         # Account selection
         layout.prop(self, "selected_account")
         
@@ -94,9 +103,12 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         row.prop(self, "search_query", icon='VIEWZOOM', text="")
         row.operator("speckle.add_project_by_url", icon='URL', text="")
         
-        # Projects UIList
-        layout.template_list("SPECKLE_UL_projects_list", "", context.scene.speckle_state, "projects", self, "project_index")
-
+        # Projects UIList - now using WindowManager collection
+        layout.template_list(
+            "SPECKLE_UL_projects_list", "",
+            context.window_manager, "speckle_projects",
+            self, "project_index"
+        )
         layout.separator()
 
 class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
@@ -124,3 +136,19 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
         layout.prop(self, "url")
+
+def register():
+    bpy.utils.register_class(speckle_project)
+    bpy.utils.register_class(SPECKLE_UL_projects_list)
+    bpy.utils.register_class(SPECKLE_OT_project_selection_dialog)
+    bpy.utils.register_class(SPECKLE_OT_add_project_by_url)
+
+def unregister():
+    # Clean up WindowManager properties
+    if hasattr(WindowManager, "speckle_projects"):
+        del WindowManager.speckle_projects
+    
+    bpy.utils.unregister_class(SPECKLE_OT_add_project_by_url)
+    bpy.utils.unregister_class(SPECKLE_OT_project_selection_dialog)
+    bpy.utils.unregister_class(SPECKLE_UL_projects_list)
+    bpy.utils.unregister_class(speckle_project)
