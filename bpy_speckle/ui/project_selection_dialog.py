@@ -1,5 +1,7 @@
 import bpy
 from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
+from ..utils.project_manager import get_projects_for_account
+
 class speckle_project(bpy.types.PropertyGroup):
     """
     PropertyGroup for storing projects.
@@ -47,14 +49,6 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         default=""
     )
 
-    projects: list[tuple[str, str, str]] = [
-        ("RICK'S PORTAL", "contributor", "6 hours ago"),
-        ("[BETA] Revit Tests", "owner", "6 hours ago"),
-        ("Community Tickets", "owner", "a day ago"),
-        ("Bilal's CNX Testing Space", "owner", "a day ago"),
-        ("ArcGIS testing", "contributor", "3 days ago"),
-    ] 
-
     project_index: bpy.props.IntProperty(name="Project Index", default=0)
     
     def execute(self, context: Context) -> set[str]:
@@ -66,12 +60,19 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # Clear existing projects
         context.scene.speckle_state.projects.clear()
     
-        # Populate with new projects
-        for name, role, updated in self.projects:
+        # Get the selected account
+        account_id = context.scene.speckle_state.account
+        
+        # Fetch projects from server
+        projects = get_projects_for_account(account_id)
+        
+        # Populate projects list
+        for name, role, updated in projects:
             project = context.scene.speckle_state.projects.add()
             project.name = name
             project.role = role
             project.updated = updated
+            
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context: Context) -> None:
