@@ -50,11 +50,30 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         default=""
     )
 
+    def update_projects_list(self, context):
+        wm = context.window_manager
+        
+        # Clear existing projects
+        wm.speckle_projects.clear()
+        
+        # Get projects for the newly selected account
+        projects = get_projects_for_account(self.selected_account)
+        
+        # Populate projects list in WindowManager
+        for name, role, updated in projects:
+            project = wm.speckle_projects.add()
+            project.name = name
+            project.role = role
+            project.updated = updated
+            
+        return None
+
     selected_account: bpy.props.EnumProperty(
         name="Account",
         description="Selected account to filter projects by",
         items=get_account_enum_items(),
-        default=get_default_account_id()
+        default=get_default_account_id(),
+        update=update_projects_list
     )
 
     project_index: bpy.props.IntProperty(name="Project Index", default=0)
