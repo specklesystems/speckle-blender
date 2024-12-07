@@ -122,7 +122,8 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon='VIEWZOOM', text="")
-        row.operator("speckle.add_project_by_url", icon='URL', text="")
+        # TODO: Add a button for adding a project by URL
+        #row.operator("speckle.add_project_by_url", icon='URL', text="")
         
         # Projects UIList - now using WindowManager collection
         layout.template_list(
