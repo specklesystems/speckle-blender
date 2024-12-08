@@ -35,10 +35,10 @@ def get_versions_for_model(account_id: str, project_id: str, model_id: str, sear
         # Authenticate
         client.authenticate_with_account(account)
         
-        filter = ModelVersionsFilter(search=search)
+        filter = ModelVersionsFilter(search=search, priorityIds=[])
 
         # Get versions
-        versions = client.version.get_versions(project_id=project_id, model_id=model_id, limit=10, filter=filter)
+        versions = client.version.get_versions(project_id=project_id, model_id=model_id, limit=10, filter=filter).items
             
         return [(version.id, version.message or "No message", format_relative_time(version.createdAt)) for version in versions]
         
