@@ -96,7 +96,8 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
                 project_name=self.project_name,
                 project_id=self.project_id,
                 model_name=selected_model.name,
-                model_id=selected_model.id)
+                model_id=selected_model.id,
+                account_id=context.window_manager.selected_account_id)
         return {'FINISHED'}
 
     def invoke(self, context: Context, event: Event) -> set[str]:

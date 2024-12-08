@@ -1,5 +1,6 @@
 import bpy
 from .mouse_position_mixin import MousePositionMixin
+from ..utils.version_manager import get_versions_for_model
 
 class speckle_version(bpy.types.PropertyGroup):
     """
@@ -60,14 +61,25 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         default=""
     )
 
-    versions = [
-        ("648896", "Message 1", "12 day ago"),
-        ("658465", "Message 2", "15 days ago"),
-        ("154651", "Message 3", "20 days ago"),
-    ]
+    project_id: bpy.props.StringProperty(
+        name="Project ID",
+        description="ID of the selected project",
+        default=""
+    )
+
+    model_id: bpy.props.StringProperty(
+        name="Model ID",
+        description="ID of the selected model",
+        default=""
+    )
+
+    account_id: bpy.props.StringProperty(
+        name="Account ID",
+        description="ID of the current account",
+        default=""
+    )
 
     version_index: bpy.props.IntProperty(name="Model Index", default=0)
-
 
     def execute(self, context):
         model_card = context.scene.speckle_state.model_cards.add()
@@ -75,16 +87,22 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         model_card.model_name = self.model_name
         model_card.is_publish = False
         # Store the selected version ID
-        selected_version = context.scene.speckle_state.versions[self.version_index]
+        selected_version = context.window_manager.speckle_versions[self.version_index]
         model_card.version_id = selected_version.id
         return {'FINISHED'}
 
     def invoke(self, context, event):
         # Clear existing versions
-        context.scene.speckle_state.versions.clear()
-        # Populate with new versions
-        for id, message, updated in self.versions:
-            version = context.scene.speckle_state.versions.add()
+        context.window_manager.speckle_versions.clear()
+        # Fetch and populate versions
+        versions = get_versions_for_model(
+            account_id=self.account_id,
+            project_id=self.project_id,
+            model_id=self.model_id,
+            search=self.search_query if self.search_query else None
+        )
+        for id, message, updated in versions:
+            version = context.window_manager.speckle_versions.add()
             version.id = id
             version.message = message
             version.updated = updated
@@ -98,11 +116,13 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         layout.label(text=f"Project: {self.project_name}")
         layout.label(text=f"Model: {self.model_name}")
         # TODO: Add more UI elements here.
+        # TODO: Add more UI elements here.
+        # TODO: Add more UI elements here.
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon='VIEWZOOM', text="")
         # Versions UIList
-        layout.template_list("SPECKLE_UL_versions_list", "", context.scene.speckle_state, "versions", self, "version_index")
+        row.template_list("SPECKLE_UL_versions_list", "", context.window_manager, "speckle_versions", self, "version_index")
 
         layout.separator()
 
