@@ -1,6 +1,7 @@
 """
 Collection properties
 """
+
 import bpy
 
 

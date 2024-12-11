@@ -11,22 +11,40 @@ from mathutils import Matrix as MMatrix
 from mathutils import Vector as MVector
 from mathutils.geometry import interpolate_bezier
 from specklepy.objects import Base
-from specklepy.objects.geometry import (Box, Curve, Interval, Mesh, Point,
-                                        Polyline, Vector)
-from specklepy.objects.other import (BlockDefinition, BlockInstance,
-                                     RenderMaterial, Transform)
+from specklepy.objects.geometry import (
+    Box,
+    Curve,
+    Interval,
+    Mesh,
+    Point,
+    Polyline,
+    Vector,
+)
+from specklepy.objects.other import (
+    BlockDefinition,
+    BlockInstance,
+    RenderMaterial,
+    Transform,
+)
 
-from bpy_speckle.blender_commit_object_builder import \
-    BlenderCommitObjectBuilder
-from bpy_speckle.convert.constants import (OBJECT_NAME_SPECKLE_SEPARATOR,
-                                           SPECKLE_ID_LENGTH)
-from bpy_speckle.convert.util import (ConversionSkippedException,
-                                      get_blender_custom_properties,
-                                      make_knots, nurb_make_curve, to_argb_int)
+from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
+from bpy_speckle.convert.constants import (
+    OBJECT_NAME_SPECKLE_SEPARATOR,
+    SPECKLE_ID_LENGTH,
+)
+from bpy_speckle.convert.util import (
+    ConversionSkippedException,
+    get_blender_custom_properties,
+    make_knots,
+    nurb_make_curve,
+    to_argb_int,
+)
 from bpy_speckle.functions import _report
 
 Units: str = "m"  # The desired final units to send
-UnitsScale: float = 1  # The scale factor conversions need to apply to position data to get to the desired units
+UnitsScale: float = (
+    1  # The scale factor conversions need to apply to position data to get to the desired units
+)
 
 CAN_CONVERT_TO_SPECKLE = ("MESH", "CURVE", "EMPTY", "CAMERA", "FONT", "SURFACE", "META")
 

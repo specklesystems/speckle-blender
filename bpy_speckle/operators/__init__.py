@@ -1,9 +1,15 @@
 from .commit import DeleteCommit
 from .misc import OpenSpeckleForum, OpenSpeckleGuide, OpenSpeckleTutorials
-from .streams import (AddStreamFromURL, CopyCommitId,
-                      CopyModelId, CopyStreamId, CreateStream,
-                      ReceiveStreamObjects,
-                      SendStreamObjects, ViewStreamDataApi)
+from .streams import (
+    AddStreamFromURL,
+    CopyCommitId,
+    CopyModelId,
+    CopyStreamId,
+    CreateStream,
+    ReceiveStreamObjects,
+    SendStreamObjects,
+    ViewStreamDataApi,
+)
 from .users import LoadUsers, LoadUserStreams, ResetUsers
 
 operator_classes = [

@@ -1,6 +1,7 @@
 """
 Commit operators
 """
+
 import bpy
 from bpy.props import BoolProperty
 from specklepy.logging import metrics

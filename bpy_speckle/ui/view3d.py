@@ -2,7 +2,6 @@
 Speckle UI elements for the 3d viewport
 """
 
-
 from datetime import datetime
 
 import bpy

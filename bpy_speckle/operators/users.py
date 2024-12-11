@@ -1,6 +1,7 @@
 """
 User account operators
 """
+
 from typing import cast
 
 import bpy
@@ -12,10 +13,13 @@ from specklepy.logging import metrics
 
 from bpy_speckle.clients import speckle_clients
 from bpy_speckle.functions import _report
-from bpy_speckle.properties.scene import (SpeckleSceneSettings,
-                                          SpeckleStreamObject,
-                                          SpeckleUserObject, get_speckle,
-                                          restore_selection_state)
+from bpy_speckle.properties.scene import (
+    SpeckleSceneSettings,
+    SpeckleStreamObject,
+    SpeckleUserObject,
+    get_speckle,
+    restore_selection_state,
+)
 
 
 class ResetUsers(bpy.types.Operator):
