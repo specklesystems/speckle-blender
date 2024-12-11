@@ -1,12 +1,18 @@
 """
 Scene properties
 """
+
 from dataclasses import dataclass
 from typing import Iterable, Optional, Tuple, Union, cast
 
 import bpy
-from bpy.props import (CollectionProperty, EnumProperty, FloatProperty,
-                       IntProperty, StringProperty)
+from bpy.props import (
+    CollectionProperty,
+    EnumProperty,
+    FloatProperty,
+    IntProperty,
+    StringProperty,
+)
 from specklepy.core.api.models import Stream
 
 from bpy_speckle.clients import speckle_clients

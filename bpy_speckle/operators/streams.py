@@ -1,6 +1,7 @@
 """
 Stream operators
 """
+
 import webbrowser
 from math import radians
 from typing import Callable, Dict, Optional, Tuple, Union, cast
@@ -19,23 +20,25 @@ from specklepy.objects import Base
 from specklepy.objects.other import Collection as SCollection
 from specklepy.transports.server import ServerTransport
 
-from bpy_speckle.blender_commit_object_builder import \
-    BlenderCommitObjectBuilder
+from bpy_speckle.blender_commit_object_builder import BlenderCommitObjectBuilder
 from bpy_speckle.clients import speckle_clients
-from bpy_speckle.convert.to_native import (can_convert_to_native,
-                                           collection_to_native,
-                                           convert_to_native,
-                                           set_convert_instances_as)
+from bpy_speckle.convert.to_native import (
+    can_convert_to_native,
+    collection_to_native,
+    convert_to_native,
+    set_convert_instances_as,
+)
 from bpy_speckle.convert.to_speckle import convert_to_speckle
-from bpy_speckle.convert.util import (ConversionSkippedException,
-                                      add_to_hierarchy)
-from bpy_speckle.functions import (_report, get_default_traversal_func,
-                                   get_scale_length)
+from bpy_speckle.convert.util import ConversionSkippedException, add_to_hierarchy
+from bpy_speckle.functions import _report, get_default_traversal_func, get_scale_length
 from bpy_speckle.operators.users import LoadUserStreams, add_user_stream
-from bpy_speckle.properties.scene import (SpeckleSceneSettings,
-                                          SpeckleStreamObject,
-                                          SpeckleUserObject, get_speckle,
-                                          selection_state)
+from bpy_speckle.properties.scene import (
+    SpeckleSceneSettings,
+    SpeckleStreamObject,
+    SpeckleUserObject,
+    get_speckle,
+    selection_state,
+)
 
 ObjectCallback = Optional[Callable[[bpy.types.Context, Object, Base], Object]]
 ReceiveCompleteCallback = Optional[
@@ -189,7 +192,7 @@ class ReceiveStreamObjects(bpy.types.Operator):
                 ).slug,
                 "sourceHostAppVersion": commit.source_application,
                 "isMultiplayer": commit.author_id != user.id,
-                "workspace_id": get_project_workspace_id(client, stream.id)
+                "workspace_id": get_project_workspace_id(client, stream.id),
                 # "connector_version": "unknown", #TODO
             },
         )
@@ -655,109 +658,6 @@ class CreateStream(bpy.types.Operator):
         )
 
 
-@deprecated
-class DeleteStream(bpy.types.Operator):
-    """
-    Permanently delete the selected project
-    """
-
-    bl_idname = "speckle.delete_stream"
-    bl_label = "Delete Project"
-    bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Permanently delete the selected project"
-
-    are_you_sure: BoolProperty(
-        name="Confirm",
-        description="⚠ This action will delete your entire stream permanently ⚠",
-        default=False,
-    )  # type: ignore
-
-    delete_collection: BoolProperty(name="Delete collection", default=False)  # type: ignore
-
-    def draw(self, context):
-        layout = self.layout
-        col = layout.column()
-        col.prop(self, "are_you_sure")
-        col.prop(self, "delete_collection")
-
-    def invoke(self, context, event):
-        wm = context.window_manager
-        speckle = get_speckle(context)
-        if len(speckle.users) > 0:
-            return wm.invoke_props_dialog(self)
-
-        return {"CANCELLED"}
-
-    def execute(self, context):
-        if not self.are_you_sure:
-            _report(f"Cancelled by user - are_you_sure was {self.are_you_sure}")
-            return {"CANCELLED"}
-        self.are_you_sure = False
-
-        self.delete_stream(context, self.delete_collection)
-        return {"FINISHED"}
-
-    @staticmethod
-    def delete_stream(context: Context, delete_collection: bool) -> None:
-        speckle = get_speckle(context)
-        (_, stream) = speckle.validate_stream_selection()
-
-        client = speckle_clients[int(speckle.active_user)]
-
-        client.stream.delete(id=stream.id)
-
-        if delete_collection:
-            # This may not work anymore since we changed the collection naming...
-            col_name = "SpeckleStream_{}_{}".format(stream.name, stream.id)
-            if col_name in bpy.data.collections:
-                collection = bpy.data.collections[col_name]
-                bpy.data.collections.remove(collection)
-
-        bpy.ops.speckle.load_user_streams()
-        context.view_layer.update()
-
-        if context.area:
-            context.area.tag_redraw()
-
-        metrics.track(
-            "Connector Action",
-            client.account,
-            custom_props={"name": "delete_stream"},
-        )
-
-
-@deprecated
-class SelectOrphanObjects(bpy.types.Operator):
-    """
-    Select Speckle objects that don't belong to any stream
-    """
-
-    bl_idname = "speckle.select_orphans"
-    bl_label = "Select Orphaned Objects (DEPRECATED)"
-    bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Select Speckle objects that don't belong to any stream"
-
-    def draw(self, context):
-        layout = self.layout
-
-    def execute(self, context):
-        for o in context.scene.objects:
-            if (
-                o.speckle.stream_id
-                and o.speckle.stream_id not in context.scene["speckle_streams"]
-            ):
-                o.select = True
-            else:
-                o.select = False
-
-        metrics.track(
-            "Connector Action",
-            custom_props={"name": "SelectOrphanObjects"},
-        )
-
-        return {"FINISHED"}
-
-
 class CopyStreamId(bpy.types.Operator):
     """
     Copy the selected project id to clipboard
@@ -835,63 +735,3 @@ class CopyModelId(bpy.types.Operator):
             "Connector Action",
             custom_props={"name": "copy_branch_id"},
         )
-
-
-@deprecated
-class CopyBranchName(bpy.types.Operator):
-    """
-    Copy branch name to clipboard
-    """
-
-    bl_idname = "speckle.branch_copy_name"
-    bl_label = "Copy branch name"
-    bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Copy branch name to clipboard"
-
-    def execute(self, context):
-        self.copy_branch_id(context)
-        return {"FINISHED"}
-
-    def copy_branch_id(self, context) -> None:
-        speckle = get_speckle(context)
-
-        (_, _, branch) = speckle.validate_branch_selection()
-
-        bpy.context.window_manager.clipboard = branch.name
-
-        metrics.track(
-            "Connector Action",
-            custom_props={"name": "copy_branch_id"},
-        )
-
-
-@deprecated
-class SelectOrphanObjects(bpy.types.Operator):
-    """
-    Select Speckle objects that don't belong to any stream
-    """
-
-    bl_idname = "speckle.select_orphans"
-    bl_label = "Select orphaned objects"
-    bl_options = {"REGISTER", "UNDO"}
-    bl_description = "Select Speckle objects that don't belong to any stream"
-
-    def draw(self, context):
-        pass
-
-    def execute(self, context):
-        for o in context.scene.objects:
-            if (
-                o.speckle.stream_id
-                and o.speckle.stream_id not in context.scene["speckle_streams"]
-            ):
-                o.select = True
-            else:
-                o.select = False
-
-        metrics.track(
-            "Connector Action",
-            custom_props={"name": "SelectOrphanObjects"},
-        )
-
-        return {"FINISHED"}

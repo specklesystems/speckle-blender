@@ -1,6 +1,7 @@
 """
 Addon properties
 """
+
 import bpy
 
 

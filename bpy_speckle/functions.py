@@ -1,10 +1,8 @@
 from typing import Callable
 
 from specklepy.objects.base import Base
-from specklepy.objects.graph_traversal.traversal import (GraphTraversal,
-                                                         TraversalRule)
-from specklepy.objects.units import (get_scale_factor_to_meters,
-                                     get_units_from_string)
+from specklepy.objects.graph_traversal.traversal import GraphTraversal, TraversalRule
+from specklepy.objects.units import get_scale_factor_to_meters, get_units_from_string
 
 from bpy_speckle.convert.constants import ELEMENTS_PROPERTY_ALIASES
 

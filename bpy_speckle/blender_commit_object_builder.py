@@ -5,7 +5,9 @@ from attrs import define
 from bpy.types import ID, Collection, Object
 from specklepy.objects.base import Base
 from specklepy.objects.graph_traversal.commit_object_builder import (
-    ROOT, CommitObjectBuilder)
+    ROOT,
+    CommitObjectBuilder,
+)
 from specklepy.objects.other import Collection as SCollection
 
 from bpy_speckle.functions import _report

@@ -9,26 +9,43 @@ from mathutils import Matrix as MMatrix
 from mathutils import Quaternion as MQuaternion
 from mathutils import Vector as MVector
 from specklepy.objects.base import Base
-from specklepy.objects.geometry import (Arc, Circle, Curve, Ellipse, Line,
-                                        Mesh, Plane, Polycurve, Polyline)
+from specklepy.objects.geometry import (
+    Arc,
+    Circle,
+    Curve,
+    Ellipse,
+    Line,
+    Mesh,
+    Plane,
+    Polycurve,
+    Polyline,
+)
 from specklepy.objects.other import BlockDefinition
 from specklepy.objects.other import Collection as SCollection
 from specklepy.objects.other import Instance, Transform
 
-from bpy_speckle.convert.constants import (DISPLAY_VALUE_PROPERTY_ALIASES,
-                                           ELEMENTS_PROPERTY_ALIASES,
-                                           OBJECT_NAME_MAX_LENGTH,
-                                           OBJECT_NAME_NUMERAL_SEPARATOR,
-                                           OBJECT_NAME_SPECKLE_SEPARATOR,
-                                           SPECKLE_ID_LENGTH)
+from bpy_speckle.convert.constants import (
+    DISPLAY_VALUE_PROPERTY_ALIASES,
+    ELEMENTS_PROPERTY_ALIASES,
+    OBJECT_NAME_MAX_LENGTH,
+    OBJECT_NAME_NUMERAL_SEPARATOR,
+    OBJECT_NAME_SPECKLE_SEPARATOR,
+    SPECKLE_ID_LENGTH,
+)
 from bpy_speckle.convert.util import ConversionSkippedException
-from bpy_speckle.functions import (_report, get_default_traversal_func,
-                                   get_scale_length)
+from bpy_speckle.functions import _report, get_default_traversal_func, get_scale_length
 
-from .util import (add_colors, add_custom_properties, add_faces,
-                   add_to_hierarchy, add_uv_coords, add_vertices,
-                   get_render_material, get_vertex_color_material,
-                   render_material_to_native)
+from .util import (
+    add_colors,
+    add_custom_properties,
+    add_faces,
+    add_to_hierarchy,
+    add_uv_coords,
+    add_vertices,
+    get_render_material,
+    get_vertex_color_material,
+    render_material_to_native,
+)
 
 SUPPORTED_CURVES = (Line, Polyline, Curve, Arc, Polycurve, Ellipse, Circle)
 CAN_CONVERT_TO_NATIVE = (
@@ -59,7 +76,9 @@ def can_convert_to_native(speckle_object: Base) -> bool:
     return False
 
 
-convert_instances_as: str = ""  # HACK: This is hacky, we need a better way to pass settings down to the converter
+convert_instances_as: str = (
+    ""  # HACK: This is hacky, we need a better way to pass settings down to the converter
+)
 
 
 def set_convert_instances_as(value: str):
@@ -682,9 +701,9 @@ def instance_to_native_object(instance: Instance, scale: float) -> Object:
         native_instance = create_new_object(None, name)
         native_instance.empty_display_size = 0
 
-        converted_objects[
-            "__ROOT"
-        ] = native_instance  # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertible
+        converted_objects["__ROOT"] = (
+            native_instance  # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertible
+        )
         traversal_root = Base(elements=definition, id="__ROOT")
 
     # Convert definition + "elements" on definition
@@ -758,9 +777,9 @@ def _instance_definition_to_native(
     native_def["applicationId"] = definition.applicationId
 
     converted_objects = {}
-    converted_objects[
-        "__ROOT"
-    ] = native_def  # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertible
+    converted_objects["__ROOT"] = (
+        native_def  # we create a dummy root to avoid id conflicts, since revit definitions have displayValues, they are convertible
+    )
     dummyRoot = Base(elements=definition, id="__ROOT")
 
     _deep_conversion(dummyRoot, converted_objects, True)
