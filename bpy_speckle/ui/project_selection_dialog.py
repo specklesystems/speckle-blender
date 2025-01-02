@@ -48,6 +48,9 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     def update_projects_list(self, context):
         wm = context.window_manager
         
+        # Update the selected account ID in the window manager
+        wm.selected_account_id = self.accounts
+        
         # Clear existing projects
         wm.speckle_projects.clear()
         
