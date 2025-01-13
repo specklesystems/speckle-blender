@@ -1,13 +1,11 @@
 import bpy
 from bpy.props import CollectionProperty, StringProperty, IntProperty, IntVectorProperty
 
-from ..ui.project_selection_dialog import speckle_project
 from ..ui.model_selection_dialog import speckle_model
 from ..ui.version_selection_dialog import speckle_version
 from ..ui.model_card import speckle_model_card
 
 class SpeckleState(bpy.types.PropertyGroup):    
-    projects: CollectionProperty(type=speckle_project)
     models: CollectionProperty(type=speckle_model)
     versions: CollectionProperty(type=speckle_version)
     ui_mode: StringProperty(name="UI Mode", default="NONE")

@@ -44,60 +44,93 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
 
+    def update_projects_list(self, context):
+        wm = context.window_manager
+        
+        # Clear existing projects
+        wm.speckle_projects.clear()
+        
+        # Get projects for the selected account, using search if provided
+        search = self.search_query if self.search_query.strip() else None
+        projects = get_projects_for_account(self.accounts, search=search)
+        
+        # Populate projects list in WindowManager
+        for name, role, updated in projects:
+            project = wm.speckle_projects.add()
+            project.name = name
+            project.role = role
+            project.updated = updated
+            
+        return None
+
     search_query: bpy.props.StringProperty(
         name="Search",
         description="Search a project",
-        default=""
+        default="",
+        update=update_projects_list
     )
 
-    selected_account: bpy.props.EnumProperty(
+    accounts: bpy.props.EnumProperty(
         name="Account",
         description="Selected account to filter projects by",
         items=get_account_enum_items(),
-        default=get_default_account_id()
+        default=get_default_account_id(),
+        update=update_projects_list
     )
-
-    projects: List[Tuple[str, str, str]] = [
-        ("RICK'S PORTAL", "contributor", "6 hours ago"),
-        ("[BETA] Revit Tests", "owner", "6 hours ago"),
-        ("Community Tickets", "owner", "a day ago"),
-        ("Bilal's CNX Testing Space", "owner", "a day ago"),
-        ("ArcGIS testing", "contributor", "3 days ago"),
-    ] 
 
     project_index: bpy.props.IntProperty(name="Project Index", default=0)
     
     def execute(self, context: Context) -> set[str]:
-        selected_project = context.scene.speckle_state.projects[self.project_index]
-        bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name)
+        wm = context.window_manager
+        if 0 <= self.project_index < len(wm.speckle_projects):
+            selected_project = wm.speckle_projects[self.project_index]
+            bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name)
         return {'FINISHED'}
     
     def invoke(self, context: Context, event: Event) -> set[str]:
+        wm = context.window_manager
+        
+        # Ensure WindowManager has the projects collection
+        if not hasattr(WindowManager, "speckle_projects"):
+            # Register the collection property
+            WindowManager.speckle_projects = bpy.props.CollectionProperty(type=speckle_project)
+        
         # Clear existing projects
-        context.scene.speckle_state.projects.clear()
-    
-        # Populate with new projects
-        for name, role, updated in self.projects:
-            project = context.scene.speckle_state.projects.add()
+        wm.speckle_projects.clear()
+        
+        # Get the selected account
+        selected_account_id = self.accounts
+        
+        # Fetch projects from server
+        projects = get_projects_for_account(selected_account_id)
+        
+        # Populate projects list in WindowManager
+        for name, role, updated in projects:
+            project = wm.speckle_projects.add()
             project.name = name
             project.role = role
             project.updated = updated
+            
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context: Context) -> None:
-        # TODO: Add UI elements here
-        layout : UILayout = self.layout
+        layout: UILayout = self.layout
+        
         # Account selection
-        layout.prop(self, "selected_account")
+        layout.prop(self, "accounts")
         
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon='VIEWZOOM', text="")
-        row.operator("speckle.add_project_by_url", icon='URL', text="")
+        # TODO: Add a button for adding a project by URL
+        #row.operator("speckle.add_project_by_url", icon='URL', text="")
         
-        # Projects UIList
-        layout.template_list("SPECKLE_UL_projects_list", "", context.scene.speckle_state, "projects", self, "project_index")
-
+        # Projects UIList - now using WindowManager collection
+        layout.template_list(
+            "SPECKLE_UL_projects_list", "",
+            context.window_manager, "speckle_projects",
+            self, "project_index"
+        )
         layout.separator()
 
 class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
@@ -125,3 +158,19 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
         layout.prop(self, "url")
+
+def register():
+    bpy.utils.register_class(speckle_project)
+    bpy.utils.register_class(SPECKLE_UL_projects_list)
+    bpy.utils.register_class(SPECKLE_OT_project_selection_dialog)
+    bpy.utils.register_class(SPECKLE_OT_add_project_by_url)
+
+def unregister():
+    # Clean up WindowManager properties
+    if hasattr(WindowManager, "speckle_projects"):
+        del WindowManager.speckle_projects
+    
+    bpy.utils.unregister_class(SPECKLE_OT_add_project_by_url)
+    bpy.utils.unregister_class(SPECKLE_OT_project_selection_dialog)
+    bpy.utils.unregister_class(SPECKLE_UL_projects_list)
+    bpy.utils.unregister_class(speckle_project)
