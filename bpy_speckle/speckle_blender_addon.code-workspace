@@ -9,7 +9,6 @@
 		}
 	],
 	"settings": {
-		"blender.addon.loadDirectory": "auto",
-		"blender.executables": []
+		"blender.addon.loadDirectory": "auto"
 	}
 }

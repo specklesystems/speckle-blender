@@ -1,5 +1,7 @@
 import bpy
 from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
+from typing import List, Tuple
+from ..utils.account_manager import get_account_enum_items, get_default_account_id
 
 class speckle_project(bpy.types.PropertyGroup):
     """
@@ -48,7 +50,14 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         default=""
     )
 
-    projects: list[tuple[str, str, str]] = [
+    selected_account: bpy.props.EnumProperty(
+        name="Account",
+        description="Selected account to filter projects by",
+        items=get_account_enum_items(),
+        default=get_default_account_id()
+    )
+
+    projects: List[Tuple[str, str, str]] = [
         ("RICK'S PORTAL", "contributor", "6 hours ago"),
         ("[BETA] Revit Tests", "owner", "6 hours ago"),
         ("Community Tickets", "owner", "a day ago"),
@@ -67,21 +76,20 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # Clear existing projects
         context.scene.speckle_state.projects.clear()
     
-    # Populate with new projects
+        # Populate with new projects
         for name, role, updated in self.projects:
             project = context.scene.speckle_state.projects.add()
             project.name = name
             project.role = role
             project.updated = updated
-    
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context: Context) -> None:
         # TODO: Add UI elements here
         layout : UILayout = self.layout
         # Account selection
-        layout.prop(context.scene.speckle_state, "account", text="")
-
+        layout.prop(self, "selected_account")
+        
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon='VIEWZOOM', text="")

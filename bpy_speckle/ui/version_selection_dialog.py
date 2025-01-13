@@ -1,4 +1,6 @@
 import bpy
+from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
+from typing import List, Tuple
 from .mouse_position_mixin import MousePositionMixin
 
 class speckle_version(bpy.types.PropertyGroup):
@@ -22,7 +24,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
     This UIList is used to display a list of versions in the version selection dialog.
     """
     #TODO: Adjust column widths so message has the most space.
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+    def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, icon: str, active_data: PropertyGroup, active_propname: str) -> None:
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
             split = row.split(factor=0.166)
@@ -60,7 +62,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         default=""
     )
 
-    versions = [
+    versions: List[Tuple[str, str, str]] = [
         ("648896", "Message 1", "12 day ago"),
         ("658465", "Message 2", "15 days ago"),
         ("154651", "Message 3", "20 days ago"),
@@ -69,7 +71,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
     version_index: bpy.props.IntProperty(name="Model Index", default=0)
 
 
-    def execute(self, context):
+    def execute(self, context: Context) -> set[str]:
         model_card = context.scene.speckle_state.model_cards.add()
         model_card.project_name = self.project_name
         model_card.model_name = self.model_name
@@ -79,7 +81,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         model_card.version_id = selected_version.id
         return {'FINISHED'}
 
-    def invoke(self, context, event):
+    def invoke(self, context: Context, event: Event) -> set[str]:
         # Clear existing versions
         context.scene.speckle_state.versions.clear()
         # Populate with new versions
@@ -93,7 +95,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         self.init_mouse_position(context, event)
         return context.window_manager.invoke_props_dialog(self)
     
-    def draw(self, context):
+    def draw(self, context: Context) -> None:
         layout = self.layout
         layout.label(text=f"Project: {self.project_name}")
         layout.label(text=f"Model: {self.model_name}")
