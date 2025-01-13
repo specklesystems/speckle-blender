@@ -1,5 +1,6 @@
 import bpy
 from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
+from typing import List, Tuple
 from ..utils.account_manager import get_account_enum_items, get_default_account_id
 
 class speckle_project(bpy.types.PropertyGroup):
@@ -56,7 +57,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         default=get_default_account_id()
     )
 
-    projects: list[tuple[str, str, str]] = [
+    projects: List[Tuple[str, str, str]] = [
         ("RICK'S PORTAL", "contributor", "6 hours ago"),
         ("[BETA] Revit Tests", "owner", "6 hours ago"),
         ("Community Tickets", "owner", "a day ago"),

@@ -1,6 +1,6 @@
 from specklepy.api.credentials import get_local_accounts
-
-def get_account_enum_items() -> list[tuple[str, str, str]]:
+from typing import List, Tuple
+def get_account_enum_items() -> List[Tuple[str, str, str]]:
     accounts = get_local_accounts()
     if not accounts:
         return [("NO_ACCOUNTS", "No accounts found! Please add an account from Manager for Speckle.", "")]

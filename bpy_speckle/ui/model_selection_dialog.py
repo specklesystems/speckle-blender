@@ -1,5 +1,6 @@
 import bpy
 from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
+from typing import List, Tuple
 from .mouse_position_mixin import MousePositionMixin
 
 class speckle_model(bpy.types.PropertyGroup):
@@ -55,7 +56,7 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
         default=""
     )
 
-    models: list[tuple[str, str, str]] = [
+    models: List[Tuple[str, str, str]] = [
         ("94-workset name", "RVT", "1 day ago"),
         ("296/skp2skp3", "SKP", "16 days ago"),
         ("49/rhn2viewer", "RHN", "21 days ago"),
