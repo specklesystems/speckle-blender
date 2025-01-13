@@ -9,11 +9,6 @@
 		}
 	],
 	"settings": {
-		"blender.addon.loadDirectory": "auto",
-		"blender.executables": [
-			{
-				"path": "/Applications/Blender.app/Contents/MacOS/Blender"
-			}
-		]
+		"blender.addon.loadDirectory": "auto"
 	}
 }

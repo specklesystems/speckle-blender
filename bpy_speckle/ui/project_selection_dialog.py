@@ -1,6 +1,6 @@
 import bpy
-from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event, WindowManager
-from ..utils.project_manager import get_projects_for_account
+from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
+from typing import List, Tuple
 from ..utils.account_manager import get_account_enum_items, get_default_account_id
 
 class speckle_project(bpy.types.PropertyGroup):
