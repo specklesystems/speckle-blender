@@ -1,5 +1,6 @@
 import bpy
-from bpy.types import WindowManager
+from bpy.types import WindowManager, UILayout, Context, UIList, PropertyGroup, Operator, Event
+from typing import List, Tuple
 from .mouse_position_mixin import MousePositionMixin
 from ..utils.version_manager import get_versions_for_model
 
@@ -24,7 +25,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
     This UIList is used to display a list of versions in the version selection dialog.
     """
     #TODO: Adjust column widths so message has the most space.
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+    def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, icon: str, active_data: PropertyGroup, active_propname: str) -> None:
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
             split = row.split(factor=0.166)
@@ -99,7 +100,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         
         return None
 
-    def execute(self, context):
+    def execute(self, context: Context) -> set[str]:
         model_card = context.scene.speckle_state.model_cards.add()
         model_card.project_name = self.project_name
         model_card.model_name = self.model_name
@@ -109,7 +110,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         model_card.version_id = selected_version.id
         return {'FINISHED'}
 
-    def invoke(self, context, event):
+    def invoke(self, context: Context, event: Event) -> set[str]:
 
         # Ensure WindowManager has the versions collection
         if not hasattr(WindowManager, "speckle_versions"):
@@ -124,7 +125,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
 
         return context.window_manager.invoke_props_dialog(self)
     
-    def draw(self, context):
+    def draw(self, context: Context) -> None:
         layout = self.layout
         layout.label(text=f"Project: {self.project_name}")
         layout.label(text=f"Model: {self.model_name}")
