@@ -22,9 +22,21 @@ class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, bpy.types.Operator)
         default=""
     )
 
+    project_id: bpy.props.StringProperty(
+        name="Project ID",
+        description="ID of the selected project",
+        default=""
+    )
+
     model_name: bpy.props.StringProperty(
         name="Model Name",
         description="Name of the selected model",
+        default=""
+    )
+
+    model_id: bpy.props.StringProperty(
+        name="Model ID",
+        description="ID of the selected model",
         default=""
     )
 

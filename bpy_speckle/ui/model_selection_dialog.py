@@ -100,15 +100,11 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
-        wm = context.window_manager 
         
         # Ensure WindowManager has the projects collection
         if not hasattr(WindowManager, "speckle_models"):
             # Register the collection property
             WindowManager.speckle_models = bpy.props.CollectionProperty(type=speckle_model)
-        
-        # Clear existing models
-        wm.speckle_models.clear()
 
         # Update models list
         self.update_models_list(context)
