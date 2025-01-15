@@ -15,6 +15,7 @@ class speckle_project(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty()
     role: bpy.props.StringProperty(name="Role")
     updated: bpy.props.StringProperty(name="Updated")
+    id: bpy.props.StringProperty(name="ID")
 
 class SPECKLE_UL_projects_list(bpy.types.UIList):
     """
@@ -55,11 +56,12 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         projects = get_projects_for_account(self.accounts, search=search)
         
         # Populate projects list in WindowManager
-        for name, role, updated in projects:
+        for name, role, updated, id in projects:
             project = wm.speckle_projects.add()
             project.name = name
             project.role = role
             project.updated = updated
+            project.id = id
             
         return None
 
@@ -84,7 +86,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         wm = context.window_manager
         if 0 <= self.project_index < len(wm.speckle_projects):
             selected_project = wm.speckle_projects[self.project_index]
-            bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name)
+            bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name, project_id=selected_project.id)
         return {'FINISHED'}
     
     def invoke(self, context: Context, event: Event) -> set[str]:
@@ -100,16 +102,22 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         
         # Get the selected account
         selected_account_id = self.accounts
+
+        if not hasattr(WindowManager, "selected_account_id"):
+            # Register the collection property
+            WindowManager.selected_account_id = bpy.props.StringProperty()
+        wm.selected_account_id = selected_account_id
         
         # Fetch projects from server
         projects = get_projects_for_account(selected_account_id)
         
         # Populate projects list in WindowManager
-        for name, role, updated in projects:
+        for name, role, updated, id in projects:
             project = wm.speckle_projects.add()
             project.name = name
             project.role = role
             project.updated = updated
+            project.id = id
             
         return context.window_manager.invoke_props_dialog(self)
 

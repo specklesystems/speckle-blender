@@ -1,19 +1,19 @@
 import bpy
-from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event
-from typing import List, Tuple
+from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event, WindowManager
 from .mouse_position_mixin import MousePositionMixin
+from ..utils.model_manager import get_models_for_project
 
 class speckle_model(bpy.types.PropertyGroup):
     """
     PropertyGroup for storing models.
 
     This PropertyGroup is used to store information about a model,
-    such as its name, source application, and update time.
+    such as its name, ID and update time.
 
     These are then used in the model selection dialog.
     """
     name: bpy.props.StringProperty()
-    source_app: bpy.props.StringProperty(name="Source")
+    id: bpy.props.StringProperty(name="ID")
     updated: bpy.props.StringProperty(name="Updated")
 
 class SPECKLE_UL_models_list(bpy.types.UIList):
@@ -30,7 +30,7 @@ class SPECKLE_UL_models_list(bpy.types.UIList):
             split.label(text=item.name)
 
             right_split = split.split(factor=0.25)
-            right_split.label(text=item.source_app)
+            right_split.label(text=item.id)
             right_split.label(text=item.updated)
         # This handles when the list is in a grid layout
         elif self.layout_type == 'GRID':
@@ -44,10 +44,29 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
     bl_idname = "speckle.model_selection_dialog"
     bl_label = "Select Model"
 
+    def update_models_list(self, context):
+        wm = context.window_manager
+        # Clear existing models
+        wm.speckle_models.clear()
+        
+        # Get models for the selected project, using search if provided
+        search = self.search_query if self.search_query.strip() else None
+        models = get_models_for_project(wm.selected_account_id, self.project_id, search=search)
+        
+        # Populate models list
+        for name, id, updated in models:
+            model = wm.speckle_models.add()
+            model.name = name
+            model.updated = updated
+            model.id = id
+            
+        return None
+
     search_query: bpy.props.StringProperty(
         name="Search",
-        description="Search a project",
-        default=""
+        description="Search a model",
+        default="",
+        update=update_models_list
     )
 
     project_name: bpy.props.StringProperty(
@@ -56,32 +75,44 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
         default=""
     )
 
-    models: List[Tuple[str, str, str]] = [
-        ("94-workset name", "RVT", "1 day ago"),
-        ("296/skp2skp3", "SKP", "16 days ago"),
-        ("49/rhn2viewer", "RHN", "21 days ago"),
-    ]
+    project_id: bpy.props.StringProperty(
+        name="Project ID",
+        description="The ID of the project to select",
+        default=""
+    )
 
     model_index: bpy.props.IntProperty(name="Model Index", default=0)
 
     def execute(self, context: Context) -> set[str]:
-        selected_model = context.scene.speckle_state.models[self.model_index]
+        selected_model = context.window_manager.speckle_models[self.model_index]
         if context.scene.speckle_state.ui_mode == "PUBLISH":
-            bpy.ops.speckle.selection_filter_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
+            bpy.ops.speckle.selection_filter_dialog("INVOKE_DEFAULT", 
+                project_name=self.project_name, 
+                project_id=self.project_id,
+                model_name=selected_model.name,
+                model_id=selected_model.id)
         elif context.scene.speckle_state.ui_mode == "LOAD":
-            bpy.ops.speckle.version_selection_dialog("INVOKE_DEFAULT", project_name=self.project_name, model_name=selected_model.name)
+            bpy.ops.speckle.version_selection_dialog("INVOKE_DEFAULT", 
+                project_name=self.project_name,
+                project_id=self.project_id,
+                model_name=selected_model.name,
+                model_id=selected_model.id)
         return {'FINISHED'}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
-        # Clear existing models
-        context.scene.speckle_state.models.clear()
-        # Populate with new projects
-        for name, source_app, updated in self.models:
-            model = context.scene.speckle_state.models.add()
-            model.name = name
-            model.source_app = source_app
-            model.updated = updated
+        wm = context.window_manager 
         
+        # Ensure WindowManager has the projects collection
+        if not hasattr(WindowManager, "speckle_models"):
+            # Register the collection property
+            WindowManager.speckle_models = bpy.props.CollectionProperty(type=speckle_model)
+        
+        # Clear existing models
+        wm.speckle_models.clear()
+
+        # Update models list
+        self.update_models_list(context)
+
         # Store the original mouse position
         self.init_mouse_position(context, event)
 
@@ -90,14 +121,29 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
     def draw(self, context: Context) -> None:
         layout : UILayout = self.layout
         layout.label(text=f"Project: {self.project_name}")
+        
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon='VIEWZOOM', text="")
         
         # Models UIList
-        layout.template_list("SPECKLE_UL_models_list", "", context.scene.speckle_state, "models", self, "model_index")
+        layout.template_list("SPECKLE_UL_models_list", "", context.window_manager, "speckle_models", self, "model_index")
 
         layout.separator()
 
         # Move cursor to original position
         self.restore_mouse_position(context)
+
+def register():
+    bpy.utils.register_class(speckle_model)
+    bpy.utils.register_class(SPECKLE_UL_models_list)
+    bpy.utils.register_class(SPECKLE_OT_model_selection_dialog)
+
+def unregister():
+    # Clean up WindowManager properties
+    if hasattr(WindowManager, "speckle_models"):
+        del WindowManager.speckle_models
+    
+    bpy.utils.unregister_class(SPECKLE_OT_model_selection_dialog)
+    bpy.utils.unregister_class(SPECKLE_UL_models_list)
+    bpy.utils.unregister_class(speckle_model)
