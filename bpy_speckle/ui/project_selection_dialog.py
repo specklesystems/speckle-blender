@@ -48,6 +48,9 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     def update_projects_list(self, context):
         wm = context.window_manager
         
+        # Update the selected account ID in the window manager
+        wm.selected_account_id = self.accounts
+        
         # Clear existing projects
         wm.speckle_projects.clear()
         
@@ -66,8 +69,8 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         return None
 
     search_query: bpy.props.StringProperty(
-        name="Search",
-        description="Search a project",
+        name="Search or Paste a URL",
+        description="Search a project or paste a URL to add a project",
         default="",
         update=update_projects_list
     )
@@ -125,7 +128,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         layout: UILayout = self.layout
         
         # Account selection
-        layout.prop(self, "accounts")
+        layout.prop(self, "accounts", text="")
         
         # Search field
         row = layout.row(align=True)
