@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event, WindowManager
-from typing import List, Tuple
+from typing import List, Tuple, Set, Optional, Any
 from ..utils.account_manager import get_account_enum_items, get_default_account_id
 from ..utils.project_manager import get_projects_for_account
 
@@ -13,10 +13,10 @@ class speckle_project(bpy.types.PropertyGroup):
 
     This is used in the project selection dialog.
     """
-    name: bpy.props.StringProperty()
-    role: bpy.props.StringProperty(name="Role")
-    updated: bpy.props.StringProperty(name="Updated")
-    id: bpy.props.StringProperty(name="ID")
+    name: bpy.props.StringProperty(type=str)
+    role: bpy.props.StringProperty(name="Role", type=str)
+    updated: bpy.props.StringProperty(name="Updated", type=str)
+    id: bpy.props.StringProperty(name="ID", type=str)
 
 class SPECKLE_UL_projects_list(bpy.types.UIList):
     """
@@ -25,7 +25,9 @@ class SPECKLE_UL_projects_list(bpy.types.UIList):
     This UIList is used to display a list of projects in a Blender dialog.
     This is used in the project selection dialog.
     """
-    def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, icon: str, active_data: PropertyGroup, active_propname: str) -> None:
+    def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, 
+                 icon: str, active_data: PropertyGroup, active_propname: str, index: int = 0, 
+                 flt_flag: int = 0) -> None:
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
             split = row.split(factor=0.5) # This gives project name 1/2
@@ -46,8 +48,8 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
 
-    def update_projects_list(self, context):
-        wm = context.window_manager
+    def update_projects_list(self, context: Context) -> None:
+        wm: WindowManager = context.window_manager
         
         # Update the selected account ID in the window manager
         wm.selected_account_id = self.accounts
@@ -56,8 +58,8 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         wm.speckle_projects.clear()
         
         # Get projects for the selected account, using search if provided
-        search = self.search_query if self.search_query.strip() else None
-        projects = get_projects_for_account(self.accounts, search=search)
+        search: Optional[str] = self.search_query if self.search_query.strip() else None
+        projects: List[Tuple[str, str, str, str]] = get_projects_for_account(self.accounts, search=search)
         
         # Populate projects list in WindowManager
         for name, role, updated, id in projects:
@@ -66,8 +68,6 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             project.role = role
             project.updated = updated
             project.id = id
-            
-        return None
 
     search_query: bpy.props.StringProperty(
         name="Search or Paste a URL",
@@ -86,15 +86,17 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
     project_index: bpy.props.IntProperty(name="Project Index", default=0)
     
-    def execute(self, context: Context) -> set[str]:
-        wm = context.window_manager
+    def execute(self, context: Context) -> Set[str]:
+        wm: WindowManager = context.window_manager
         if 0 <= self.project_index < len(wm.speckle_projects):
             selected_project = wm.speckle_projects[self.project_index]
-            bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name, project_id=selected_project.id)
+            bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", 
+                project_name=selected_project.name, 
+                project_id=selected_project.id)
         return {'FINISHED'}
     
-    def invoke(self, context: Context, event: Event) -> set[str]:
-        wm = context.window_manager
+    def invoke(self, context: Context, event: Event) -> Set[str]:
+        wm: WindowManager = context.window_manager
         
         # Ensure WindowManager has the projects collection
         if not hasattr(WindowManager, "speckle_projects"):
@@ -103,9 +105,8 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         
         # Clear existing projects
         wm.speckle_projects.clear()
-        
         # Get the selected account
-        selected_account_id = self.accounts
+        selected_account_id: str = self.accounts
 
         if not hasattr(WindowManager, "selected_account_id"):
             # Register the collection property
@@ -113,7 +114,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         wm.selected_account_id = selected_account_id
         
         # Fetch projects from server
-        projects = get_projects_for_account(selected_account_id)
+        projects: List[Tuple[str, str, str, str]] = get_projects_for_account(selected_account_id)
         
         # Populate projects list in WindowManager
         for name, role, updated, id in projects:
@@ -134,8 +135,6 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon='VIEWZOOM', text="")
-        # TODO: Add a button for adding a project by URL
-        #row.operator("speckle.add_project_by_url", icon='URL', text="")
         
         # Projects UIList - now using WindowManager collection
         layout.template_list(
@@ -159,25 +158,24 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
         default=""
     )
 
-    def execute(self, context: Context) -> set[str]:
-        # TODO: Implement logic to add project using the URL
+    def execute(self, context: Context) -> Set[str]:
         self.report({'INFO'}, f"Adding project from URL: {self.url}")
         return {'FINISHED'}
 
-    def invoke(self, context: Context, event: Event) -> set[str]:
+    def invoke(self, context: Context, event: Event) -> Set[str]:
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
         layout.prop(self, "url")
 
-def register():
+def register() -> None:
     bpy.utils.register_class(speckle_project)
     bpy.utils.register_class(SPECKLE_UL_projects_list)
     bpy.utils.register_class(SPECKLE_OT_project_selection_dialog)
     bpy.utils.register_class(SPECKLE_OT_add_project_by_url)
 
-def unregister():
+def unregister() -> None:
     # Clean up WindowManager properties
     if hasattr(WindowManager, "speckle_projects"):
         del WindowManager.speckle_projects
