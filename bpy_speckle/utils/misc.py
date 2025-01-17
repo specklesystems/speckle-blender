@@ -1,7 +1,6 @@
-from datetime import datetime, timezone, timedelta
-from typing import Union
+from datetime import datetime, timezone
 
-def format_relative_time(timestamp: Union[str, float]) -> str:
+def format_relative_time(timestamp) -> str:
     """
     Convert UTC timestamp to local timezone and return relative time string.
     

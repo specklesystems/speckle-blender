@@ -2,8 +2,6 @@ from typing import Optional, Dict
 import os
 import bpy.utils.previews
 
-
-
 speckle_icons: Optional[Dict[str, bpy.types.ImagePreview]] = None
 
 def load_icons() -> None:
