@@ -1,6 +1,6 @@
 import bpy
 from .mouse_position_mixin import MousePositionMixin
-from bpy.types import Operator, Context
+from bpy.types import Operator, Context, Object
 from bpy.props import EnumProperty, StringProperty
 
 class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
@@ -47,7 +47,7 @@ class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
         model_card.is_publish = True
 
         # Create the selection summary
-        selected_objects: list[bpy.types.Object] = context.selected_objects
+        selected_objects: list[Object] = context.selected_objects
         total_selected: int = len(selected_objects)
         object_types: dict[str, int] = {}
         for obj in selected_objects:
@@ -79,7 +79,7 @@ class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
         layout.separator()
 
         # Get selected objects
-        selected_objects: list[bpy.types.Object] = context.selected_objects
+        selected_objects: list[Object] = context.selected_objects
         total_selected: int = len(selected_objects)
 
         # Create a box for the selection summary
