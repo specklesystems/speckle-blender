@@ -12,9 +12,10 @@ class speckle_model(bpy.types.PropertyGroup):
 
     These are then used in the model selection dialog.
     """
-    name: bpy.props.StringProperty()
-    id: bpy.props.StringProperty(name="ID")
-    updated: bpy.props.StringProperty(name="Updated")
+    # Blender properties use dynamic typing, so we need to ignore type checking
+    name: bpy.props.StringProperty()  # type: ignore
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
+    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
 
 class SPECKLE_UL_models_list(bpy.types.UIList):
     """
@@ -44,7 +45,7 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
     bl_idname = "speckle.model_selection_dialog"
     bl_label = "Select Model"
 
-    def update_models_list(self, context):
+    def update_models_list(self, context: Context) -> None:
         wm = context.window_manager
         # Clear existing models
         wm.speckle_models.clear()
@@ -62,26 +63,26 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
             
         return None
 
-    search_query: bpy.props.StringProperty(
+    search_query: bpy.props.StringProperty(  # type: ignore
         name="Search",
         description="Search a model",
         default="",
         update=update_models_list
     )
 
-    project_name: bpy.props.StringProperty(
+    project_name: bpy.props.StringProperty(  # type: ignore
         name="Project Name",
         description="The name of the project to select",
         default=""
     )
 
-    project_id: bpy.props.StringProperty(
+    project_id: bpy.props.StringProperty(  # type: ignore
         name="Project ID",
         description="The ID of the project to select",
         default=""
     )
 
-    model_index: bpy.props.IntProperty(name="Model Index", default=0)
+    model_index: bpy.props.IntProperty(name="Model Index", default=0)  # type: ignore
 
     def execute(self, context: Context) -> set[str]:
         selected_model = context.window_manager.speckle_models[self.model_index]
@@ -130,12 +131,12 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
         # Move cursor to original position
         self.restore_mouse_position(context)
 
-def register():
+def register() -> None:
     bpy.utils.register_class(speckle_model)
     bpy.utils.register_class(SPECKLE_UL_models_list)
     bpy.utils.register_class(SPECKLE_OT_model_selection_dialog)
 
-def unregister():
+def unregister() -> None:
     # Clean up WindowManager properties
     if hasattr(WindowManager, "speckle_models"):
         del WindowManager.speckle_models
