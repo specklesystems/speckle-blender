@@ -13,10 +13,11 @@ class speckle_version(bpy.types.PropertyGroup):
 
     These are then used in the version selection dialog.
     """
-    id: bpy.props.StringProperty(name="ID")
-    message: bpy.props.StringProperty(name="Message")
-    updated: bpy.props.StringProperty(name="Updated")
-    source_app: bpy.props.StringProperty(name="Source")
+    # Blender properties use dynamic typing, so we need to ignore type checking
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
+    message: bpy.props.StringProperty(name="Message")  # type: ignore
+    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
+    source_app: bpy.props.StringProperty(name="Source")  # type: ignore
 
 class SPECKLE_UL_versions_list(bpy.types.UIList):
     """
@@ -45,39 +46,39 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
     bl_idname = "speckle.version_selection_dialog"
     bl_label = "Select Version"
 
-    search_query: bpy.props.StringProperty(
+    search_query: bpy.props.StringProperty(  # type: ignore
         name="Search",
         description="Search a project",
         default=""
     )
 
-    project_name: bpy.props.StringProperty(
+    project_name: bpy.props.StringProperty(  # type: ignore
         name="Project Name",
         description="Name of the selected project",
         default=""
     )
 
-    model_name: bpy.props.StringProperty(
+    model_name: bpy.props.StringProperty(  # type: ignore
         name="Model Name",
         description="Name of the selected model",
         default=""
     )
 
-    project_id: bpy.props.StringProperty(
+    project_id: bpy.props.StringProperty(  # type: ignore
         name="Project ID",
         description="ID of the selected project",
         default=""
     )
 
-    model_id: bpy.props.StringProperty(
+    model_id: bpy.props.StringProperty(  # type: ignore
         name="Model ID",
         description="ID of the selected model",
         default=""
     )
 
-    version_index: bpy.props.IntProperty(name="Model Index", default=0)
+    version_index: bpy.props.IntProperty(name="Model Index", default=0)  # type: ignore
 
-    def update_versions_list(self, context):
+    def update_versions_list(self, context: Context) -> None:
         wm = context.window_manager
         # Clear existing versions
         wm.speckle_versions.clear()
@@ -126,7 +127,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         return context.window_manager.invoke_props_dialog(self)
     
     def draw(self, context: Context) -> None:
-        layout = self.layout
+        layout: UILayout = self.layout
         layout.label(text=f"Project: {self.project_name}")
         layout.label(text=f"Model: {self.model_name}")
         # TODO: Add more UI elements here.
