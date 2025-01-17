@@ -2,9 +2,10 @@ from specklepy.api.client import SpeckleClient
 from specklepy.api.credentials import get_local_accounts
 from specklepy.core.api.inputs.project_inputs import UserProjectsFilter
 from typing import List, Tuple, Optional
+from specklepy.core.api.credentials import Account
 from .misc import format_relative_time, format_role
 
-def get_projects_for_account(account_id: str, search: Optional[str] = None) -> List[Tuple[str, str, str]]:
+def get_projects_for_account(account_id: str, search: Optional[str] = None) -> List[Tuple[str, str, str, str]]:
     """
     Fetch projects for a given account from the Speckle server.
     
@@ -17,7 +18,8 @@ def get_projects_for_account(account_id: str, search: Optional[str] = None) -> L
     """
     try:
         # Get the account info
-        account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
+        accounts: List[Account] = get_local_accounts()
+        account: Optional[Account] = next((acc for acc in accounts if acc.id == account_id), None)
         if not account:
             return []
             
