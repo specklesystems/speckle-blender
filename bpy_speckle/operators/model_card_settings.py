@@ -4,11 +4,11 @@ from typing import Set
 from bpy.types import Event, Context, UILayout
 
 class SPECKLE_OT_model_card_settings(bpy.types.Operator):
-    """
-    Operator for managing model card settings.
+    """Manages settings and actions for a Speckle model card.
 
-    This operator provides functionality to view and modify settings
-    for a specific model card.
+
+    Attributes:
+        model_name (StringProperty): Name of the model being configured.
     """
     bl_idname = "speckle.model_card_settings"
     bl_label = "Model Card Settings"
@@ -32,8 +32,10 @@ class SPECKLE_OT_model_card_settings(bpy.types.Operator):
 
 # Operator for viewing the model in the browser
 class SPECKLE_OT_view_in_browser(bpy.types.Operator):
-    """
-    Operator for viewing the model in the browser.
+    """Opens the current model in the Speckle web viewer.
+
+    This operator opens the default web browser to display the current
+    model in the Speckle web app.
     """
     bl_idname = "speckle.view_in_browser"
     bl_label = "View in Browser"
@@ -47,8 +49,10 @@ class SPECKLE_OT_view_in_browser(bpy.types.Operator):
 
 # Operator for viewing the model versions in the browser
 class SPECKLE_OT_view_model_versions(bpy.types.Operator):
-    """
-    Operator for viewing the model versions in the browser.
+    """Opens the model's version history in the Speckle web app.
+
+    This operator opens the default web browser to display the version
+    history of the current model in the Speckle web app.
     """
     bl_idname = "speckle.view_model_versions"
     bl_label = "View Model Versions"
