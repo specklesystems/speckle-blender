@@ -9,7 +9,16 @@ def format_relative_time(timestamp) -> str:
                   or Unix timestamp in milliseconds
         
     Returns:
-        Formatted relative time string (e.g. "5 minutes ago", "2 hours ago", "3 days ago")
+        str: A human-readable relative time string. Possible formats:
+            - "X minutes ago" (when less than an hour)
+            - "X hours ago" (when less than a day)
+            - "X days ago" (when more than a day)
+            - "Unknown" (when timestamp is None or empty)
+            - "Invalid timestamp" (when parsing fails)
+
+    Note:
+        The function handles timezone conversion automatically, converting UTC
+        timestamps to the local timezone before calculating the relative time.
     """
     if not timestamp:
         return "Unknown"
@@ -46,5 +55,15 @@ def format_relative_time(timestamp) -> str:
         return "Invalid timestamp"
 
 def format_role(role: str) -> str:
+    """
+    This function takes a Speckle role string in the format "prefix:role" and
+    returns just the role part.
+
+    Args:
+        role (str): The role string to format, expected in the format "prefix:role"
+
+    Returns:
+        str: The extracted role name (everything after the colon)
+    """
     split_role = role.split(":")
     return f"{split_role[1]}"
