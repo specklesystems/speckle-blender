@@ -1,10 +1,28 @@
+"""Module for handling object selection filtering.
+
+This module provides the UI components and functionality for filtering and selecting
+Blender objects for publishing to Speckle.
+"""
+
 import bpy
 from .mouse_position_mixin import MousePositionMixin
 from bpy.types import Operator, Context, Object
 from bpy.props import EnumProperty, StringProperty
 
 class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
-    """Operator for selecting objects."""
+    """Operator for handling object selection and filtering.
+
+    This operator manages the UI and functionality for selecting and filtering
+    Blender objects before publishing to Speckle, including selection type options
+    and selection summary display.
+
+    Attributes:
+        selection_type: The type of selection method to use.
+        project_name: The name of the selected project.
+        project_id: The ID of the selected project.
+        model_name: The name of the selected model.
+        model_id: The ID of the selected model.
+    """
     bl_idname = "speckle.selection_filter_dialog"
     bl_label = "Select Objects"
 
@@ -106,7 +124,6 @@ class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
 
         # Restore mouse position
         self.restore_mouse_position(context)
-
     def get_icon_for_type(self, obj_type: str) -> str:
         icon_map: dict[str, str] = {
             'MESH': 'OUTLINER_OB_MESH',
