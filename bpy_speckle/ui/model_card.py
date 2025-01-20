@@ -1,6 +1,19 @@
 import bpy
 
 class speckle_model_card(bpy.types.PropertyGroup):
+    """Represents a Speckle model card in the Blender UI.
+
+    This class stores information about a Speckle model, including its project name,
+    whether if its publish or load, and version information. It is used to display and manage model
+    cards in the Blender interface.
+
+    Attributes:
+        project_name (StringProperty): Name of the project containing the model.
+        model_name (StringProperty): Name of the Speckle model.
+        is_publish (BoolProperty): Flag indicating if the model is being published (True) or loaded (False).
+        selection_summary (StringProperty): Summary text of the current object selection.
+        version_id (StringProperty): Unique identifier of the selected version.
+    """
     project_name: bpy.props.StringProperty(name="Project Name", description="Name of the project", default="")  # type: ignore
     model_name: bpy.props.StringProperty(name="Model Name", description="Name of the model", default="")  # type: ignore
     is_publish: bpy.props.BoolProperty(name="Publish/Load", description="If the model is published or loaded", default=False)  # type: ignore
@@ -8,6 +21,11 @@ class speckle_model_card(bpy.types.PropertyGroup):
     version_id: bpy.props.StringProperty(name="Version ID", description="ID of the selected version", default="")  # type: ignore
 
     def to_dict(self):
+        """Converts the model card to a dictionary representation.
+
+        Returns:
+            dict: A dictionary containing all model card properties with their current values.
+        """
         return {
             "project_name": self.project_name,
             "model_name": self.model_name,
@@ -18,6 +36,14 @@ class speckle_model_card(bpy.types.PropertyGroup):
     
     @classmethod
     def from_dict(cls, data):
+        """Creates a new model card instance from a dictionary.
+
+        Args:
+            data (dict): Dictionary containing model card properties and their values.
+
+        Returns:
+            speckle_model_card: A new instance of the model card with properties set from the dictionary.
+        """
         item = cls()
         item.project_name = data["project_name"]
         item.model_name = data["model_name"]
