@@ -1,16 +1,24 @@
+"""Module for handling model selection dialog in the Speckle Blender addon.
+
+This module provides the UI components and functionality for selecting models
+from Speckle projects within Blender.
+"""
+
 import bpy
 from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event, WindowManager
 from .mouse_position_mixin import MousePositionMixin
 from ..utils.model_manager import get_models_for_project
 
 class speckle_model(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing models.
+    """PropertyGroup for storing model information.
 
-    This PropertyGroup is used to store information about a model,
-    such as its name, ID and update time.
+    This class stores information about a Speckle model including its name,
+    ID, and last update time for display in the model selection dialog.
 
-    These are then used in the model selection dialog.
+    Attributes:
+        name: The display name of the model.
+        id: The unique identifier of the model.
+        updated: The last update timestamp of the model.
     """
     # Blender properties use dynamic typing, so we need to ignore type checking
     name: bpy.props.StringProperty()  # type: ignore
@@ -18,13 +26,25 @@ class speckle_model(bpy.types.PropertyGroup):
     updated: bpy.props.StringProperty(name="Updated")  # type: ignore
 
 class SPECKLE_UL_models_list(bpy.types.UIList):
-    """
-    UIList for displaying a list of models.
+    """UIList for displaying a list of Speckle models.
 
-    This UIList is used to display a list of models in model selection dialog.
+    This class handles the visual representation of models in the model selection dialog.
+    It displays model information in both default/compact and grid layouts.
     """
-    #TODO: Adjust column widths so name has the most space.
-    def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, icon: str, active_data: PropertyGroup, active_propname: str) -> None:
+
+    def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, 
+                 icon: str, active_data: PropertyGroup, active_propname: str) -> None:
+        """Draws a single item in the model list.
+
+        Args:
+            context: The current Blender context.
+            layout: The layout to draw the item in.
+            data: The data containing the item.
+            item: The item to draw.
+            icon: The icon to use for the item.
+            active_data: The data containing the active item.
+            active_propname: The name of the active property.
+        """
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
             split = row.split(factor=0.5)
@@ -39,13 +59,26 @@ class SPECKLE_UL_models_list(bpy.types.UIList):
             layout.label(text=item.name)
 
 class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
-    """
-    Operator for displaying a dialog for selecting a model.
+    """Operator for displaying and handling the model selection dialog.
+
+    This operator manages the UI and functionality for selecting Speckle models,
+    including search capabilities and model list display.
+
+    Attributes:
+        search_query: The current search string for filtering models.
+        project_name: The name of the currently selected project.
+        project_id: The ID of the currently selected project.
+        model_index: The index of the currently selected model.
     """
     bl_idname = "speckle.model_selection_dialog"
     bl_label = "Select Model"
 
     def update_models_list(self, context: Context) -> None:
+        """Updates the list of models based on the current project and search query.
+
+        Args:
+            context: The current Blender context.
+        """
         wm = context.window_manager
         # Clear existing models
         wm.speckle_models.clear()
