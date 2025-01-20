@@ -5,13 +5,13 @@ from ..utils.account_manager import get_account_enum_items, get_default_account_
 from ..utils.project_manager import get_projects_for_account
 
 class speckle_project(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing projects.
+    """PropertyGroup for storing project information.
 
-    This PropertyGroup is used to store information about a project,
-    such as its name, role, and update time.
-
-    This is used in the project selection dialog.
+    Attributes:
+        name (str): Name of the project.
+        role (str): User's role in the project.
+        updated (str): Last update timestamp of the project.
+        id (str): Unique identifier of the project.
     """
     # Blender properties use dynamic typing, so we need to ignore type checking
     name: bpy.props.StringProperty()  # type: ignore
@@ -20,13 +20,29 @@ class speckle_project(bpy.types.PropertyGroup):
     id: bpy.props.StringProperty(name="ID")  # type: ignore
 
 class SPECKLE_UL_projects_list(bpy.types.UIList):
-    """
-    UIList for displaying a list of projects.
+    """Custom UIList for displaying Speckle projects.
 
-    This UIList is used to display a list of projects in a Blender dialog.
-    This is used in the project selection dialog.
+    This UIList displays project information in either a DEFAULT/COMPACT layout
+    or GRID layout, showing project name, role, and last updated timestamp.
+
+    Attributes:
+        layout_type (str): Current layout type ('DEFAULT', 'COMPACT', or 'GRID').
     """
     def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, icon: str, active_data: PropertyGroup, active_propname: str) -> None:
+        """Draw a single project item in the UI list.
+
+        Args:
+            context (Context): Current Blender context.
+            layout (UILayout): UI layout to draw in.
+            data (PropertyGroup): Data containing the collection of items.
+            item (PropertyGroup): Current item to draw.
+            icon (str): Icon to display with the item.
+            active_data (PropertyGroup): Data containing the active item.
+            active_propname (str): Name of the active property.
+
+        Returns:
+            None
+        """
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
             split = row.split(factor=0.5) # This gives project name 1/2
@@ -41,13 +57,28 @@ class SPECKLE_UL_projects_list(bpy.types.UIList):
             layout.label(text=item.name)
 
 class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
-    """
-    Operator for project selection dialog.
+    """Operator for managing project selection dialog.
+
+    This operator handles the UI and logic for selecting Speckle projects,
+    including account selection, project search, and project listing.
+
+    Attributes:
+        search_query (str): Search query for filtering projects.
+        accounts (EnumProperty): Available accounts for selection.
+        project_index (int): Index of currently selected project.
     """
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
 
     def update_projects_list(self, context: Context) -> None:
+        """Update the projects list based on selected account and search query.
+
+        Args:
+            context (Context): Current Blender context.
+
+        Returns:
+            None
+        """
         wm = context.window_manager
         
         # Update the selected account ID in the window manager
@@ -147,8 +178,12 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         layout.separator()
 
 class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
-    """
-    Operator for adding a project by URL.
+    """Operator for adding a Speckle project by URL.
+
+    This operator allows users to add a Speckle project by providing its URL.
+
+    Attributes:
+        url (str): URL of the project to add.
     """
     bl_idname = "speckle.add_project_by_url"
     bl_label = "Add Project by URL"
