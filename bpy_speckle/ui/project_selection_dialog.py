@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event, WindowManager
+from bpy.types import UILayout, Context, PropertyGroup, Event, WindowManager
 from typing import List, Tuple
 from ..utils.account_manager import get_account_enum_items, get_default_account_id
 from ..utils.project_manager import get_projects_for_account
@@ -13,10 +13,11 @@ class speckle_project(bpy.types.PropertyGroup):
 
     This is used in the project selection dialog.
     """
-    name: bpy.props.StringProperty()
-    role: bpy.props.StringProperty(name="Role")
-    updated: bpy.props.StringProperty(name="Updated")
-    id: bpy.props.StringProperty(name="ID")
+    # Blender properties use dynamic typing, so we need to ignore type checking
+    name: bpy.props.StringProperty()  # type: ignore
+    role: bpy.props.StringProperty(name="Role")  # type: ignore
+    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
 
 class SPECKLE_UL_projects_list(bpy.types.UIList):
     """
@@ -46,7 +47,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
 
-    def update_projects_list(self, context):
+    def update_projects_list(self, context: Context) -> None:
         wm = context.window_manager
         
         # Update the selected account ID in the window manager
@@ -57,11 +58,11 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         
         # Get projects for the selected account, using search if provided
         search = self.search_query if self.search_query.strip() else None
-        projects = get_projects_for_account(self.accounts, search=search)
+        projects: List[Tuple[str, str, str, str]] = get_projects_for_account(self.accounts, search=search)
         
         # Populate projects list in WindowManager
         for name, role, updated, id in projects:
-            project = wm.speckle_projects.add()
+            project: speckle_project = wm.speckle_projects.add()
             project.name = name
             project.role = role
             project.updated = updated
@@ -69,14 +70,14 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             
         return None
 
-    search_query: bpy.props.StringProperty(
+    search_query: bpy.props.StringProperty(  # type: ignore
         name="Search or Paste a URL",
         description="Search a project or paste a URL to add a project",
         default="",
         update=update_projects_list
     )
 
-    accounts: bpy.props.EnumProperty(
+    accounts: bpy.props.EnumProperty(  # type: ignore
         name="Account",
         description="Selected account to filter projects by",
         items=get_account_enum_items(),
@@ -84,7 +85,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         update=update_projects_list
     )
 
-    project_index: bpy.props.IntProperty(name="Project Index", default=0)
+    project_index: bpy.props.IntProperty(name="Project Index", default=0)  # type: ignore
     
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
@@ -113,11 +114,11 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         wm.selected_account_id = selected_account_id
         
         # Fetch projects from server
-        projects = get_projects_for_account(selected_account_id)
+        projects: List[Tuple[str, str, str, str]] = get_projects_for_account(selected_account_id)
         
         # Populate projects list in WindowManager
         for name, role, updated, id in projects:
-            project = wm.speckle_projects.add()
+            project: speckle_project = wm.speckle_projects.add()
             project.name = name
             project.role = role
             project.updated = updated
@@ -153,7 +154,7 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
     bl_label = "Add Project by URL"
     bl_description = "Add a project from a URL"
     
-    url: bpy.props.StringProperty(
+    url: bpy.props.StringProperty(  # type: ignore
         name="Project URL",
         description="Enter the Speckle project URL",
         default=""
@@ -171,13 +172,13 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
         layout: UILayout = self.layout
         layout.prop(self, "url")
 
-def register():
+def register() -> None:
     bpy.utils.register_class(speckle_project)
     bpy.utils.register_class(SPECKLE_UL_projects_list)
     bpy.utils.register_class(SPECKLE_OT_project_selection_dialog)
     bpy.utils.register_class(SPECKLE_OT_add_project_by_url)
 
-def unregister():
+def unregister() -> None:
     # Clean up WindowManager properties
     if hasattr(WindowManager, "speckle_projects"):
         del WindowManager.speckle_projects

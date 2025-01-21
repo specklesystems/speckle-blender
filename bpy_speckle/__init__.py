@@ -10,7 +10,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
-
+# ruff: noqa
 import bpy
 from bpy.props import PointerProperty, CollectionProperty, StringProperty, IntProperty, IntVectorProperty
 from .ui import icons
