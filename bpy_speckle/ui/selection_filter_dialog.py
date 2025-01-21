@@ -5,6 +5,7 @@ Blender objects for publishing to Speckle.
 """
 
 import bpy
+from typing import List
 from .mouse_position_mixin import MousePositionMixin
 from bpy.types import Operator, Context, Object
 from bpy.props import EnumProperty, StringProperty
@@ -32,31 +33,31 @@ class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
             ("SELECTION", "Selection", "Select objects manually"),
         ],
         default="SELECTION"
-    )
+    ) # type: ignore
 
     project_name: StringProperty(
         name="Project Name",
         description="Name of the selected project",
         default=""
-    )
+    ) # type: ignore
 
     project_id: StringProperty(
         name="Project ID",
         description="ID of the selected project",
         default=""
-    )
+    ) # type: ignore
 
     model_name: StringProperty(
         name="Model Name",
         description="Name of the selected model",
         default=""
-    )
+    ) # type: ignore
 
     model_id: StringProperty(
         name="Model ID",
         description="ID of the selected model",
         default=""
-    )
+    ) # type: ignore
 
     def execute(self, context: Context) -> set:
         model_card = context.scene.speckle_state.model_cards.add()
@@ -97,7 +98,7 @@ class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
         layout.separator()
 
         # Get selected objects
-        selected_objects: list[Object] = context.selected_objects
+        selected_objects: List[Object] = context.selected_objects
         total_selected: int = len(selected_objects)
 
         # Create a box for the selection summary

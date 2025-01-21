@@ -4,8 +4,7 @@ Provides the UI components and functionality for selecting versions.
 """
 
 import bpy
-from bpy.types import WindowManager, UILayout, Context, UIList, PropertyGroup, Operator, Event
-from typing import List, Tuple
+from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
 from .mouse_position_mixin import MousePositionMixin
 from ..utils.version_manager import get_versions_for_model
 

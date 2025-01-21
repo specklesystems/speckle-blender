@@ -5,7 +5,7 @@ from Speckle projects within Blender.
 """
 
 import bpy
-from bpy.types import UILayout, Context, UIList, PropertyGroup, Operator, Event, WindowManager
+from bpy.types import UILayout, Context, PropertyGroup, Event, WindowManager
 from .mouse_position_mixin import MousePositionMixin
 from ..utils.model_manager import get_models_for_project
 

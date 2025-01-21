@@ -2,7 +2,7 @@
 """
 
 import bpy
-from bpy.types import UILayout, Context, Operator
+from bpy.types import UILayout, Context
 from .icons import get_icon
 
 # Main Panel
