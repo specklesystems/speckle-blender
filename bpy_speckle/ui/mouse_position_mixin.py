@@ -2,8 +2,8 @@ import bpy
 from bpy.types import Context, Event
 
 class MousePositionMixin:
-    original_mouse_position: bpy.props.IntVectorProperty(size=2)
-    mouse_snap: bpy.props.BoolProperty(name="Mouse Snap", default=False)
+    original_mouse_position: bpy.props.IntVectorProperty(size=2) # type: ignore
+    mouse_snap: bpy.props.BoolProperty(name="Mouse Snap", default=False) # type: ignore
 
     def init_mouse_position(self, context: Context, event: Event) -> None:
         self.original_mouse_position = (event.mouse_x, event.mouse_y)

@@ -1,5 +1,5 @@
 import bpy
-
+from typing import Dict, Any
 class speckle_model_card(bpy.types.PropertyGroup):
     project_name: bpy.props.StringProperty(name="Project Name", description="Name of the project", default="")  # type: ignore
     model_name: bpy.props.StringProperty(name="Model Name", description="Name of the model", default="")  # type: ignore
@@ -7,7 +7,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
     selection_summary: bpy.props.StringProperty(name="Selection Summary", description="Summary of the selection", default="")  # type: ignore
     version_id: bpy.props.StringProperty(name="Version ID", description="ID of the selected version", default="")  # type: ignore
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "project_name": self.project_name,
             "model_name": self.model_name,
