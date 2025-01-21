@@ -135,6 +135,24 @@ def ensure_pip() -> None:
         raise Exception(f"Failed to install pip, got {completed_process.returncode} return code")
 
 
+def is_uv_available() -> bool:
+    try:
+        import_module("uv")  # noqa F401
+        return True
+    except ImportError:
+        return False
+
+
+def ensure_uv() -> None:
+    print("Installing uv... ")
+    from subprocess import run
+    completed_process = run([PYTHON_PATH, "-m", "pip", "install", "uv"])
+    if completed_process.returncode == 0:
+        print("Successfully installed uv")
+    else:
+        raise Exception(f"Failed to install uv, got {completed_process.returncode} return code")
+
+
 def get_requirements_path() -> Path:
     # we assume that a requirements.txt exists next to the __init__.py file
     path = Path(Path(__file__).parent, "requirements.txt")
@@ -166,14 +184,11 @@ def install_requirements(host_application: str) -> None:
         [
             PYTHON_PATH,
             "-m",
+            "uv",
             "pip",
-            "-q",
-            "--disable-pip-version-check",
             "install",
-            "--prefer-binary",
-            "--ignore-installed",
-            "--no-compile",
-            "-t",
+            "--system",
+            "--target",
             str(path),
             "-r",
             str(requirements_path),
@@ -183,7 +198,7 @@ def install_requirements(host_application: str) -> None:
     )
 
     if completed_process.returncode != 0:
-        m = f"Failed to install dependencies through pip, got {completed_process.returncode} return code"
+        m = f"Failed to install dependencies through uv, got {completed_process.returncode} return code"
         print(m)
         raise Exception(m)
     
@@ -196,6 +211,9 @@ def install_requirements(host_application: str) -> None:
 def install_dependencies(host_application: str) -> None:
     if not is_pip_available():
         ensure_pip()
+    
+    if not is_uv_available():
+        ensure_uv()
 
     install_requirements(host_application)
 
