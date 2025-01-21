@@ -11,16 +11,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import bpy
-from bpy.props import PointerProperty, CollectionProperty, StringProperty, IntProperty, IntVectorProperty
-from .ui import icons
-import json
-
-# Ensure dependencies
-from .installer import ensure_dependencies
-ensure_dependencies(f"Blender {bpy.app.version[0]}.{bpy.app.version[1]}")
-
-
 # UI
 from .ui.main_panel import SPECKLE_PT_main_panel
 from .ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url
@@ -35,6 +25,14 @@ from .operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECK
 
 # States
 from .states.speckle_state import register as register_speckle_state, unregister as unregister_speckle_state
+
+import bpy
+from .ui import icons
+import json
+
+# Ensure dependencies
+from .installer import ensure_dependencies
+ensure_dependencies(f"Blender {bpy.app.version[0]}.{bpy.app.version[1]}")
 
 def save_model_cards(scene):
     model_cards_data = [card.to_dict() for card in scene.speckle_state.model_cards]

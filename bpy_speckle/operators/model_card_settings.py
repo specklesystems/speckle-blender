@@ -41,8 +41,8 @@ class SPECKLE_OT_view_in_browser(bpy.types.Operator):
 
     def execute(self, context: Context) -> Set[str]:
         # TODO: Update this to model URL
-        webbrowser.open(f"https://speckle.guide")
-        self.report({'INFO'}, f"Viewing in the browser")
+        webbrowser.open("https://speckle.guide")
+        self.report({'INFO'}, "Viewing in the browser")
         return {'FINISHED'}
 
 # Operator for viewing the model versions in the browser
@@ -56,6 +56,6 @@ class SPECKLE_OT_view_model_versions(bpy.types.Operator):
 
     def execute(self, context: Context) -> Set[str]:
         # TODO: Update this to model versions URL
-        webbrowser.open(f"https://speckle.guide")
-        self.report({'INFO'}, f"Viewing model's versions in the browser")
+        webbrowser.open("https://speckle.guide")
+        self.report({'INFO'}, "Viewing model's versions in the browser")
         return {'FINISHED'}
