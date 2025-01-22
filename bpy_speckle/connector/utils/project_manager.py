@@ -1,6 +1,6 @@
 from specklepy.api.client import SpeckleClient
 from specklepy.api.credentials import get_local_accounts
-from specklepy.core.api.inputs.project_inputs import UserProjectsFilter
+from specklepy.core.api.inputs.user_inputs import UserProjectsFilter
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
 from .misc import format_relative_time, format_role
