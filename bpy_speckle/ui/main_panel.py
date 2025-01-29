@@ -1,13 +1,20 @@
+"""Module for handling the main Speckle panel.
+"""
+
 import bpy
 from bpy.types import UILayout, Context
 from .icons import get_icon
 
 # Main Panel
 class SPECKLE_PT_main_panel(bpy.types.Panel):
-    """
-    Main panel for the Speckle addon in Blender.
+    """Main panel for the Speckle addon.
 
-    This panel provides the primary user interface such as buttons for publishing and loading models, and model cards for each model added to the file.
+    This panel serves as the primary interface for the Speckle addon:
+    - Buttons for publishing and loading models
+    - Model cards showing the status of each Speckle model in the file
+    - Quick access to model settings and operations
+
+    The panel is displayed in the 3D View's sidebar under the 'Speckle' category.
     """
     bl_label = "Speckle"
 

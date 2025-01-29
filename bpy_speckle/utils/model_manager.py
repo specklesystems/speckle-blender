@@ -6,17 +6,30 @@ from typing import List, Tuple, Optional
 from .misc import format_relative_time
 
 def get_models_for_project(account_id: str, project_id: str, search: Optional[str] = None) -> List[Tuple[str, str, str]]:
-    """
-    Fetch models for a given project from the Speckle server.
+    """Fetches models for a given project from the Speckle server.
+
+    This function retrieves a list of models associated with a specific project in a Speckle account.
+    It authenticates with the server using the provided account credentials, validates the project existence,
+    and optionally filters the results based on a search string.
 
     Args:
-        account_id: The ID of the Speckle account to fetch models for
-        project_id: The ID of the project to fetch models from
-        search: Optional search string to filter models
+        account_id (str): The unique identifier of the Speckle account.
+        project_id (str): The unique identifier of the project to fetch models from.
+        search (Optional[str], optional): Search string to filter models by name. Defaults to None.
 
     Returns:
-        List of tuples containing (model_name, model_id, last_updated)
-        Returns empty list if any error occurs
+        List[Tuple[str, str, str]]: A list of tuples where each tuple contains:
+            - model_name (str): The name of the model
+            - model_id (str): The unique identifier of the model
+            - last_updated (str): Relative time since model creation
+
+    Note:
+        Returns an empty list if:
+        - The account_id or project_id are invalid
+        - The account cannot be found
+        - The project cannot be found
+        - Any other error occurs during execution
+        Any errors encountered will be printed with an error message.
     """
     try:
         # Validate inputs

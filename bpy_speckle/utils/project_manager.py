@@ -6,15 +6,26 @@ from specklepy.core.api.credentials import Account
 from .misc import format_relative_time, format_role
 
 def get_projects_for_account(account_id: str, search: Optional[str] = None) -> List[Tuple[str, str, str, str]]:
-    """
-    Fetch projects for a given account from the Speckle server.
+    """Fetches projects for a given account from the Speckle server.
+    
+    This function retrieves a list of projects associated with a specific Speckle account.
+    It authenticates with the server using the provided account credentials and optionally
+    filters the results based on a search string.
     
     Args:
-        account_id: The ID of the Speckle account to fetch projects for
-        search: Optional search string to filter projects
-        
+        account_id (str): The unique identifier of the Speckle account.
+        search (Optional[str], optional): Search string to filter projects by name. Defaults to None.
+    
     Returns:
-        List of tuples containing (project_name, role, last_updated, project_id)
+        List[Tuple[str, str, str, str]]: A list of tuples where each tuple contains:
+            - project_name (str): The name of the project
+            - role (str): The user's formatted role in the project
+            - last_updated (str): Relative time since last update
+            - project_id (str): The unique identifier of the project
+            
+    Note:
+        Returns an empty list if the account is not found or if there's an error during execution.
+        Any errors encountered will be printed with their full traceback.
     """
     try:
         # Get the account info

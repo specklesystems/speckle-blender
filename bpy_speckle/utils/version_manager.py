@@ -6,18 +6,30 @@ from specklepy.core.api.inputs.model_inputs import ModelVersionsFilter
 from specklepy.core.api.models.current import Version
 
 def get_versions_for_model(account_id: str, project_id: str, model_id: str, search: Optional[str] = None) -> List[Tuple[str, str, str]]:
-    """
-    Fetch versions for a given model from the Speckle server.
+    """Fetches versions for a given model from the Speckle server.
+
+    This function retrieves a list of versions associated with a specific model in a Speckle project.
+    It authenticates with the server using the provided account credentials, validates the inputs,
+    and optionally filters the results based on a search string.
 
     Args:
-        account_id: The ID of the Speckle account to fetch versions for
-        project_id: The ID of the project containing the model
-        model_id: The ID of the model to fetch versions from
-        search: Optional search string to filter versions
+        account_id (str): The unique identifier of the account.
+        project_id (str): The unique identifier of the project.
+        model_id (str): The unique identifier of the model to fetch versions from.
+        search (Optional[str], optional): Search string to filter versions by message. Defaults to None.
 
     Returns:
-        List of tuples containing (version_id, message, last_updated)
-        Returns empty list if any error occurs
+        List[Tuple[str, str, str]]: A list of tuples where each tuple contains:
+            - version_id (str): The unique id of the version
+            - message (str): The version message for the version (or "No message" if none provided)
+            - last_updated (str): Relative time since version creation
+
+    Note:
+        Returns an empty list if:
+        - Any of account_id, project_id, or model_id are invalid
+        - The account cannot be found
+        - Any other error occurs during execution
+        Any errors encountered will be printed with an error message.
     """
     try:
         # Validate inputs

@@ -1,16 +1,25 @@
+"""Module for handling version selection dialog in the Speckle Blender addon.
+
+Provides the UI components and functionality for selecting versions.
+"""
+
 import bpy
 from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
 from .mouse_position_mixin import MousePositionMixin
 from ..utils.version_manager import get_versions_for_model
 
 class speckle_version(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing versions.
+    """PropertyGroup for storing version information.
 
-    This PropertyGroup is used to store information about a version,
-    such as its ID, message, and updated time.
+    This class stores information about a Speckle version including its ID,
+    version message, update time, and source application for display in the
+    version selection dialog.
 
-    These are then used in the version selection dialog.
+    Attributes:
+        id: The unique identifier of the version.
+        message: The version message associated with the version.
+        updated: The last update timestamp of the version.
+        source_app: The application that created this version.
     """
     # Blender properties use dynamic typing, so we need to ignore type checking
     id: bpy.props.StringProperty(name="ID")  # type: ignore
@@ -19,13 +28,23 @@ class speckle_version(bpy.types.PropertyGroup):
     source_app: bpy.props.StringProperty(name="Source")  # type: ignore
 
 class SPECKLE_UL_versions_list(bpy.types.UIList):
-    """
-    UIList for displaying a list of versions.
+    """UIList for displaying a list of Speckle versions.
 
-    This UIList is used to display a list of versions in the version selection dialog.
+    It displays version information in both default/compact and grid layouts.
     """
     #TODO: Adjust column widths so message has the most space.
     def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, icon: str, active_data: PropertyGroup, active_propname: str) -> None:
+        """Draws a single item in the version list.
+
+        Args:
+            context: The current Blender context.
+            layout: The layout to draw the item in.
+            data: The data containing the item.
+            item: The item to draw.
+            icon: The icon to use for the item.
+            active_data: The data containing the active item.
+            active_propname: The name of the active property.
+        """
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
             split = row.split(factor=0.166)
@@ -39,8 +58,18 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
             layout.label(text=item.id)
 
 class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator):
-    """
-    Operator for selecting a version.
+    """Operator for displaying and handling the version selection dialog.
+
+    This operator manages the UI and functionality for selecting Speckle versions,
+    including version list display and search capabilities.
+
+    Attributes:
+        search_query: The current search string for filtering versions.
+        project_name: The name of the selected project.
+        model_name: The name of the selected model.
+        project_id: The ID of the selected project.
+        model_id: The ID of the selected model.
+        version_index: The index of the currently selected version.
     """
     bl_idname = "speckle.version_selection_dialog"
     bl_label = "Select Version"
@@ -111,7 +140,6 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         return {'FINISHED'}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
-
         # Ensure WindowManager has the versions collection
         if not hasattr(WindowManager, "speckle_versions"):
             # Register the collection property
@@ -129,7 +157,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         layout: UILayout = self.layout
         layout.label(text=f"Project: {self.project_name}")
         layout.label(text=f"Model: {self.model_name}")
-        # TODO: Add more UI elements here.
+        
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon='VIEWZOOM', text="")

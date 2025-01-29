@@ -1,3 +1,9 @@
+"""Module for handling project selection dialog in the Speckle Blender addon.
+
+This module provides the UI components and functionality for selecting projects
+from Speckle accounts within Blender.
+"""
+
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event, WindowManager
 from typing import List, Tuple
@@ -5,13 +11,16 @@ from ..utils.account_manager import get_account_enum_items, get_default_account_
 from ..utils.project_manager import get_projects_for_account
 
 class speckle_project(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing projects.
+    """PropertyGroup for storing project information.
 
-    This PropertyGroup is used to store information about a project,
-    such as its name, role, and update time.
+    This class stores information about a Speckle project including its name,
+    role, update time, and ID for display in the project selection dialog.
 
-    This is used in the project selection dialog.
+    Attributes:
+        name: The display name of the project.
+        role: User's role in the project.
+        updated: The last update timestamp of the project.
+        id: The unique identifier of the project.
     """
     # Blender properties use dynamic typing, so we need to ignore type checking
     name: bpy.props.StringProperty()  # type: ignore
@@ -20,13 +29,24 @@ class speckle_project(bpy.types.PropertyGroup):
     id: bpy.props.StringProperty(name="ID")  # type: ignore
 
 class SPECKLE_UL_projects_list(bpy.types.UIList):
-    """
-    UIList for displaying a list of projects.
+    """UIList for displaying a list of Speckle projects.
 
-    This UIList is used to display a list of projects in a Blender dialog.
-    This is used in the project selection dialog.
+    This class handles the visual representation of projects in the project selection dialog.
+    It displays project information in both default/compact and grid layouts.
     """
+
     def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, icon: str, active_data: PropertyGroup, active_propname: str) -> None:
+        """Draws a single item in the project list.
+
+        Args:
+            context: The current Blender context.
+            layout: The layout to draw the item in.
+            data: The data containing the item.
+            item: The item to draw.
+            icon: The icon to use for the item.
+            active_data: The data containing the active item.
+            active_propname: The name of the active property.
+        """
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
             split = row.split(factor=0.5) # This gives project name 1/2
@@ -41,13 +61,25 @@ class SPECKLE_UL_projects_list(bpy.types.UIList):
             layout.label(text=item.name)
 
 class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
-    """
-    Operator for project selection dialog.
+    """Operator for displaying and handling the project selection dialog.
+
+    This operator manages the UI and functionality for selecting Speckle projects,
+    including account selection and project list display.
+
+    Attributes:
+        search_query: The current search string for filtering projects.
+        accounts: Available Speckle accounts for selection.
+        project_index: The index of the currently selected project.
     """
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
 
     def update_projects_list(self, context: Context) -> None:
+        """Updates the list of projects based on the selected account and search query.
+
+        Args:
+            context: The current Blender context.
+        """
         wm = context.window_manager
         
         # Update the selected account ID in the window manager
@@ -147,8 +179,12 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         layout.separator()
 
 class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
-    """
-    Operator for adding a project by URL.
+    """Operator for adding a Speckle project by URL.
+
+    This operator allows users to add a Speckle project by providing its URL.
+
+    Attributes:
+        url: The URL of the Speckle project to add.
     """
     bl_idname = "speckle.add_project_by_url"
     bl_label = "Add Project by URL"
