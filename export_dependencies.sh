@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -e -o pipefail
 
-poetry export --only main -o bpy_speckle/requirements.txt
+uv pip compile pyproject.toml --output-file bpy_speckle/requirements.txt --all-extras
