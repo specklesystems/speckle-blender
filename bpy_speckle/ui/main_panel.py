@@ -37,7 +37,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
         # Publish and Load buttons
         row: UILayout = layout.row()
-        row.operator("speckle.publish", text="Publish", icon='EXPORT')
+        # row.operator("speckle.publish", text="Publish", icon='EXPORT')
         row.operator("speckle.load", text="Load", icon='IMPORT')
 
         layout.separator()
