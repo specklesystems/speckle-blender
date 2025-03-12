@@ -45,7 +45,7 @@ def get_projects_for_account(account_id: str, search: Optional[str] = None) -> L
         # Fetch projects
         projects = client.active_user.get_projects(limit=10, filter=filter).items
         
-        return [(project.name, format_role(project.role), format_relative_time(project.updatedAt), project.id) for project in projects]
+        return [(project.name, format_role(project.role), format_relative_time(project.updated_at), project.id) for project in projects]
         
     except Exception as e:
         import traceback
