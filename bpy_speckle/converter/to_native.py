@@ -1,315 +1,162 @@
+from typing import Any, Iterable, List, Optional, Tuple
+from specklepy.objects import Base
+from specklepy.objects.geometry import Line, Polyline, Mesh
 import bpy
-import bmesh
 from bpy.types import Object
-from mathutils import Vector
-from typing import Any, List, Optional, Tuple, Iterable
-from specklepy.objects.base import Base
-from specklepy.objects.geometry.line import Line
-from specklepy.objects.geometry.mesh import Mesh
-from specklepy.objects.geometry.polyline import Polyline
 
-# Constants for naming and conversion
-OBJECT_NAME_MAX_LENGTH = 62
-OBJECT_NAME_SPECKLE_SEPARATOR = "::"
-OBJECT_NAME_NUMERAL_SEPARATOR = "."
+# Display value property aliases to check for
+DISPLAY_VALUE_PROPERTY_ALIASES = [
+    "displayValue",
+    "displayvalue",
+    "@displayValue",
+    "display_value",
+]
 
-# Property aliases for finding geometry in various Speckle object types
-DISPLAY_VALUE_PROPERTY_ALIASES = ["displayValue", "displayMesh", "displayStyle"]
-ELEMENTS_PROPERTY_ALIASES = ["elements", "Elements", "@elements"]
+# Element property aliases for collections of objects
+ELEMENTS_PROPERTY_ALIASES = [
+    "elements",
+    "@elements",
+]
 
-def _has_native_conversion(speckle_object: Base) -> bool:
-    """Check if object has a direct conversion method."""
-    return isinstance(speckle_object, (Line, Mesh, Polyline))
 
-def _has_fallback_conversion(speckle_object: Base) -> bool:
-    """Check if object has displayValue properties that can be converted."""
-    return any(getattr(speckle_object, alias, None) for alias in DISPLAY_VALUE_PROPERTY_ALIASES)
-
-def can_convert_to_native(speckle_object: Base) -> bool:
-    """Check if a Speckle object can be converted to Blender.
-    
-    Args:
-        speckle_object: The Speckle object to check
-        
-    Returns:
-        True if the object can be converted, False otherwise
+def generate_unique_name(speckle_object: Base) -> Tuple[str, str]:
     """
-    return _has_native_conversion(speckle_object) or _has_fallback_conversion(speckle_object)
-
-def convert_to_native(speckle_object: Base) -> Object:
-    """Convert a Speckle object to a Blender object.
-    
-    Args:
-        speckle_object: The Speckle object to convert
-        
-    Returns:
-        A Blender object
+    generates unique name for converted blender objects and data-blocks
     """
-    # Generate a name for the object
-    object_name = _generate_object_name(speckle_object)
-    
-    converted = None
-    children = []
-    
-    # First try native conversion if available
-    if isinstance(speckle_object, Line):
-        converted = line_to_native(speckle_object, object_name)
-    elif isinstance(speckle_object, Mesh):
-        converted = mesh_to_native(speckle_object, object_name, 1.0)  # Using 1.0 as default scale
-    elif isinstance(speckle_object, Polyline):
-        converted = polyline_to_native(speckle_object, object_name)
-    
-    # If no native conversion was possible, try displayValue conversion
-    if not converted:
-        (converted, children) = display_value_to_native(
-            speckle_object, object_name, 1.0  # Using 1.0 as default scale
-        )
-        if not converted and not children:
-            raise ValueError(f"Failed to convert object: {speckle_object.speckle_type}")
-    
-    # Create a Blender object if the converter returned data instead of an object
-    if not isinstance(converted, Object):
-        blender_object = create_new_object(converted, object_name)
+    # Check if speckle object is a data object
+    # Since every data object has name, use it in naming
+    # If not extract base name from speckle type itself
+    if (
+        "DataObject" in speckle_object.speckle_type
+        and hasattr(speckle_object, "name")
+        and speckle_object.name
+    ):
+        base_name = speckle_object.name
     else:
-        blender_object = converted
-    
-    # Store Speckle ID
-    if hasattr(blender_object, "speckle"):
-        blender_object.speckle.object_id = str(speckle_object.id)
-        blender_object.speckle.enabled = True
-    
-    # Parent children to the main object if any were created
-    for child in children:
-        child.parent = blender_object
-    
-    return blender_object
+        parts = speckle_object.speckle_type.split(".")
+        base_name = parts[-1]
 
-def line_to_native(speckle_line: Line, name: str) -> bpy.types.Curve:
-    """Convert a Speckle line to a Blender curve.
-    
-    Args:
-        speckle_line: The Speckle line to convert
-        name: The name for the new Blender curve
-        
-    Returns:
-        A Blender curve data block
-    """
-    # Check if the line has valid start and end points
-    if not speckle_line.start or not speckle_line.end:
-        raise ValueError("Line is missing start or end point")
-    
-    # Create a new curve data block
-    blender_curve = bpy.data.curves.new(name, type="CURVE")
-    blender_curve.dimensions = "3D"
-    
-    # Create a new spline in the curve
-    spline = blender_curve.splines.new("POLY")
-    spline.points.add(1)  # Add one point (default has 1, so total will be 2)
-    
-    # Set the coordinates
-    # Note: Blender curve points are 4D (x, y, z, w) where w is weight
-    spline.points[0].co = (
-        float(speckle_line.start.x),
-        float(speckle_line.start.y),
-        float(speckle_line.start.z),
-        1.0,
-    )
-    
-    spline.points[1].co = (
-        float(speckle_line.end.x),
-        float(speckle_line.end.y),
-        float(speckle_line.end.z),
-        1.0,
-    )
-    
-    return blender_curve
+    # Get the speckle id
+    speckle_id = ""
+    if hasattr(speckle_object, "id") and speckle_object.id:
+        speckle_id = speckle_object.id
+    else:
+        raise KeyError("No id has been found!")  # is that even possible?
 
-def mesh_to_native(speckle_mesh: Mesh, name: str, scale: float) -> bpy.types.Mesh:
-    """Convert a Speckle mesh to a Blender mesh.
-    
-    Args:
-        speckle_mesh: The Speckle mesh to convert
-        name: The name for the new Blender mesh
-        scale: The scale factor to apply
-        
-    Returns:
-        A Blender mesh data block
-    """
-    # Check if mesh already exists with this name
-    if name in bpy.data.meshes.keys():
-        return bpy.data.meshes[name]
-    
-    # Create a new mesh data block
-    blender_mesh = bpy.data.meshes.new(name=name)
-    
-    # Create a BMesh for easier manipulation
-    bm = bmesh.new()
-    
-    # Add vertices
-    add_vertices(speckle_mesh, bm, scale)
-    bm.verts.ensure_lookup_table()
-    
-    # Add faces
-    add_faces(speckle_mesh, bm, 0, 0)
-    bm.faces.ensure_lookup_table()
-    
-    # Finalize and cleanup
-    bm.to_mesh(blender_mesh)
-    bm.free()
-    
-    return blender_mesh
+    # Define object name - should be simple
+    object_name = base_name
 
-def add_vertices(mesh: Mesh, bm: bmesh.types.BMesh, scale: float) -> None:
-    """Add vertices from a Speckle mesh to a Blender BMesh.
-    
-    Args:
-        mesh: The Speckle mesh containing vertices
-        bm: The Blender BMesh to add vertices to
-        scale: The scale factor to apply
-    """
-    if not mesh.vertices:
-        return
-    
-    # Add vertices
-    for i in range(0, len(mesh.vertices), 3):
-        x = float(mesh.vertices[i]) * scale
-        y = float(mesh.vertices[i + 1]) * scale
-        z = float(mesh.vertices[i + 2]) * scale
-        bm.verts.new(Vector((x, y, z)))
+    # Define data-block name - should include ID
+    datablock_name = f"{base_name}.{speckle_id}"
 
-def add_faces(mesh: Mesh, bm: bmesh.types.BMesh, vertex_offset: int, material_index: int) -> None:
-    """Add faces from a Speckle mesh to a Blender BMesh.
-    
-    Args:
-        mesh: The Speckle mesh containing faces
-        bm: The Blender BMesh to add faces to
-        vertex_offset: Offset to apply to vertex indices
-        material_index: Material index to assign to faces
-    """
-    if not mesh.faces:
-        return
-    
-    # Ensure lookup table is up to date
-    bm.verts.ensure_lookup_table()
-    
-    i = 0
-    while i < len(mesh.faces):
-        face_size = mesh.faces[i]
-        i += 1
-        
-        # Skip invalid faces
-        if face_size < 3:
-            continue
-        
-        # Get vertices for this face
-        verts = []
-        for j in range(face_size):
-            if i >= len(mesh.faces):
-                break
-                
-            vert_idx = mesh.faces[i] + vertex_offset
-            i += 1
-            
-            if vert_idx >= len(bm.verts):
-                continue
-                
-            verts.append(bm.verts[vert_idx])
-        
-        # Create the face if we have enough valid vertices
-        if len(verts) >= 3:
-            try:
-                face = bm.faces.new(verts)
-                face.material_index = material_index
-            except Exception as e:
-                print(f"Failed to create face: {e}")
+    return object_name, datablock_name
 
-def polyline_to_native(speckle_polyline: Polyline, name: str) -> bpy.types.Curve:
-    """Convert a Speckle polyline to a Blender curve.
-    
-    Args:
-        speckle_polyline: The Speckle polyline to convert
-        name: The name for the new Blender curve
-        
-    Returns:
-        A Blender curve data block
+
+def convert_to_native(speckle_object: Base) -> Optional[Object]:
     """
-    # Get points from the polyline
-    points = speckle_polyline.get_points()
-    if not points:
-        raise ValueError("Polyline has no points")
-    
-    # Create a new curve data block
-    blender_curve = bpy.data.curves.new(name, type="CURVE")
-    blender_curve.dimensions = "3D"
-    
-    # Create a new spline in the curve
-    spline = blender_curve.splines.new("POLY")
-    spline.points.add(len(points) - 1)  # Add points (default has 1, so add n-1 more)
-    
-    # Set the coordinates for each point
-    # Note: Blender curve points are 4D (x, y, z, w) where w is weight
-    for i, point in enumerate(points):
-        spline.points[i].co = (
-            float(point.x),
-            float(point.y),
-            float(point.z),
-            1.0,
+    converts a speckle object to blender object
+    """
+    # Default scale factor (no scaling)
+    scale = 1.0
+
+    # Generate names
+    object_name, data_block_name = generate_unique_name(speckle_object)
+
+    converted_object = None
+
+    # Try direct conversion based on object type
+    if isinstance(speckle_object, Line):
+        converted_object = line_to_native(speckle_object, object_name, data_block_name)
+    elif isinstance(speckle_object, Polyline):
+        converted_object = polyline_to_native(
+            speckle_object, object_name, data_block_name
         )
-    
-    # If the polyline is closed, set the spline to be cyclic
-    if speckle_polyline.is_closed():
-        spline.use_cyclic_u = True
-    
-    return blender_curve
+    elif isinstance(speckle_object, Mesh):
+        converted_object = mesh_to_native(speckle_object, object_name, data_block_name)
+    else:
+        # Fallback to display value if direct conversion not supported
+        mesh, children = display_value_to_native(
+            speckle_object, object_name, data_block_name, scale
+        )
+        if mesh:
+            # Create a mesh object with the object_name (simple name) and mesh data
+            mesh_obj = bpy.data.objects.new(object_name, mesh)
+            converted_object = mesh_obj
+
+            # Parent any child objects to this mesh object
+            for child in children:
+                child.parent = mesh_obj
+        elif children:
+            # If we only have non-mesh objects, return the first one as the main object
+            converted_object = children[0]
+
+            # If there are multiple objects, parent remaining ones to the first
+            for child in children[1:]:
+                child.parent = converted_object
+
+    if converted_object:
+        # Store Speckle ID in custom property
+        converted_object["speckle_id"] = speckle_object.id
+
+    return converted_object
+
 
 def display_value_to_native(
-    speckle_object: Base, name: str, scale: float
+    speckle_object: Base, object_name: str, data_block_name: str, scale: float
 ) -> Tuple[Optional[bpy.types.Mesh], List[Object]]:
-    """Convert displayValue properties to Blender objects.
-    
-    Args:
-        speckle_object: The Speckle object to convert
-        name: The name for the new Blender objects
-        scale: The scale factor to apply
-        
-    Returns:
-        Tuple of (converted mesh, list of child objects)
+    """
+    fallback conversion mechanism using displayValue if present
     """
     return _members_to_native(
-        speckle_object, name, scale, DISPLAY_VALUE_PROPERTY_ALIASES, True
+        speckle_object,
+        object_name,
+        data_block_name,
+        scale,
+        DISPLAY_VALUE_PROPERTY_ALIASES,
+        True,
     )
+
+
+def elements_to_native(
+    speckle_object: Base, object_name: str, data_block_name: str, scale: float
+) -> List[Object]:
+    """
+    convert elements collection of a speckle object
+    """
+    (_, elements) = _members_to_native(
+        speckle_object,
+        object_name,
+        data_block_name,
+        scale,
+        ELEMENTS_PROPERTY_ALIASES,
+        False,
+    )
+    return elements
+
 
 def _members_to_native(
     speckle_object: Base,
-    name: str,
+    object_name: str,
+    data_block_name: str,
     scale: float,
     members: Iterable[str],
     combineMeshes: bool,
 ) -> Tuple[Optional[bpy.types.Mesh], List[Object]]:
-    """Convert specific members of a Speckle object to Blender objects.
-    
-    Args:
-        speckle_object: The Speckle object to convert
-        name: The name for the new Blender objects
-        scale: The scale factor to apply
-        members: The member properties to look for
-        combineMeshes: Whether to combine meshes into one
-        
-    Returns:
-        Tuple of (combined mesh, list of child objects)
+    """
+    converts a given speckle_object by converting specified members
     """
     meshes: List[Mesh] = []
     others: List[Base] = []
-    
+
     for alias in members:
         display = getattr(speckle_object, alias, None)
-        
+
         count = 0
-        MAX_DEPTH = 255  # Prevent infinite recursion
-        
+        MAX_DEPTH = 255  # some large value, to prevent infinite recursion
+
         def separate(value: Any) -> bool:
             nonlocal meshes, others, count, MAX_DEPTH
-            
+
             if combineMeshes and isinstance(value, Mesh):
                 meshes.append(value)
             elif isinstance(value, Base):
@@ -320,140 +167,282 @@ def _members_to_native(
                     return True
                 for x in value:
                     separate(x)
-            
+
             return False
-        
+
         did_halt = separate(display)
-        
+
         if did_halt:
-            print(f"Traversal halted after exceeding depth {MAX_DEPTH}")
-    
-    # Convert meshes and other objects
+            print(
+                f"Traversal of {speckle_object.speckle_type} {speckle_object.id} halted after traversal depth exceeds MAX_DEPTH={MAX_DEPTH}. Are there circular references in object structure?"
+            )
+
     children: List[Object] = []
     mesh = None
-    
+
     if meshes:
-        mesh = meshes_to_native(speckle_object, meshes, name, scale)
-    
+        # Use data_block_name (the name with ID) for the mesh datablock
+        mesh = meshes_to_native(speckle_object, meshes, data_block_name, scale)
+
     for item in others:
         try:
             blender_object = convert_to_native(item)
-            children.append(blender_object)
+            if blender_object:
+                children.append(blender_object)
         except Exception as ex:
             print(f"Failed to convert display value {item}: {ex}")
-    
+
     return (mesh, children)
 
-def meshes_to_native(element: Base, meshes: List[Mesh], name: str, scale: float) -> bpy.types.Mesh:
-    """Convert multiple Speckle meshes to a single Blender mesh.
-    
-    Args:
-        element: The parent Speckle object
-        meshes: The Speckle meshes to convert
-        name: The name for the new Blender mesh
-        scale: The scale factor to apply
-        
-    Returns:
-        A Blender mesh
+
+def line_to_native(
+    speckle_line: Line, object_name: str, data_block_name: str
+) -> bpy.types.Object:
     """
-    if name in bpy.data.meshes.keys():
-        return bpy.data.meshes[name]
-    
-    blender_mesh = bpy.data.meshes.new(name=name)
-    
-    bm = bmesh.new()
-    
-    # First pass: add vertices
-    for mesh in meshes:
-        add_vertices(mesh, bm, scale)
-    
-    bm.verts.ensure_lookup_table()
-    
-    # Second pass: add faces
-    offset = 0
-    for i, mesh in enumerate(meshes):
-        if not mesh.vertices:
-            continue
-        
-        add_faces(mesh, bm, offset, i)
-        
-        offset += len(mesh.vertices) // 3
-    
-    # Finalize and cleanup
-    bm.to_mesh(blender_mesh)
-    bm.free()
-    
+    converts a speckle line to a blender curve
+    """
+    # Check if the line has valid start and end points
+    if not speckle_line.start or not speckle_line.end:
+        raise ValueError("Line is missing start or end point")
+
+    # Create curve data with data_block_name (the name with ID)
+    curve = bpy.data.curves.new(data_block_name, type="CURVE")
+    curve.dimensions = "3D"
+
+    # Create a new spline in the curve
+    spline = curve.splines.new("POLY")
+    spline.points.add(1)
+
+    # Set the coordinates
+    # Note: Blender curve points are 4D (x, y, z, w) where w is weight
+    spline.points[0].co = (
+        float(speckle_line.start.x),
+        float(speckle_line.start.y),
+        float(speckle_line.start.z),
+        1.0,
+    )
+
+    spline.points[1].co = (
+        float(speckle_line.end.x),
+        float(speckle_line.end.y),
+        float(speckle_line.end.z),
+        1.0,
+    )
+
+    # Create object with object_name (the simple name)
+    curve_obj = bpy.data.objects.new(object_name, curve)
+
+    return curve_obj
+
+
+def polyline_to_native(
+    speckle_polyline: Polyline, object_name: str, data_block_name: str
+) -> Object:
+    """
+    converts a speckle polyline to blender curve
+    """
+    # Check if polyline has valid points
+    if not speckle_polyline.value or len(speckle_polyline.value) < 6:
+        raise ValueError("Polyline must have at least two points")
+
+    # Create curve data with data_block_name (the name with ID)
+    curve = bpy.data.curves.new(data_block_name, type="CURVE")
+    curve.dimensions = "3D"
+
+    # Create a new spline in the curve
+    spline = curve.splines.new("POLY")
+
+    # Get the number of points in the polyline
+    num_points = len(speckle_polyline.value) // 3  # divide by 3 to get point count
+
+    # Add the required number of points to the spline
+    if num_points > 1:
+        spline.points.add(num_points - 1)
+
+    # Set the coordinates for each point
+    for i in range(num_points):
+        # Note: Blender curve points are 4D (x, y, z, w) where w is weight
+        spline.points[i].co = (
+            float(speckle_polyline.value[i * 3]),
+            float(speckle_polyline.value[i * 3 + 1]),
+            float(speckle_polyline.value[i * 3 + 2]),
+            1.0,
+        )
+
+    # Set cyclic property if the polyline is closed
+    if hasattr(speckle_polyline, "closed") and speckle_polyline.closed:
+        spline.use_cyclic_u = True
+
+    # Create object with object_name (the simple name)
+    curve_obj = bpy.data.objects.new(object_name, curve)
+
+    return curve_obj
+
+
+def mesh_to_native(
+    speckle_mesh: Mesh, object_name: str, data_block_name: str
+) -> Object:
+    """
+    converts a speckle mesh to a blender mesh
+    """
+    # Create mesh data with data_block_name (the name with ID)
+    mesh = mesh_to_native_mesh(speckle_mesh, data_block_name)
+
+    # Create object with object_name (the simple name)
+    mesh_obj = bpy.data.objects.new(object_name, mesh)
+
+    # Add vertex colors if present
+    if len(speckle_mesh.colors) > 0:
+        add_vertex_colors(mesh, speckle_mesh.colors)
+
+    # Add texture coordinates if present
+    if len(speckle_mesh.textureCoordinates) > 0:
+        add_texture_coordinates(mesh, speckle_mesh.textureCoordinates)
+
+    return mesh_obj
+
+
+def mesh_to_native_mesh(speckle_mesh: Mesh, name: str) -> bpy.types.Mesh:
+    """
+    converts a single Speckle mesh to a Blender mesh object
+    """
+    # Check if the mesh has valid vertices and faces
+    if not speckle_mesh.vertices or not speckle_mesh.faces:
+        raise ValueError("Mesh has no vertices or faces")
+
+    # Create a new mesh object with the provided name (with ID)
+    blender_mesh = bpy.data.meshes.new(name)
+
+    # Prepare vertices and faces
+    vertices = []
+    for i in range(0, len(speckle_mesh.vertices), 3):
+        vertices.append(
+            (
+                float(speckle_mesh.vertices[i]),
+                float(speckle_mesh.vertices[i + 1]),
+                float(speckle_mesh.vertices[i + 2]),
+            )
+        )
+
+    # Extract faces from the Speckle mesh format
+    faces = []
+    i = 0
+    while i < len(speckle_mesh.faces):
+        vertex_count = speckle_mesh.faces[i]
+        face = []
+        for j in range(1, vertex_count + 1):
+            vertex_index = speckle_mesh.faces[i + j]
+            face.append(vertex_index)
+        faces.append(face)
+        i += vertex_count + 1
+
+    # Create the mesh from vertices and faces
+    blender_mesh.from_pydata(vertices, [], faces)
+    blender_mesh.update()
+
     return blender_mesh
 
-def create_new_object(obj_data, desired_name: str) -> bpy.types.Object:
-    """Create a new Blender object with a unique name.
-    
-    Args:
-        obj_data: The data to use for the object (e.g., mesh, curve)
-        desired_name: The desired name for the object
-        
-    Returns:
-        A new Blender object
-    """
-    # Make sure the name is unique
-    name = _make_unique_name(desired_name, bpy.data.objects.keys())
-    
-    # Create the object
-    blender_object = bpy.data.objects.new(name, obj_data)
-    
-    # Link it to the active collection if possible
-    if bpy.context.collection:
-        bpy.context.collection.objects.link(blender_object)
-    else:
-        # If no active collection, link to scene collection
-        bpy.context.scene.collection.objects.link(blender_object)
-    
-    return blender_object
 
-def _make_unique_name(desired_name: str, existing_names) -> str:
-    """Create a unique name by appending a number if necessary.
-    
-    Args:
-        desired_name: The desired name
-        existing_names: Collection of existing names to avoid duplicates
-        
-    Returns:
-        A unique name
+def meshes_to_native(
+    speckle_object: Base, meshes: List[Mesh], name: str, scale: float
+) -> bpy.types.Mesh:
     """
-    if desired_name not in existing_names:
-        return desired_name
-    
-    # If name exists, append numbers until we find a unique one
-    counter = 1
-    while True:
-        new_name = f"{desired_name}.{counter:03d}"
-        if new_name not in existing_names:
-            return new_name
-        counter += 1
+    combines multiple Speckle meshes into a single Blender mesh
+    """
+    # If there's only one mesh, use the simpler conversion function
+    if len(meshes) == 1:
+        return mesh_to_native_mesh(meshes[0], name)
 
-def _generate_object_name(speckle_object: Base) -> str:
-    """Generate a name for a Blender object based on a Speckle object.
-    
-    Args:
-        speckle_object: The Speckle object
-        
-    Returns:
-        A name for the object
+    # Create a new mesh object with the provided name (with ID)
+    blender_mesh = bpy.data.meshes.new(name)
+
+    # Process all meshes and combine them
+    all_vertices = []
+    all_faces = []
+    vertex_offset = 0
+
+    for mesh in meshes:
+        # Add vertices
+        for i in range(0, len(mesh.vertices), 3):
+            all_vertices.append(
+                (
+                    float(mesh.vertices[i]) * scale,
+                    float(mesh.vertices[i + 1]) * scale,
+                    float(mesh.vertices[i + 2]) * scale,
+                )
+            )
+
+        # Add faces
+        i = 0
+        while i < len(mesh.faces):
+            vertex_count = mesh.faces[i]
+            face = []
+            for j in range(1, vertex_count + 1):
+                vertex_index = mesh.faces[i + j]
+                face.append(vertex_index + vertex_offset)
+            all_faces.append(face)
+            i += vertex_count + 1
+
+        # Update vertex offset for the next mesh
+        vertex_offset += len(mesh.vertices) // 3
+
+    # Create the combined mesh
+    blender_mesh.from_pydata(all_vertices, [], all_faces)
+    blender_mesh.update()
+
+    return blender_mesh
+
+
+def add_vertex_colors(blender_mesh: bpy.types.Mesh, colors: List[int]) -> None:
     """
-    # Try to get a meaningful name
-    name = getattr(speckle_object, "name", None)
-    
-    if not name:
-        # Use the object type as a fallback
-        speckle_type = speckle_object.speckle_type
-        name = speckle_type.split(".")[-1]  # Get the last part of the type name
-    
-    # Truncate if necessary
-    if len(name) > OBJECT_NAME_MAX_LENGTH - 10:  # Leave room for speckle ID
-        name = name[:OBJECT_NAME_MAX_LENGTH - 10]
-    
-    # Add the Speckle ID for uniqueness
-    if hasattr(speckle_object, "id") and speckle_object.id:
-        return f"{name}{OBJECT_NAME_SPECKLE_SEPARATOR}{speckle_object.id[:8]}"
-    else:
-        return name
+    add vertex colors to a Blender mesh
+    """
+    if not blender_mesh.vertices or len(colors) < len(blender_mesh.vertices) * 4:
+        return
+
+    # Create a new vertex color layer
+    if not blender_mesh.vertex_colors:
+        blender_mesh.vertex_colors.new()
+
+    color_layer = blender_mesh.vertex_colors.active
+
+    # Set vertex colors for each loop
+    for poly in blender_mesh.polygons:
+        for loop_idx in poly.loop_indices:
+            vertex_idx = blender_mesh.loops[loop_idx].vertex_index
+            color_idx = vertex_idx * 4
+
+            # RGBA values normalized to 0.0-1.0 range
+            r = colors[color_idx] / 255.0
+            g = colors[color_idx + 1] / 255.0
+            b = colors[color_idx + 2] / 255.0
+            a = colors[color_idx + 3] / 255.0
+
+            color_layer.data[loop_idx].color = (r, g, b, a)
+
+
+def add_texture_coordinates(
+    blender_mesh: bpy.types.Mesh, tex_coords: List[float]
+) -> None:
+    """
+    add texture coordinates to a Blender mesh
+    """
+    if not blender_mesh.vertices or len(tex_coords) < len(blender_mesh.vertices) * 2:
+        return
+
+    # Create a new UV layer
+    if not blender_mesh.uv_layers:
+        blender_mesh.uv_layers.new()
+
+    uv_layer = blender_mesh.uv_layers.active
+
+    # Set UV coordinates for each loop
+    for poly in blender_mesh.polygons:
+        for loop_idx in poly.loop_indices:
+            vertex_idx = blender_mesh.loops[loop_idx].vertex_index
+            uv_idx = vertex_idx * 2
+
+            u = tex_coords[uv_idx]
+            v = tex_coords[uv_idx + 1]
+
+            uv_layer.data[loop_idx].uv = (u, v)
