@@ -43,6 +43,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
             data: The data containing the item.
             item: The item to draw.
             icon: The icon to use for the item.
+
             active_data: The data containing the active item.
             active_propname: The name of the active property.
         """
@@ -134,6 +135,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         model_card = context.scene.speckle_state.model_cards.add()
         model_card.project_name = self.project_name
         model_card.project_id = self.project_id
+        model_card.model_id = self.model_id
         model_card.model_name = self.model_name
         model_card.is_publish = False
         # Store the selected version ID
