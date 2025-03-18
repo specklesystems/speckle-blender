@@ -42,9 +42,12 @@ class SPECKLE_OT_view_in_browser(bpy.types.Operator):
     bl_description = "View the model in the browser"
 
     def execute(self, context: Context) -> Set[str]:
-        # TODO: Update this to model URL
-        webbrowser.open("https://speckle.guide")
-        self.report({'INFO'}, "Viewing in the browser")
+        model_card = context.scene.speckle_state.model_cards[context.scene.speckle_state.model_card_index]
+        project_id = model_card.project_id
+        model_id = model_card.model_id
+        url = f"app.speckle.systems/projects/{project_id}/models/{model_id}"
+        webbrowser.open(url)
+        self.report({'INFO'}, f"Viewing in the browser: {url}")
         return {'FINISHED'}
 
 # Operator for viewing the model versions in the browser
