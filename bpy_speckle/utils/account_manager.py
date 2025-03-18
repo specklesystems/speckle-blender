@@ -35,3 +35,19 @@ def get_default_account_id() -> Optional[str]:
         Optional[str]: The ID of the default account if one exists, None otherwise.
     """
     return next((acc.id for acc in get_local_accounts() if acc.isDefault), None)
+
+
+def get_server_url_by_account_id(account_id: str) -> Optional[str]:
+    """Retrieves the server URL for a given account ID.
+
+    Args:
+        account_id (str): The ID of the account.
+
+    Returns:
+        Optional[str]: The server URL if the account is found, otherwise None.
+    """
+    accounts: List[Account] = get_local_accounts()
+    for acc in accounts:
+        if acc.id == account_id:
+            return acc.serverInfo.url
+    return None
