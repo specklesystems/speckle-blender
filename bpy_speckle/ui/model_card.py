@@ -20,6 +20,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
     is_publish: bpy.props.BoolProperty(name="Publish/Load", description="If the model is published or loaded", default=False)  # type: ignore
     selection_summary: bpy.props.StringProperty(name="Selection Summary", description="Summary of the selection", default="")  # type: ignore
     version_id: bpy.props.StringProperty(name="Version ID", description="ID of the selected version", default="")  # type: ignore
+    load_option: bpy.props.StringProperty(name="Version ID", description="ID of the selected version", default="")  # type: ignore
 
     def to_dict(self) -> Dict[str, Any]:
         """Converts the model card to a dictionary representation.

@@ -146,6 +146,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         model_card.project_id = self.project_id
         model_card.model_name = self.model_name
         model_card.is_publish = False
+        model_card.load_option = self.load_option
         # Store the selected version ID
         if self.load_option == "LATEST":
             version_id, _, _ = get_latest_version(
