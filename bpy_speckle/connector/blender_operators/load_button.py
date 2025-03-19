@@ -11,7 +11,7 @@ from specklepy.objects.graph_traversal.default_traversal import (
 )
 
 from ..utils.get_ascendants import get_ascendants
-from ..converter.to_native import convert_to_native
+from ...converter.to_native import convert_to_native
 
 
 class SPECKLE_OT_load(bpy.types.Operator):

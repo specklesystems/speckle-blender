@@ -8,7 +8,7 @@ from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
 from .mouse_position_mixin import MousePositionMixin
 from ..utils.version_manager import get_versions_for_model, get_latest_version
 from ..utils.account_manager import get_server_url_by_account_id
-from ..operators.load import SPECKLE_OT_load
+from ..blender_operators.load_button import SPECKLE_OT_load
 
 class speckle_version(bpy.types.PropertyGroup):
     """PropertyGroup for storing version information.
