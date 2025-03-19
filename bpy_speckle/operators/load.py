@@ -1,18 +1,16 @@
 import bpy
-from typing import Set, Dict, Union, List, Tuple
-from bpy.types import Collection, Object, Context
+from typing import Set
+from bpy.types import Context
 from specklepy.api.credentials import get_local_accounts
 from specklepy.transports.server import ServerTransport
 from specklepy.api import operations
 from specklepy.api.client import SpeckleClient
-from specklepy.objects.base import Base
 from specklepy.objects.models.collections.collection import Collection as SCollection
 from specklepy.objects.graph_traversal.default_traversal import (
     create_default_traversal_function,
 )
-from specklepy.objects.graph_traversal.traversal import TraversalContext
 
-from ..utils.get_ascendants import get_ascendants, get_ascendant_of_type
+from ..utils.get_ascendants import get_ascendants
 from ..converter.to_native import convert_to_native
 
 
@@ -39,176 +37,14 @@ class SPECKLE_OT_load(bpy.types.Operator):
 
         return {"FINISHED"}
 
-    @staticmethod
-    def find_or_create_blender_collection(
-        name: str,
-        parent_collection: Collection,
-        created_collections: Dict[str, Collection],
-    ) -> Collection:
-        """
-        Find an existing collection or create a new one with the given name
-
-        Args:
-            name: Name for the collection
-            parent_collection: Parent collection to link to if creating a new collection
-            created_collections: Dictionary of collections created so far (for caching)
-
-        Returns:
-            The found or created collection
-        """
-        # Check if we've already created this collection
-        if name in created_collections:
-            return created_collections[name]
-
-        # Check if collection already exists in Blender
-        if name in bpy.data.collections:
-            collection = bpy.data.collections[name]
-            created_collections[name] = collection
-
-            # Make sure it's linked to parent_collection if not already
-            if collection.name not in parent_collection.children:
-                try:
-                    parent_collection.children.link(collection)
-                except RuntimeError:
-                    # Collection might already be linked elsewhere
-                    pass
-
-            return collection
-
-        # Create new collection
-        collection = bpy.data.collections.new(name)
-        parent_collection.children.link(collection)
-        created_collections[name] = collection
-
-        return collection
-
-    @classmethod
-    def handle_hierarchy(
-        cls,
-        obj: Object,
-        speckle_obj: Base,
-        traversal_context: TraversalContext,
-        converted_objects: Dict[str, Union[Object, Collection]],
-        root_collection: Collection,
-        created_collections: Dict[str, Collection],
-    ) -> None:
-        """
-        handle hierarchy for a converted object
-        """
-        # first check if object already has a parent or is in a collection
-        if obj.parent or any(obj.name in c.objects for c in bpy.data.collections):
-            # already placed in hierarchy, skip
-            return
-
-        # find parent collections in Speckle hierarchy
-        parent_collections = list(get_ascendant_of_type(traversal_context, SCollection))
-
-        if parent_collections:
-            # get the nearest parent collection
-            parent_speckle_collection = parent_collections[0]
-
-            # try to find the corresponding Blender collection
-            blender_collection = None
-
-            # if collection was already converted, use it
-            if parent_speckle_collection.id in converted_objects:
-                parent_obj = converted_objects[parent_speckle_collection.id]
-                if isinstance(parent_obj, Collection):
-                    blender_collection = parent_obj
-
-            # if not found, create a new collection using the Speckle collection name
-            if not blender_collection:
-                collection_name = (
-                    getattr(parent_speckle_collection, "name", None)
-                    or f"Collection_{parent_speckle_collection.id[:8]}"
-                )
-                blender_collection = cls.find_or_create_blender_collection(
-                    collection_name, root_collection, created_collections
-                )
-                # store for future reference
-                converted_objects[parent_speckle_collection.id] = blender_collection
-
-            # link object to this collection
-            try:
-                blender_collection.objects.link(obj)
-            except RuntimeError:
-                # object might already be linked to this collection
-                # maybe better error handling here?
-                pass
-        else:
-            # no parent collections found, check for parent objects
-            parent_objects = list(get_ascendants(traversal_context))
-
-            if len(parent_objects) > 1:  # skip the current object
-                parent_speckle_obj = parent_objects[1]  # get the parent
-
-                if parent_speckle_obj.id in converted_objects:
-                    parent_obj = converted_objects[parent_speckle_obj.id]
-
-                    if isinstance(parent_obj, Object):
-                        # set parent relationship
-                        obj.parent = parent_obj
-                    elif isinstance(parent_obj, Collection):
-                        # link to parent collection
-                        try:
-                            parent_obj.objects.link(obj)
-                        except RuntimeError:
-                            # object might already be linked to this collection
-                            pass
-                    else:
-                        # link to root collection as fallback
-                        # if no parent has found
-                        try:
-                            root_collection.objects.link(obj)
-                        except RuntimeError:
-                            pass
-                else:
-                    # parent not converted yet, link to root collection for now
-                    try:
-                        root_collection.objects.link(obj)
-                    except RuntimeError:
-                        pass
-            else:
-                # no parents, link to root collection
-                try:
-                    root_collection.objects.link(obj)
-                except RuntimeError:
-                    pass
-
-    @classmethod
-    def process_deferred_parenting(
-        cls,
-        traversal_contexts: List[Tuple[Base, TraversalContext, Object]],
-        converted_objects: Dict[str, Union[Object, Collection]],
-        root_collection: Collection,
-        created_collections: Dict[str, Collection],
-    ) -> None:
-        """
-        process objects that needed to wait for their parents to be converted
-        """
-        for speckle_obj, context, blender_obj in traversal_contexts:
-            cls.handle_hierarchy(
-                blender_obj,
-                speckle_obj,
-                context,
-                converted_objects,
-                root_collection,
-                created_collections,
-            )
-
     @classmethod
     def load(cls, context: Context, model_card) -> None:
         """
-        load objects from Speckle and maintain hierarchy
+        Load objects from Speckle and maintain hierarchy.
+        First establish collection hierarchy, then convert and place objects.
         """
-        print("Load process started")
-        print(
-            f"Loading project: {model_card.project_name}, model: {model_card.model_name}"
-        )
-        print(f"Project ID: {model_card.project_id}")
-        print(f"Version ID: {model_card.version_id}")
 
-        # get account
+        # Get account
         account = next(
             (
                 acc
@@ -222,116 +58,224 @@ class SPECKLE_OT_load(bpy.types.Operator):
             print("No Speckle account found")
             return
 
-        # initialize the Speckle client
+        # Initialize the Speckle client
         client = SpeckleClient(host=account.serverInfo.url)
-        # authenticate with account
+        # Authenticate with account
         client.authenticate_with_account(account)
 
-        # now we need a transport
+        # Create a transport
         transport = ServerTransport(stream_id=model_card.project_id, client=client)
 
-        # get the version
+        # Get the version
         version = client.version.get(model_card.version_id, model_card.project_id)
         obj_id = version.referenced_object
 
-        # receive the data
+        # Receive the data
         version_data = operations.receive(obj_id, transport)
 
-        # default traversal function
+        # Default traversal function
         traversal_function = create_default_traversal_function()
 
-        # create a root collection in Blender to hold all imported objects
+        # Create a root collection in Blender to hold all imported objects
         root_collection_name = f"{model_card.model_name} - {model_card.version_id[:8]}"
         root_collection = bpy.data.collections.new(root_collection_name)
         context.scene.collection.children.link(root_collection)
 
-        # start conversion process
+        # Start conversion process
         context.window_manager.progress_begin(0, 100)
 
-        # track converted objects and their Speckle IDs
-        converted_objects: Dict[str, Union[Object, Collection]] = {}
-        created_collections: Dict[str, Collection] = {}
-        deferred_hierarchy: List[Tuple[Base, TraversalContext, Object]] = []
-        conversion_count = 0
+        # Dictionary to track converted objects by Speckle ID
+        converted_objects = {}
+        # Dictionary to track created collections by name to avoid duplicates
+        created_collections = {}
+        created_collections[root_collection_name] = root_collection
 
-        # first pass: Convert objects
+        print("Creating collection hierarchy...")
+
+        # First create a complete map of the Speckle hierarchy
+        collection_hierarchy = {}
+        all_objects = {}
+
+        # Track the root collection ID from Speckle
+        speckle_root_id = None
+
         for traversal_item in traversal_function.traverse(version_data):
-            speckle_object = traversal_item.current
+            speckle_obj = traversal_item.current
+
+            if not hasattr(speckle_obj, "id"):
+                continue
+
+            # Store all objects for later reference
+            all_objects[speckle_obj.id] = speckle_obj
+
+            # Get all ascendants in order (current to root)
+            ascendants = list(get_ascendants(traversal_item))
+            parent_ascendants = ascendants[1:] if len(ascendants) > 1 else []
+
+            if isinstance(speckle_obj, SCollection):
+                # Track the top-level collection (the one with no parents)
+                if not parent_ascendants and speckle_root_id is None:
+                    speckle_root_id = speckle_obj.id
+
+                # Get collection name
+                collection_name = getattr(
+                    speckle_obj, "name", f"Collection_{speckle_obj.id[:8]}"
+                )
+
+                # Find immediate parent collection if any
+                parent_id = None
+                for parent in parent_ascendants:
+                    if isinstance(parent, SCollection) and hasattr(parent, "id"):
+                        parent_id = parent.id
+                        break
+
+                # Store collection info
+                collection_hierarchy[speckle_obj.id] = {
+                    "id": speckle_obj.id,
+                    "name": collection_name,
+                    "parent_id": parent_id,
+                    "blender_collection": None,
+                    "full_path": [
+                        collection_name
+                    ],  # Start the path with this collection
+                }
+
+                # Build full path hierarchy
+                if parent_id in collection_hierarchy:
+                    collection_hierarchy[speckle_obj.id]["full_path"] = (
+                        collection_hierarchy[parent_id]["full_path"] + [collection_name]
+                    )
+
+            else:
+                # for non-collection objects, just store their parent information
+                if hasattr(speckle_obj, "id"):
+                    # Find immediate parent collection
+                    parent_id = None
+                    for parent in parent_ascendants:
+                        if isinstance(parent, SCollection) and hasattr(parent, "id"):
+                            parent_id = parent.id
+                            break
+
+        # create all collections in the right order
+        def get_collection_depth(coll_id):
+            parent_id = collection_hierarchy[coll_id]["parent_id"]
+            if parent_id is None:
+                return 0
+            if parent_id not in collection_hierarchy:
+                return 0
+            return 1 + get_collection_depth(parent_id)
+
+        # sort collections by depth to ensure parents are created before children
+        sorted_collections = sorted(
+            collection_hierarchy.keys(),
+            key=lambda coll_id: (
+                get_collection_depth(coll_id),
+                collection_hierarchy[coll_id]["name"],
+            ),
+        )
+
+        # map the Speckle root collection to our Blender root collection
+        if speckle_root_id and speckle_root_id in collection_hierarchy:
+            collection_hierarchy[speckle_root_id]["blender_collection"] = (
+                root_collection
+            )
+            converted_objects[speckle_root_id] = root_collection
+
+        # create collections in depth order (skip the root that's already mapped)
+        for coll_id in sorted_collections:
+            # skip the root collection (already handled)
+            if coll_id == speckle_root_id:
+                continue
+
+            coll_info = collection_hierarchy[coll_id]
+            coll_name = coll_info["name"]
+            parent_id = coll_info["parent_id"]
+            full_path = coll_info["full_path"]
+
+            # key to use for checking if collection already exists
+            collection_key = tuple(full_path)
+
+            # determine parent collection
+            parent_collection = root_collection
+            if parent_id and parent_id in collection_hierarchy:
+                parent_info = collection_hierarchy[parent_id]
+                if parent_info["blender_collection"]:
+                    parent_collection = parent_info["blender_collection"]
+
+            # create or find the collection
+            if collection_key in created_collections:
+                blender_collection = created_collections[collection_key]
+
+            else:
+                blender_collection = bpy.data.collections.new(coll_name)
+                parent_collection.children.link(blender_collection)
+                created_collections[collection_key] = blender_collection
+
+            # store the created collection
+            coll_info["blender_collection"] = blender_collection
+            converted_objects[coll_id] = blender_collection
+
+        conversion_count = 0
+        for traversal_item in traversal_function.traverse(version_data):
+            speckle_obj = traversal_item.current
+
+            # skip collections (already handled)
+            if isinstance(speckle_obj, SCollection):
+                continue
 
             # skip if already processed
-            if hasattr(speckle_object, "id") and speckle_object.id in converted_objects:
+            if hasattr(speckle_obj, "id") and speckle_obj.id in converted_objects:
                 continue
 
             try:
-                # if this is a Speckle Collection, create a Blender collection
-                if isinstance(speckle_object, SCollection):
-                    collection_name = (
-                        getattr(speckle_object, "name", None)
-                        or f"Collection_{speckle_object.id[:8]}"
-                    )
-                    collection = cls.find_or_create_blender_collection(
-                        collection_name, root_collection, created_collections
-                    )
-                    converted_objects[speckle_object.id] = collection
-                    print(f"Created collection: {collection_name}")
+                # convert here
+                blender_obj = convert_to_native(speckle_obj)
+                if blender_obj is None:
+                    print(f"No converter found for: {speckle_obj.speckle_type}")
+                    continue
 
-                    # handle this collection's placement in the hierarchy
-                    parent_collections = list(
-                        get_ascendant_of_type(traversal_item, SCollection)
-                    )
-                    if parent_collections:
-                        # skip the current collection itself if it's in the list
-                        parent_collections = [
-                            pc
-                            for pc in parent_collections
-                            if pc.id != speckle_object.id
-                        ]
+                # store the converted object
+                if hasattr(speckle_obj, "id"):
+                    converted_objects[speckle_obj.id] = blender_obj
 
-                    if parent_collections:
-                        parent_collection = parent_collections[0]
-                        if parent_collection.id in converted_objects:
-                            parent = converted_objects[parent_collection.id]
-                            if isinstance(parent, Collection):
-                                # if we already have the parent collection, link this one
-                                if collection.name not in parent.children:
-                                    try:
-                                        # unlink from previous parent first
-                                        for pcoll in bpy.data.collections:
-                                            if collection.name in pcoll.children:
-                                                pcoll.children.unlink(collection)
-                                        # link to new parent
-                                        parent.children.link(collection)
-                                    except RuntimeError as e:
-                                        print(
-                                            f"Error linking collection to parent: {e}"
-                                        )
-                else:
-                    # convert the Speckle object to a Blender object
-                    blender_obj = convert_to_native(speckle_object)
-                    if blender_obj is not None:
-                        # store the converted object
-                        if hasattr(speckle_object, "id"):
-                            converted_objects[speckle_object.id] = blender_obj
+                # determine which collection this object should be placed in
+                target_collection = root_collection
+                ascendants = list(get_ascendants(traversal_item))
 
-                        # save context for hierarchy processing
-                        deferred_hierarchy.append(
-                            (speckle_object, traversal_item, blender_obj)
-                        )
-                        print(f"Successfully converted: {speckle_object.speckle_type}")
-                    else:
-                        print(f"No converter found for: {speckle_object.speckle_type}")
+                # find immediate parent collection by walking up the hierarchy
+                for parent in ascendants[1:] if len(ascendants) > 1 else []:
+                    if isinstance(parent, SCollection) and hasattr(parent, "id"):
+                        parent_id = parent.id
+                        if parent_id in collection_hierarchy:
+                            coll_info = collection_hierarchy[parent_id]
+                            if coll_info["blender_collection"]:
+                                target_collection = coll_info["blender_collection"]
+                                break
+
+                # link object to the target collection
+                try:
+                    # check if already linked
+                    already_linked = False
+                    for coll in bpy.data.collections:
+                        if blender_obj.name in coll.objects:
+                            already_linked = True
+
+                    if not already_linked:
+                        target_collection.objects.link(blender_obj)
+
+                except RuntimeError as e:
+                    print(f"Error linking object to collection: {e}")
+
             except Exception as e:
-                print(f"Error converting {speckle_object.speckle_type}: {str(e)}")
+                print(f"Error converting {speckle_obj.speckle_type}: {str(e)}")
+                import traceback
+
+                traceback.print_exc()
 
             # update progress
             conversion_count += 1
             if conversion_count % 10 == 0:
                 context.window_manager.progress_update(min(conversion_count, 100))
-
-        # second pass: Process hierarchy for all objects
-        cls.process_deferred_parenting(
-            deferred_hierarchy, converted_objects, root_collection, created_collections
-        )
 
         # end progress bar
         context.window_manager.progress_end()
