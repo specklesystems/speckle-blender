@@ -6,7 +6,7 @@ Provides the UI components and functionality for selecting versions.
 import bpy
 from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
 from .mouse_position_mixin import MousePositionMixin
-from ..utils.version_manager import get_versions_for_model
+from ..utils.version_manager import get_versions_for_model, get_latest_version
 from ..operators.load import SPECKLE_OT_load
 
 class speckle_version(bpy.types.PropertyGroup):
@@ -107,6 +107,16 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
 
     version_index: bpy.props.IntProperty(name="Model Index", default=0)  # type: ignore
 
+    load_option: bpy.props.EnumProperty(  # type: ignore
+        name="Load Option",
+        description="Choose how to load the version",
+        items=[
+            ("LATEST", "Load latest version", "Load the latest version available"),
+            ("SPECIFIC", "Load a specific version", "Load a specific version from the list"),
+        ],
+        default="LATEST"
+    )
+
     def update_versions_list(self, context: Context) -> None:
         wm = context.window_manager
         # Clear existing versions
@@ -136,9 +146,18 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         model_card.project_id = self.project_id
         model_card.model_name = self.model_name
         model_card.is_publish = False
+        model_card.load_option = self.load_option
         # Store the selected version ID
-        selected_version = context.window_manager.speckle_versions[self.version_index]
-        model_card.version_id = selected_version.id
+        if self.load_option == "LATEST":
+            version_id, _, _ = get_latest_version(
+                account_id=context.window_manager.selected_account_id,
+                project_id=self.project_id,
+                model_id=self.model_id
+            )
+            model_card.version_id = version_id
+        else:  # SPECIFIC
+            selected_version = context.window_manager.speckle_versions[self.version_index]
+            model_card.version_id = selected_version.id
 
         # Call the load process class method
         SPECKLE_OT_load.load(context, model_card)
@@ -164,11 +183,16 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         layout.label(text=f"Project: {self.project_name}")
         layout.label(text=f"Model: {self.model_name}")
         
-        # Search field
-        row = layout.row(align=True)
-        row.prop(self, "search_query", icon='VIEWZOOM', text="")
-        # Versions UIList
-        layout.template_list("SPECKLE_UL_versions_list", "", context.window_manager, "speckle_versions", self, "version_index")
+        # Radio buttons for load options
+        layout.prop(self, "load_option", expand=True)
+        
+        # Show search field and version list only if "Load a specific version" is selected
+        if self.load_option == "SPECIFIC":
+            # Search field
+            row = layout.row(align=True)
+            row.prop(self, "search_query", icon='VIEWZOOM', text="")
+            # Versions UIList
+            layout.template_list("SPECKLE_UL_versions_list", "", context.window_manager, "speckle_versions", self, "version_index")
 
         layout.separator()
 
