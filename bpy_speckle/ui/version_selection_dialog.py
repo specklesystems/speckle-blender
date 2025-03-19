@@ -7,6 +7,7 @@ import bpy
 from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
 from .mouse_position_mixin import MousePositionMixin
 from ..utils.version_manager import get_versions_for_model
+from ..operators.load import SPECKLE_OT_load
 
 class speckle_version(bpy.types.PropertyGroup):
     """PropertyGroup for storing version information.
@@ -132,11 +133,16 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
     def execute(self, context: Context) -> set[str]:
         model_card = context.scene.speckle_state.model_cards.add()
         model_card.project_name = self.project_name
+        model_card.project_id = self.project_id
         model_card.model_name = self.model_name
         model_card.is_publish = False
         # Store the selected version ID
         selected_version = context.window_manager.speckle_versions[self.version_index]
         model_card.version_id = selected_version.id
+
+        # Call the load process class method
+        SPECKLE_OT_load.load(context, model_card)
+
         return {'FINISHED'}
 
     def invoke(self, context: Context, event: Event) -> set[str]:

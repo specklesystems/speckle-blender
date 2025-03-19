@@ -53,7 +53,7 @@ def get_versions_for_model(account_id: str, project_id: str, model_id: str, sear
         # Get versions
         versions: List[Version] = client.version.get_versions(project_id=project_id, model_id=model_id, limit=10, filter=filter).items
 
-        return [(version.id, version.message or "No message", format_relative_time(version.createdAt)) for version in versions]
+        return [(version.id, version.message or "No message", format_relative_time(version.created_at)) for version in versions]
 
     except Exception as e:
         print(f"Error fetching versions: {str(e)}")

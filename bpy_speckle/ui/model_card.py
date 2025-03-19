@@ -15,6 +15,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
         version_id (StringProperty): Unique identifier of the selected version.
     """
     project_name: bpy.props.StringProperty(name="Project Name", description="Name of the project", default="")  # type: ignore
+    project_id: bpy.props.StringProperty(name="Project ID", description="ID of the selected project", default="") # type: ignore
     model_name: bpy.props.StringProperty(name="Model Name", description="Name of the model", default="")  # type: ignore
     is_publish: bpy.props.BoolProperty(name="Publish/Load", description="If the model is published or loaded", default=False)  # type: ignore
     selection_summary: bpy.props.StringProperty(name="Selection Summary", description="Summary of the selection", default="")  # type: ignore
@@ -28,6 +29,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
         """
         return {
             "project_name": self.project_name,
+            "project_id": self.project_id,
             "model_name": self.model_name,
             "is_publish": self.is_publish,
             "selection_summary": self.selection_summary,
@@ -46,6 +48,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
         """
         item = cls()
         item.project_name = data["project_name"]
+        item.project_id = data["project_id"]
         item.model_name = data["model_name"]
         item.is_publish = data["is_publish"]
         item.selection_summary = data["selection_summary"]
