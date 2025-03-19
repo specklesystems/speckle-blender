@@ -42,13 +42,13 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
         layout.separator()
 
-        for model_card in context.scene.speckle_state.model_cards:
+        for model_card_index, model_card in enumerate(context.scene.speckle_state.model_cards):
             box: UILayout = layout.box()
             row: UILayout = box.row()
             icon: str = 'EXPORT' if model_card.is_publish else 'IMPORT'
             row.operator("speckle.publish", text="", icon=icon)
             row.label(text=f"{model_card.model_name} - {model_card.project_name}")
-            row.operator("speckle.model_card_settings", text="", icon='PREFERENCES').model_name = model_card.model_name
+            row.operator("speckle.model_card_settings", text="", icon='PREFERENCES').model_card_index = model_card_index
             row: UILayout = box.row()
             # Display selection summary or version ID
             if model_card.is_publish:

@@ -7,6 +7,7 @@ import bpy
 from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
 from .mouse_position_mixin import MousePositionMixin
 from ..utils.version_manager import get_versions_for_model, get_latest_version
+from ..utils.account_manager import get_server_url_by_account_id
 from ..operators.load import SPECKLE_OT_load
 
 class speckle_version(bpy.types.PropertyGroup):
@@ -43,6 +44,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
             data: The data containing the item.
             item: The item to draw.
             icon: The icon to use for the item.
+
             active_data: The data containing the active item.
             active_propname: The name of the active property.
         """
@@ -141,9 +143,12 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         return None
 
     def execute(self, context: Context) -> set[str]:
+        wm = context.window_manager
         model_card = context.scene.speckle_state.model_cards.add()
+        model_card.server_url = get_server_url_by_account_id(account_id=wm.selected_account_id)
         model_card.project_name = self.project_name
         model_card.project_id = self.project_id
+        model_card.model_id = self.model_id
         model_card.model_name = self.model_name
         model_card.is_publish = False
         model_card.load_option = self.load_option

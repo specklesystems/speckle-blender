@@ -63,6 +63,8 @@ class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
         model_card = context.scene.speckle_state.model_cards.add()
         model_card.project_name = self.project_name
         model_card.model_name = self.model_name
+        model_card.model_id = self.model_id
+        model_card.project_id = self.project_id
         model_card.is_publish = True
 
         # Create the selection summary
