@@ -37,7 +37,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
         # Publish and Load buttons
         row: UILayout = layout.row()
-        row.operator("speckle.publish", text="Publish", icon='EXPORT')
+        # row.operator("speckle.publish", text="Publish", icon='EXPORT')
         row.operator("speckle.load", text="Load", icon='IMPORT')
 
         layout.separator()
@@ -61,6 +61,9 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                 # This adjusts the layout of the row (button 1/3, label 2/3 )
                 split: UILayout = row.split(factor=0.33)
                 # TODO: Connect to version operator
-                split.operator("speckle.load", text=f"{model_card.version_id}")
+                if model_card.load_option == "LATEST":
+                    split.operator("speckle.load", text="Latest")
+                if model_card.load_option == "SPECIFIC":
+                    split.operator("speckle.load", text=f"{model_card.version_id}")
                 # TODO: Get last updated time
                 split.label(text="Last updated: 2 days ago")
