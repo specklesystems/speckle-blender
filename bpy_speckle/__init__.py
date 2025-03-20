@@ -13,7 +13,7 @@
 # ruff: noqa
 import bpy
 from bpy.props import PointerProperty, CollectionProperty, StringProperty, IntProperty, IntVectorProperty
-from .ui import icons
+from .connector.ui import icons
 import json
 
 # Ensure dependencies
@@ -22,19 +22,19 @@ ensure_dependencies(f"Blender {bpy.app.version[0]}.{bpy.app.version[1]}")
 
 
 # UI
-from .ui.main_panel import SPECKLE_PT_main_panel
-from .ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url
-from .ui.model_selection_dialog import SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list
-from .ui.version_selection_dialog import SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list
-from .ui.selection_filter_dialog import SPECKLE_OT_selection_filter_dialog
-from .ui.model_card import speckle_model_card
+from .connector.ui.main_panel import SPECKLE_PT_main_panel
+from .connector.ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url
+from .connector.ui.model_selection_dialog import SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list
+from .connector.ui.version_selection_dialog import SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list
+from .connector.ui.selection_filter_dialog import SPECKLE_OT_selection_filter_dialog
+from .connector.ui.model_card import speckle_model_card
 # Operators
-from .operators.publish import SPECKLE_OT_publish
-from .operators.load import SPECKLE_OT_load
-from .operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions
+from .connector.blender_operators.publish_button import SPECKLE_OT_publish
+from .connector.blender_operators.load_button import SPECKLE_OT_load
+from .connector.blender_operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions
 
 # States
-from .states.speckle_state import register as register_speckle_state, unregister as unregister_speckle_state
+from .connector.states.speckle_state import register as register_speckle_state, unregister as unregister_speckle_state
 
 def save_model_cards(scene):
     model_cards_data = [card.to_dict() for card in scene.speckle_state.model_cards]

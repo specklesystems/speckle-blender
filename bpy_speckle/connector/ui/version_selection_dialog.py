@@ -8,7 +8,8 @@ from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
 from .mouse_position_mixin import MousePositionMixin
 from ..utils.version_manager import get_versions_for_model, get_latest_version
 from ..utils.account_manager import get_server_url_by_account_id
-from ..operators.load import SPECKLE_OT_load
+from ..operations.load_operation import load_operation
+
 
 class speckle_version(bpy.types.PropertyGroup):
     """PropertyGroup for storing version information.
@@ -23,19 +24,31 @@ class speckle_version(bpy.types.PropertyGroup):
         updated: The last update timestamp of the version.
         source_app: The application that created this version.
     """
+
     # Blender properties use dynamic typing, so we need to ignore type checking
     id: bpy.props.StringProperty(name="ID")  # type: ignore
     message: bpy.props.StringProperty(name="Message")  # type: ignore
     updated: bpy.props.StringProperty(name="Updated")  # type: ignore
     source_app: bpy.props.StringProperty(name="Source")  # type: ignore
 
+
 class SPECKLE_UL_versions_list(bpy.types.UIList):
     """UIList for displaying a list of Speckle versions.
 
     It displays version information in both default/compact and grid layouts.
     """
-    #TODO: Adjust column widths so message has the most space.
-    def draw_item(self, context: Context, layout: UILayout, data: PropertyGroup, item: PropertyGroup, icon: str, active_data: PropertyGroup, active_propname: str) -> None:
+
+    # TODO: Adjust column widths so message has the most space.
+    def draw_item(
+        self,
+        context: Context,
+        layout: UILayout,
+        data: PropertyGroup,
+        item: PropertyGroup,
+        icon: str,
+        active_data: PropertyGroup,
+        active_propname: str,
+    ) -> None:
         """Draws a single item in the version list.
 
         Args:
@@ -48,7 +61,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
             active_data: The data containing the active item.
             active_propname: The name of the active property.
         """
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+        if self.layout_type in {"DEFAULT", "COMPACT"}:
             row = layout.row(align=True)
             split = row.split(factor=0.166)
             split.label(text=item.id)
@@ -56,9 +69,10 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
             right_split.label(text=item.message)
             right_split.label(text=item.updated)
         # This handles when the list is in a grid layout
-        elif self.layout_type == 'GRID':
-            layout.alignment = 'CENTER'
+        elif self.layout_type == "GRID":
+            layout.alignment = "CENTER"
             layout.label(text=item.id)
+
 
 class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator):
     """Operator for displaying and handling the version selection dialog.
@@ -74,37 +88,28 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         model_id: The ID of the selected model.
         version_index: The index of the currently selected version.
     """
+
     bl_idname = "speckle.version_selection_dialog"
     bl_label = "Select Version"
 
     search_query: bpy.props.StringProperty(  # type: ignore
-        name="Search",
-        description="Search a project",
-        default=""
+        name="Search", description="Search a project", default=""
     )
 
     project_name: bpy.props.StringProperty(  # type: ignore
-        name="Project Name",
-        description="Name of the selected project",
-        default=""
+        name="Project Name", description="Name of the selected project", default=""
     )
 
     model_name: bpy.props.StringProperty(  # type: ignore
-        name="Model Name",
-        description="Name of the selected model",
-        default=""
+        name="Model Name", description="Name of the selected model", default=""
     )
 
     project_id: bpy.props.StringProperty(  # type: ignore
-        name="Project ID",
-        description="ID of the selected project",
-        default=""
+        name="Project ID", description="ID of the selected project", default=""
     )
 
     model_id: bpy.props.StringProperty(  # type: ignore
-        name="Model ID",
-        description="ID of the selected model",
-        default=""
+        name="Model ID", description="ID of the selected model", default=""
     )
 
     version_index: bpy.props.IntProperty(name="Model Index", default=0)  # type: ignore
@@ -114,9 +119,13 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         description="Choose how to load the version",
         items=[
             ("LATEST", "Load latest version", "Load the latest version available"),
-            ("SPECIFIC", "Load a specific version", "Load a specific version from the list"),
+            (
+                "SPECIFIC",
+                "Load a specific version",
+                "Load a specific version from the list",
+            ),
         ],
-        default="LATEST"
+        default="LATEST",
     )
 
     def update_versions_list(self, context: Context) -> None:
@@ -130,7 +139,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
             account_id=wm.selected_account_id,
             project_id=self.project_id,
             model_id=self.model_id,
-            search=search
+            search=search,
         )
 
         # Populate versions list
@@ -139,13 +148,15 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
             version.id = id
             version.message = message
             version.updated = updated
-        
+
         return None
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
         model_card = context.scene.speckle_state.model_cards.add()
-        model_card.server_url = get_server_url_by_account_id(account_id=wm.selected_account_id)
+        model_card.server_url = get_server_url_by_account_id(
+            account_id=wm.selected_account_id
+        )
         model_card.project_name = self.project_name
         model_card.project_id = self.project_id
         model_card.model_id = self.model_id
@@ -157,47 +168,58 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
             version_id, _, _ = get_latest_version(
                 account_id=context.window_manager.selected_account_id,
                 project_id=self.project_id,
-                model_id=self.model_id
+                model_id=self.model_id,
             )
             model_card.version_id = version_id
         else:  # SPECIFIC
-            selected_version = context.window_manager.speckle_versions[self.version_index]
+            selected_version = context.window_manager.speckle_versions[
+                self.version_index
+            ]
             model_card.version_id = selected_version.id
 
         # Call the load process class method
-        SPECKLE_OT_load.load(context, model_card)
+        load_operation(context=context, model_card=model_card)
 
-        return {'FINISHED'}
+        return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
         # Ensure WindowManager has the versions collection
         if not hasattr(WindowManager, "speckle_versions"):
             # Register the collection property
-            WindowManager.speckle_versions = bpy.props.CollectionProperty(type=speckle_version)
+            WindowManager.speckle_versions = bpy.props.CollectionProperty(
+                type=speckle_version
+            )
 
         # Update versions list
         self.update_versions_list(context)
-        
+
         # Initialize mouse position
         self.init_mouse_position(context, event)
 
         return context.window_manager.invoke_props_dialog(self)
-    
+
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
         layout.label(text=f"Project: {self.project_name}")
         layout.label(text=f"Model: {self.model_name}")
-        
+
         # Radio buttons for load options
         layout.prop(self, "load_option", expand=True)
-        
+
         # Show search field and version list only if "Load a specific version" is selected
         if self.load_option == "SPECIFIC":
             # Search field
             row = layout.row(align=True)
-            row.prop(self, "search_query", icon='VIEWZOOM', text="")
+            row.prop(self, "search_query", icon="VIEWZOOM", text="")
             # Versions UIList
-            layout.template_list("SPECKLE_UL_versions_list", "", context.window_manager, "speckle_versions", self, "version_index")
+            layout.template_list(
+                "SPECKLE_UL_versions_list",
+                "",
+                context.window_manager,
+                "speckle_versions",
+                self,
+                "version_index",
+            )
 
         layout.separator()
 

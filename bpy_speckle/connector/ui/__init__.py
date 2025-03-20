@@ -1,0 +1,1 @@
+from .main_panel import SPECKLE_PT_main_panel # noqa: F401
