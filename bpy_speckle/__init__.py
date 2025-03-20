@@ -32,6 +32,7 @@ from .connector.ui.model_card import speckle_model_card
 from .connector.blender_operators.publish_button import SPECKLE_OT_publish
 from .connector.blender_operators.load_button import SPECKLE_OT_load
 from .connector.blender_operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions
+from .connector.operators.select_objects import SPECKLE_OT_select_objects
 
 # States
 from .connector.states.speckle_state import register as register_speckle_state, unregister as unregister_speckle_state
@@ -51,14 +52,15 @@ def load_model_cards(scene):
 
 # Classes to load
 classes = (
-    SPECKLE_PT_main_panel, 
-    SPECKLE_OT_publish, 
-    SPECKLE_OT_load, 
+    SPECKLE_PT_main_panel,
+    SPECKLE_OT_publish,
+    SPECKLE_OT_load,
     SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url,
-    SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list, 
-    SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list, 
-    SPECKLE_OT_selection_filter_dialog, 
-    speckle_model_card, SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions)
+    SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list,
+    SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list,
+    SPECKLE_OT_selection_filter_dialog,
+    speckle_model_card, SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions,
+    SPECKLE_OT_select_objects)
 
 @bpy.app.handlers.persistent
 def load_handler(dummy):
