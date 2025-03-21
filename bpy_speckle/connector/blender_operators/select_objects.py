@@ -43,6 +43,8 @@ class SPECKLE_OT_select_objects(Operator):
         selected = context.selected_objects
         if selected:
             context.view_layer.objects.active = selected[0]
+            # Frame selected objects in the viewport
+            bpy.ops.view3d.view_selected()
             
         self.report({'INFO'}, f"Selected {len(context.selected_objects)} objects")
         return {'FINISHED'}
