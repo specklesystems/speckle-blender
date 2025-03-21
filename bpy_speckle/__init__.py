@@ -32,7 +32,7 @@ from .connector.ui.model_card import speckle_model_card
 from .connector.blender_operators.publish_button import SPECKLE_OT_publish
 from .connector.blender_operators.load_button import SPECKLE_OT_load
 from .connector.blender_operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions
-from .connector.operators.select_objects import SPECKLE_OT_select_objects
+from .connector.blender_operators.select_objects import SPECKLE_OT_select_objects
 
 # States
 from .connector.states.speckle_state import register as register_speckle_state, unregister as unregister_speckle_state
