@@ -10,16 +10,16 @@ from specklepy.objects.graph_traversal.default_traversal import (
 )
 
 from ..utils.get_ascendants import get_ascendants
-from ...converter.to_native import convert_to_native
+from ...converter.to_native import convert_to_native, render_material_proxy_to_native
 
 
 def load_operation(context: Context, model_card) -> None:
     """
-    Load objects from Speckle and maintain hierarchy.
-    First establish collection hierarchy, then convert and place objects.
+    load objects from Speckle and maintain hierarchy.
     """
 
-    # Get account
+    # get account
+    # to discuss: this looks redundant, we need to cache it somehow
     account = next(
         (
             acc
@@ -33,45 +33,49 @@ def load_operation(context: Context, model_card) -> None:
         print("No Speckle account found")
         return
 
-    # Initialize the Speckle client
+    # initialize the Speckle client
     client = SpeckleClient(host=account.serverInfo.url)
-    # Authenticate with account
+    # authenticate with account
     client.authenticate_with_account(account)
 
-    # Create a transport
+    # create a transport
     transport = ServerTransport(stream_id=model_card.project_id, client=client)
 
-    # Get the version
+    # get the version
     version = client.version.get(model_card.version_id, model_card.project_id)
     obj_id = version.referenced_object
 
-    # Receive the data
+    # receive the data
     version_data = operations.receive(obj_id, transport)
 
-    # Default traversal function
+    # process materials from the root object
+    material_mapping = render_material_proxy_to_native(version_data)
+    print(f"Created material mapping for {len(material_mapping)} objects")
+
+    # default traversal function
     traversal_function = create_default_traversal_function()
 
-    # Create a root collection in Blender to hold all imported objects
+    # create a root collection in Blender to hold all imported objects
     root_collection_name = f"{model_card.model_name} - {model_card.version_id[:8]}"
     root_collection = bpy.data.collections.new(root_collection_name)
     context.scene.collection.children.link(root_collection)
 
-    # Start conversion process
+    # start conversion process
     context.window_manager.progress_begin(0, 100)
 
-    # Dictionary to track converted objects by Speckle ID
+    # dictionary to track converted objects by Speckle ID
     converted_objects = {}
-    # Dictionary to track created collections by name to avoid duplicates
+    # dictionary to track created collections by name to avoid duplicates
     created_collections = {}
     created_collections[root_collection_name] = root_collection
 
     print("Creating collection hierarchy...")
 
-    # First create a complete map of the Speckle hierarchy
+    # first create a complete map of the Speckle hierarchy
     collection_hierarchy = {}
     all_objects = {}
 
-    # Track the root collection ID from Speckle
+    # track the root collection ID from Speckle
     speckle_root_id = None
 
     for traversal_item in traversal_function.traverse(version_data):
@@ -80,40 +84,40 @@ def load_operation(context: Context, model_card) -> None:
         if not hasattr(speckle_obj, "id"):
             continue
 
-        # Store all objects for later reference
+        # store all objects for later reference
         all_objects[speckle_obj.id] = speckle_obj
 
-        # Get all ascendants in order (current to root)
+        # get all ascendants in order (current to root)
         ascendants = list(get_ascendants(traversal_item))
         parent_ascendants = ascendants[1:] if len(ascendants) > 1 else []
 
         if isinstance(speckle_obj, SCollection):
-            # Track the top-level collection (the one with no parents)
+            # track the top-level collection (the one with no parents)
             if not parent_ascendants and speckle_root_id is None:
                 speckle_root_id = speckle_obj.id
 
-            # Get collection name
+            # get collection name
             collection_name = getattr(
                 speckle_obj, "name", f"Collection_{speckle_obj.id[:8]}"
             )
 
-            # Find immediate parent collection if any
+            # find immediate parent collection if any
             parent_id = None
             for parent in parent_ascendants:
                 if isinstance(parent, SCollection) and hasattr(parent, "id"):
                     parent_id = parent.id
                     break
 
-            # Store collection info
+            # store collection info
             collection_hierarchy[speckle_obj.id] = {
                 "id": speckle_obj.id,
                 "name": collection_name,
                 "parent_id": parent_id,
                 "blender_collection": None,
-                "full_path": [collection_name],  # Start the path with this collection
+                "full_path": [collection_name],  # start the path with this collection
             }
 
-            # Build full path hierarchy
+            # build full path hierarchy
             if parent_id in collection_hierarchy:
                 collection_hierarchy[speckle_obj.id]["full_path"] = (
                     collection_hierarchy[parent_id]["full_path"] + [collection_name]
@@ -122,7 +126,7 @@ def load_operation(context: Context, model_card) -> None:
         else:
             # for non-collection objects, just store their parent information
             if hasattr(speckle_obj, "id"):
-                # Find immediate parent collection
+                # find immediate parent collection
                 parent_id = None
                 for parent in parent_ascendants:
                     if isinstance(parent, SCollection) and hasattr(parent, "id"):
@@ -199,8 +203,8 @@ def load_operation(context: Context, model_card) -> None:
             continue
 
         try:
-            # convert here
-            blender_obj = convert_to_native(speckle_obj)
+            # convert here, passing the material mapping
+            blender_obj = convert_to_native(speckle_obj, material_mapping)
             if blender_obj is None:
                 print(f"No converter found for: {speckle_obj.speckle_type}")
                 continue
