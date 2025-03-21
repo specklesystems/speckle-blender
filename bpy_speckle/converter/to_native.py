@@ -1,4 +1,4 @@
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple, Dict
 from specklepy.objects import Base
 from specklepy.objects.geometry import Line, Polyline, Mesh
 from specklepy.objects.models.units import (
@@ -7,6 +7,7 @@ from specklepy.objects.models.units import (
 )
 import bpy
 from bpy.types import Object
+from ..converter.utils import create_material_from_proxy
 
 # Display value property aliases to check for
 DISPLAY_VALUE_PROPERTY_ALIASES = [
@@ -479,3 +480,36 @@ def add_texture_coordinates(
             v = tex_coords[uv_idx + 1]
 
             uv_layer.data[loop_idx].uv = (u, v)
+
+
+def render_material_proxy_to_native(
+    speckle_object: Base,
+) -> Dict[str, bpy.types.Material]:
+    """
+    converts RenderMaterialProxies to Blender materials
+    """
+    assigned_objects = {}
+    # check if object has renderMaterialProxies
+    if not hasattr(speckle_object, "renderMaterialProxies"):
+        print("No render material proxies found!")
+        return assigned_objects
+    print(
+        f"Converting {len(speckle_object.renderMaterialProxies)} render material proxies."
+    )
+    # process each render material proxy
+    for proxy in speckle_object.renderMaterialProxies:
+        if not hasattr(proxy, "value") or not hasattr(proxy, "objects"):
+            print("Render material proxy has no value or no object has assigned!")
+            continue
+        render_material = proxy.value
+        material_name = getattr(render_material, "name")
+
+        # create blender material
+        blender_material = create_material_from_proxy(render_material, material_name)
+
+        # map application ids to this material
+        for applicationId in proxy.objects:
+            assigned_objects[applicationId] = blender_material
+
+    # Return statement OUTSIDE the loop
+    return assigned_objects
