@@ -1,6 +1,10 @@
 from typing import Any, Iterable, List, Optional, Tuple
 from specklepy.objects import Base
 from specklepy.objects.geometry import Line, Polyline, Mesh
+from specklepy.objects.models.units import (
+    get_units_from_string,
+    get_scale_factor_to_meters,
+)
 import bpy
 from bpy.types import Object
 
@@ -17,6 +21,27 @@ ELEMENTS_PROPERTY_ALIASES = [
     "elements",
     "@elements",
 ]
+
+
+def get_scale_factor(speckle_object: Base, fallback: float = 1.0) -> float:
+    """
+    Determines the correct scale factor based on object units
+    """
+    scale = fallback
+
+    if hasattr(speckle_object, "units") and speckle_object.units:
+        # Get scale factor to convert from object units to meters
+        unit_scale = get_scale_factor_to_meters(
+            get_units_from_string(speckle_object.units)
+        )
+
+        # Adjust for Blender's unit scale setting
+        blender_unit_scale = bpy.context.scene.unit_settings.scale_length
+
+        # Calculate final scale factor
+        scale = unit_scale / blender_unit_scale
+
+    return scale
 
 
 def generate_unique_name(speckle_object: Base) -> Tuple[str, str]:
@@ -56,8 +81,8 @@ def convert_to_native(speckle_object: Base) -> Optional[Object]:
     """
     converts a speckle object to blender object
     """
-    # Default scale factor (no scaling)
-    scale = 1.0
+    # Determine scale factor based on object units
+    scale = get_scale_factor(speckle_object)
 
     # Generate names
     object_name, data_block_name = generate_unique_name(speckle_object)
@@ -66,13 +91,17 @@ def convert_to_native(speckle_object: Base) -> Optional[Object]:
 
     # Try direct conversion based on object type
     if isinstance(speckle_object, Line):
-        converted_object = line_to_native(speckle_object, object_name, data_block_name)
+        converted_object = line_to_native(
+            speckle_object, object_name, data_block_name, scale
+        )
     elif isinstance(speckle_object, Polyline):
         converted_object = polyline_to_native(
-            speckle_object, object_name, data_block_name
+            speckle_object, object_name, data_block_name, scale
         )
     elif isinstance(speckle_object, Mesh):
-        converted_object = mesh_to_native(speckle_object, object_name, data_block_name)
+        converted_object = mesh_to_native(
+            speckle_object, object_name, data_block_name, scale
+        )
     else:
         # Fallback to display value if direct conversion not supported
         mesh, children = display_value_to_native(
@@ -196,7 +225,7 @@ def _members_to_native(
 
 
 def line_to_native(
-    speckle_line: Line, object_name: str, data_block_name: str
+    speckle_line: Line, object_name: str, data_block_name: str, scale: float = 1.0
 ) -> bpy.types.Object:
     """
     converts a speckle line to a blender curve
@@ -213,19 +242,18 @@ def line_to_native(
     spline = curve.splines.new("POLY")
     spline.points.add(1)
 
-    # Set the coordinates
-    # Note: Blender curve points are 4D (x, y, z, w) where w is weight
+    # Set the coordinates with scale applied
     spline.points[0].co = (
-        float(speckle_line.start.x),
-        float(speckle_line.start.y),
-        float(speckle_line.start.z),
+        float(speckle_line.start.x) * scale,
+        float(speckle_line.start.y) * scale,
+        float(speckle_line.start.z) * scale,
         1.0,
     )
 
     spline.points[1].co = (
-        float(speckle_line.end.x),
-        float(speckle_line.end.y),
-        float(speckle_line.end.z),
+        float(speckle_line.end.x) * scale,
+        float(speckle_line.end.y) * scale,
+        float(speckle_line.end.z) * scale,
         1.0,
     )
 
@@ -236,7 +264,10 @@ def line_to_native(
 
 
 def polyline_to_native(
-    speckle_polyline: Polyline, object_name: str, data_block_name: str
+    speckle_polyline: Polyline,
+    object_name: str,
+    data_block_name: str,
+    scale: float = 1.0,
 ) -> Object:
     """
     converts a speckle polyline to blender curve
@@ -259,13 +290,13 @@ def polyline_to_native(
     if num_points > 1:
         spline.points.add(num_points - 1)
 
-    # Set the coordinates for each point
+    # Set the coordinates for each point with scale applied
     for i in range(num_points):
         # Note: Blender curve points are 4D (x, y, z, w) where w is weight
         spline.points[i].co = (
-            float(speckle_polyline.value[i * 3]),
-            float(speckle_polyline.value[i * 3 + 1]),
-            float(speckle_polyline.value[i * 3 + 2]),
+            float(speckle_polyline.value[i * 3]) * scale,
+            float(speckle_polyline.value[i * 3 + 1]) * scale,
+            float(speckle_polyline.value[i * 3 + 2]) * scale,
             1.0,
         )
 
@@ -280,13 +311,13 @@ def polyline_to_native(
 
 
 def mesh_to_native(
-    speckle_mesh: Mesh, object_name: str, data_block_name: str
+    speckle_mesh: Mesh, object_name: str, data_block_name: str, scale: float = 1.0
 ) -> Object:
     """
     converts a speckle mesh to a blender mesh
     """
     # Create mesh data with data_block_name (the name with ID)
-    mesh = mesh_to_native_mesh(speckle_mesh, data_block_name)
+    mesh = mesh_to_native_mesh(speckle_mesh, data_block_name, scale)
 
     # Create object with object_name (the simple name)
     mesh_obj = bpy.data.objects.new(object_name, mesh)
@@ -302,7 +333,9 @@ def mesh_to_native(
     return mesh_obj
 
 
-def mesh_to_native_mesh(speckle_mesh: Mesh, name: str) -> bpy.types.Mesh:
+def mesh_to_native_mesh(
+    speckle_mesh: Mesh, name: str, scale: float = 1.0
+) -> bpy.types.Mesh:
     """
     converts a single Speckle mesh to a Blender mesh object
     """
@@ -313,14 +346,14 @@ def mesh_to_native_mesh(speckle_mesh: Mesh, name: str) -> bpy.types.Mesh:
     # Create a new mesh object with the provided name (with ID)
     blender_mesh = bpy.data.meshes.new(name)
 
-    # Prepare vertices and faces
+    # Prepare vertices and faces with scale applied
     vertices = []
     for i in range(0, len(speckle_mesh.vertices), 3):
         vertices.append(
             (
-                float(speckle_mesh.vertices[i]),
-                float(speckle_mesh.vertices[i + 1]),
-                float(speckle_mesh.vertices[i + 2]),
+                float(speckle_mesh.vertices[i]) * scale,
+                float(speckle_mesh.vertices[i + 1]) * scale,
+                float(speckle_mesh.vertices[i + 2]) * scale,
             )
         )
 
@@ -349,9 +382,9 @@ def meshes_to_native(
     """
     combines multiple Speckle meshes into a single Blender mesh
     """
-    # If there's only one mesh, use the simpler conversion function
+    # If there's only one mesh, use the simpler conversion function with scale
     if len(meshes) == 1:
-        return mesh_to_native_mesh(meshes[0], name)
+        return mesh_to_native_mesh(meshes[0], name, scale)
 
     # Create a new mesh object with the provided name (with ID)
     blender_mesh = bpy.data.meshes.new(name)
@@ -362,7 +395,7 @@ def meshes_to_native(
     vertex_offset = 0
 
     for mesh in meshes:
-        # Add vertices
+        # Add vertices with scale applied
         for i in range(0, len(mesh.vertices), 3):
             all_vertices.append(
                 (
