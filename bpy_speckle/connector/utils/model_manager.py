@@ -60,7 +60,7 @@ def get_models_for_project(account_id: str, project_id: str, search: Optional[st
         # Get models
         models: List[Model] = client.model.get_models(project_id=project_id, models_limit=10, models_filter=filter).items
 
-        return [(model.name, model.id, format_relative_time(model.created_at)) for model in models]
+        return [(model.name, model.id, format_relative_time(model.updated_at)) for model in models]
 
     except Exception as e:
         print(f"Error fetching models: {str(e)}")
