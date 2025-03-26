@@ -42,31 +42,47 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
         layout.separator()
 
+        # Group model cards by project name
+        project_groups = {}
         for model_card_index, model_card in enumerate(context.scene.speckle_state.model_cards):
-            box: UILayout = layout.box()
-            row: UILayout = box.row()
-            icon: str = 'EXPORT' if model_card.is_publish else 'IMPORT'
-            row.operator("speckle.publish", text="", icon=icon)
-            row.label(text=f"{model_card.model_name} - {model_card.project_name}")
-            # Add selection button
-            select_op = row.operator("speckle.select_objects", text="", icon='RESTRICT_SELECT_OFF')
-            select_op.model_card_index = model_card_index
-            row.operator("speckle.model_card_settings", text="", icon='PREFERENCES').model_card_index = model_card_index
-            row: UILayout = box.row()
-            # Display selection summary or version ID
-            if model_card.is_publish:
-                # This adjusts the layout of the row (button 1/3, label 2/3 )
-                split: UILayout = row.split(factor=0.33)
-                # TODO: Connect to selection operator
-                split.operator("speckle.publish", text="Selection")
-                split.label(text=f"{model_card.selection_summary}")
-            else:
-                # This adjusts the layout of the row (button 1/3, label 2/3 )
-                split: UILayout = row.split(factor=0.33)
-                # TODO: Connect to version operator
-                if model_card.load_option == "LATEST":
-                    split.operator("speckle.load", text="Latest")
-                if model_card.load_option == "SPECIFIC":
-                    split.operator("speckle.load", text=f"{model_card.version_id}")
-                # TODO: Get last updated time
-                split.label(text="Last updated: 2 days ago")
+            project_name = model_card.project_name if model_card.project_name else "No Project"
+            if project_name not in project_groups:
+                project_groups[project_name] = []
+            project_groups[project_name].append((model_card_index, model_card))
+        
+        # Render model cards grouped by project
+        for project_name, model_cards in project_groups.items():
+            # Create a collapsable group for each project
+            project_box = layout.box()
+            project_row = project_box.row()
+            project_row.label(text=f"Project: {project_name}", icon='TRIA_RIGHT')
+            
+            # Render model cards for this project
+            for model_card_index, model_card in model_cards:
+                box: UILayout = project_box.box()
+                row: UILayout = box.row()
+                icon: str = 'EXPORT' if model_card.is_publish else 'IMPORT'
+                row.operator("speckle.publish", text="", icon=icon)
+                row.label(text=f"{model_card.model_name}")
+                # Add selection button
+                select_op = row.operator("speckle.select_objects", text="", icon='RESTRICT_SELECT_OFF')
+                select_op.model_card_index = model_card_index
+                row.operator("speckle.model_card_settings", text="", icon='PREFERENCES').model_card_index = model_card_index
+                row: UILayout = box.row()
+                # Display selection summary or version ID
+                if model_card.is_publish:
+                    # This adjusts the layout of the row (button 1/3, label 2/3 )
+                    split: UILayout = row.split(factor=0.33)
+                    # TODO: Connect to selection operator
+                    split.operator("speckle.publish", text="Selection")
+                    split.label(text=f"{model_card.selection_summary}")
+                else:
+                    # This adjusts the layout of the row (button 1/3, label 2/3 )
+                    split: UILayout = row.split(factor=0.33)
+                    # TODO: Connect to version operator
+                    if model_card.load_option == "LATEST":
+                        split.operator("speckle.load", text="Latest")
+                    if model_card.load_option == "SPECIFIC":
+                        split.operator("speckle.load", text=f"{model_card.version_id}")
+                    # TODO: Get last updated time
+                    split.label(text="Last updated: 2 days ago")
