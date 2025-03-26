@@ -1,4 +1,4 @@
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple, Dict
 from specklepy.objects import Base
 from specklepy.objects.geometry import Line, Polyline, Mesh
 from specklepy.objects.models.units import (
@@ -7,6 +7,7 @@ from specklepy.objects.models.units import (
 )
 import bpy
 from bpy.types import Object
+from ..converter.utils import create_material_from_proxy
 
 # Display value property aliases to check for
 DISPLAY_VALUE_PROPERTY_ALIASES = [
@@ -77,9 +78,12 @@ def generate_unique_name(speckle_object: Base) -> Tuple[str, str]:
     return object_name, datablock_name
 
 
-def convert_to_native(speckle_object: Base) -> Optional[Object]:
+def convert_to_native(
+    speckle_object: Base,
+    material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
+) -> Optional[Object]:
     """
-    converts a speckle object to blender object
+    converts a speckle object to blender object with material support
     """
     # Determine scale factor based on object units
     scale = get_scale_factor(speckle_object)
@@ -88,6 +92,10 @@ def convert_to_native(speckle_object: Base) -> Optional[Object]:
     object_name, data_block_name = generate_unique_name(speckle_object)
 
     converted_object = None
+
+    # Initialize material mapping if not provided
+    if material_mapping is None:
+        material_mapping = {}
 
     # Try direct conversion based on object type
     if isinstance(speckle_object, Line):
@@ -100,12 +108,12 @@ def convert_to_native(speckle_object: Base) -> Optional[Object]:
         )
     elif isinstance(speckle_object, Mesh):
         converted_object = mesh_to_native(
-            speckle_object, object_name, data_block_name, scale
+            speckle_object, object_name, data_block_name, scale, material_mapping
         )
     else:
         # Fallback to display value if direct conversion not supported
         mesh, children = display_value_to_native(
-            speckle_object, object_name, data_block_name, scale
+            speckle_object, object_name, data_block_name, scale, material_mapping
         )
         if mesh:
             # Create a mesh object with the object_name (simple name) and mesh data
@@ -131,7 +139,11 @@ def convert_to_native(speckle_object: Base) -> Optional[Object]:
 
 
 def display_value_to_native(
-    speckle_object: Base, object_name: str, data_block_name: str, scale: float
+    speckle_object: Base,
+    object_name: str,
+    data_block_name: str,
+    scale: float,
+    material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
 ) -> Tuple[Optional[bpy.types.Mesh], List[Object]]:
     """
     fallback conversion mechanism using displayValue if present
@@ -143,11 +155,16 @@ def display_value_to_native(
         scale,
         DISPLAY_VALUE_PROPERTY_ALIASES,
         True,
+        material_mapping,
     )
 
 
 def elements_to_native(
-    speckle_object: Base, object_name: str, data_block_name: str, scale: float
+    speckle_object: Base,
+    object_name: str,
+    data_block_name: str,
+    scale: float,
+    material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
 ) -> List[Object]:
     """
     convert elements collection of a speckle object
@@ -159,6 +176,7 @@ def elements_to_native(
         scale,
         ELEMENTS_PROPERTY_ALIASES,
         False,
+        material_mapping,
     )
     return elements
 
@@ -170,6 +188,7 @@ def _members_to_native(
     scale: float,
     members: Iterable[str],
     combineMeshes: bool,
+    material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
 ) -> Tuple[Optional[bpy.types.Mesh], List[Object]]:
     """
     converts a given speckle_object by converting specified members
@@ -211,11 +230,13 @@ def _members_to_native(
 
     if meshes:
         # Use data_block_name (the name with ID) for the mesh datablock
-        mesh = meshes_to_native(speckle_object, meshes, data_block_name, scale)
+        mesh = meshes_to_native(
+            speckle_object, meshes, data_block_name, scale, material_mapping
+        )
 
     for item in others:
         try:
-            blender_object = convert_to_native(item)
+            blender_object = convert_to_native(item, material_mapping)
             if blender_object:
                 children.append(blender_object)
         except Exception as ex:
@@ -311,10 +332,14 @@ def polyline_to_native(
 
 
 def mesh_to_native(
-    speckle_mesh: Mesh, object_name: str, data_block_name: str, scale: float = 1.0
+    speckle_mesh: Mesh,
+    object_name: str,
+    data_block_name: str,
+    scale: float = 1.0,
+    material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
 ) -> Object:
     """
-    converts a speckle mesh to a blender mesh
+    converts a speckle mesh to a blender mesh with material support
     """
     # Create mesh data with data_block_name (the name with ID)
     mesh = mesh_to_native_mesh(speckle_mesh, data_block_name, scale)
@@ -329,6 +354,13 @@ def mesh_to_native(
     # Add texture coordinates if present
     if len(speckle_mesh.textureCoordinates) > 0:
         add_texture_coordinates(mesh, speckle_mesh.textureCoordinates)
+
+    # Apply material if available for this mesh
+    if material_mapping and hasattr(speckle_mesh, "applicationId"):
+        app_id = speckle_mesh.applicationId
+        if app_id in material_mapping:
+            material = material_mapping[app_id]
+            mesh.materials.append(material)
 
     return mesh_obj
 
@@ -377,24 +409,53 @@ def mesh_to_native_mesh(
 
 
 def meshes_to_native(
-    speckle_object: Base, meshes: List[Mesh], name: str, scale: float
+    speckle_object: Base,
+    meshes: List[Mesh],
+    name: str,
+    scale: float,
+    material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
 ) -> bpy.types.Mesh:
     """
-    combines multiple Speckle meshes into a single Blender mesh
+    combines multiple Speckle meshes into a single Blender mesh with material support
     """
-    # If there's only one mesh, use the simpler conversion function with scale
+    # If there's only one mesh, use the simpler conversion function
     if len(meshes) == 1:
-        return mesh_to_native_mesh(meshes[0], name, scale)
+        blender_mesh = mesh_to_native_mesh(meshes[0], name, scale)
 
-    # Create a new mesh object with the provided name (with ID)
+        # Apply material if available for this mesh
+        if material_mapping and hasattr(meshes[0], "applicationId"):
+            app_id = meshes[0].applicationId
+            if app_id in material_mapping:
+                material = material_mapping[app_id]
+                blender_mesh.materials.append(material)
+
+        return blender_mesh
+
+    # Create a new mesh object with the provided name
     blender_mesh = bpy.data.meshes.new(name)
+
+    # Track face ranges for each mesh for material assignment
+    mesh_face_ranges = []  # List of (start_face, end_face, mesh_index)
+    current_face = 0
+
+    # Track materials needed
+    mesh_materials = {}  # Maps mesh index to material
 
     # Process all meshes and combine them
     all_vertices = []
     all_faces = []
     vertex_offset = 0
 
-    for mesh in meshes:
+    # First pass: collect vertices, faces, and track face ranges
+    for mesh_idx, mesh in enumerate(meshes):
+        start_face = current_face
+
+        # Check if this mesh has a material
+        if material_mapping and hasattr(mesh, "applicationId"):
+            app_id = mesh.applicationId
+            if app_id in material_mapping:
+                mesh_materials[mesh_idx] = material_mapping[app_id]
+
         # Add vertices with scale applied
         for i in range(0, len(mesh.vertices), 3):
             all_vertices.append(
@@ -407,6 +468,7 @@ def meshes_to_native(
 
         # Add faces
         i = 0
+        face_count = 0
         while i < len(mesh.faces):
             vertex_count = mesh.faces[i]
             face = []
@@ -415,13 +477,42 @@ def meshes_to_native(
                 face.append(vertex_index + vertex_offset)
             all_faces.append(face)
             i += vertex_count + 1
+            face_count += 1
+            current_face += 1
 
         # Update vertex offset for the next mesh
         vertex_offset += len(mesh.vertices) // 3
 
+        # Store face range if this mesh has faces
+        if face_count > 0:
+            mesh_face_ranges.append((start_face, current_face - 1, mesh_idx))
+
     # Create the combined mesh
     blender_mesh.from_pydata(all_vertices, [], all_faces)
     blender_mesh.update()
+
+    # If we have materials, add them to the mesh
+    if mesh_materials:
+        # First add all materials to the mesh
+        materials_added = set()
+        material_indices = {}  # Maps material name to index in the mesh
+
+        for mesh_idx, material in mesh_materials.items():
+            if material.name not in materials_added:
+                blender_mesh.materials.append(material)
+                material_indices[material.name] = len(blender_mesh.materials) - 1
+                materials_added.add(material.name)
+
+        # Now assign materials to faces based on which mesh they came from
+        for start_face, end_face, mesh_idx in mesh_face_ranges:
+            if mesh_idx in mesh_materials:
+                material = mesh_materials[mesh_idx]
+                material_index = material_indices[material.name]
+
+                # Assign this material to all faces in this range
+                for face_idx in range(start_face, end_face + 1):
+                    if face_idx < len(blender_mesh.polygons):
+                        blender_mesh.polygons[face_idx].material_index = material_index
 
     return blender_mesh
 
@@ -479,3 +570,35 @@ def add_texture_coordinates(
             v = tex_coords[uv_idx + 1]
 
             uv_layer.data[loop_idx].uv = (u, v)
+
+
+def render_material_proxy_to_native(
+    speckle_object: Base,
+) -> Dict[str, bpy.types.Material]:
+    """
+    converts RenderMaterialProxies to Blender materials
+    """
+    assigned_objects = {}
+
+    # check if object has renderMaterialProxies
+    if not hasattr(speckle_object, "renderMaterialProxies"):
+        print("No render material proxies found!")
+        return assigned_objects
+
+    # process each render material proxy
+    for proxy in speckle_object.renderMaterialProxies:
+        if not hasattr(proxy, "value") or not hasattr(proxy, "objects"):
+            print("Render material proxy has no value or no object has assigned!")
+            continue
+        render_material = proxy.value
+        material_name = getattr(render_material, "name")
+
+        # create blender material
+        blender_material = create_material_from_proxy(render_material, material_name)
+
+        # map application ids to this material
+        for applicationId in proxy.objects:
+            assigned_objects[applicationId] = blender_material
+
+    # return the mapping
+    return assigned_objects
