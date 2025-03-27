@@ -154,6 +154,7 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
         model_card = context.scene.speckle_state.model_cards.add()
+        model_card.account_id = wm.selected_account_id
         model_card.server_url = get_server_url_by_account_id(
             account_id=wm.selected_account_id
         )

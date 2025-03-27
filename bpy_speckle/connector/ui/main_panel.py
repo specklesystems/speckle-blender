@@ -62,7 +62,10 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                 box: UILayout = project_box.box()
                 row: UILayout = box.row()
                 icon: str = 'EXPORT' if model_card.is_publish else 'IMPORT'
-                row.operator("speckle.publish", text="", icon=icon)
+                if model_card.is_publish:
+                    row.operator("speckle.publish", text="", icon=icon)
+                else:
+                    row.operator("speckle.load_latest", text="", icon=icon)
                 row.label(text=f"{model_card.model_name}")
                 # Add selection button
                 select_op = row.operator("speckle.select_objects", text="", icon='RESTRICT_SELECT_OFF')

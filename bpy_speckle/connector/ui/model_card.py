@@ -14,6 +14,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
         selection_summary (StringProperty): Summary text of the current object selection.
         version_id (StringProperty): Unique identifier of the selected version.
     """
+    account_id: bpy.props.StringProperty(name="Server URL", description="URL of the Server", default="app.speckle.systems")  # type: ignore
     server_url: bpy.props.StringProperty(name="Server URL", description="URL of the Server", default="app.speckle.systems")  # type: ignore
     project_name: bpy.props.StringProperty(name="Project Name", description="Name of the project", default="")  # type: ignore
     project_id: bpy.props.StringProperty(name="Project ID", description="ID of the selected project", default="") # type: ignore
