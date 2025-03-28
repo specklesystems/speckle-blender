@@ -16,7 +16,6 @@ class SPECKLE_OT_model_card_settings(bpy.types.Operator):
     model_card_index: bpy.props.IntProperty(name="Model Card Index", default=0) # type: ignore
 
     def execute(self, context: Context) -> Set[str]:
-        self.report({'INFO'}, f"Settings for {context.scene.speckle_state.model_cards[self.model_card_index]}")
         return {'FINISHED'}
     
     def draw(self, context: Context) -> None:
