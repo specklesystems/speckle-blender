@@ -26,8 +26,10 @@ class SPECKLE_OT_model_card_settings(bpy.types.Operator):
         layout.operator("speckle.view_model_versions", text="View Model Versions").model_card_index = self.model_card_index
         # Add a separator
         layout.separator()
+        row = layout.row()
         # Add a button for deleting the model card
-        delete_op = layout.operator("speckle.delete_model_card", text="Delete Model Card", icon='TRASH')
+        row.alert = True
+        delete_op = row.operator("speckle.delete_model_card", text="Delete Model Card", icon='TRASH')
         delete_op.model_card_index = self.model_card_index
 
     def invoke(self, context: Context, event: Event) -> Set[str]:
