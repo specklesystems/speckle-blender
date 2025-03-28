@@ -1,6 +1,6 @@
 from typing import Any, Iterable, List, Optional, Tuple, Dict
 from specklepy.objects import Base
-from specklepy.objects.geometry import Line, Polyline, Mesh, Arc, Circle
+from specklepy.objects.geometry import Line, Polyline, Mesh, Arc, Circle, Ellipse
 from specklepy.objects.models.units import (
     get_units_from_string,
     get_scale_factor_to_meters,
@@ -112,6 +112,10 @@ def convert_to_native(
         )
     elif isinstance(speckle_object, Circle):
         converted_object = circle_to_native(
+            speckle_object, object_name, data_block_name, scale
+        )
+    elif isinstance(speckle_object, Ellipse):
+        converted_object = ellipse_to_native(
             speckle_object, object_name, data_block_name, scale
         )
     elif isinstance(speckle_object, Mesh):
@@ -689,7 +693,7 @@ def arc_to_native(
 
         # calculate center
         center = mid_chord1 + perp1 * params[0]
-    except:
+    except:  # noqa: E722
         # fallback if the matrix is singular (lines are parallel)
         # use the plane origin as center
         center = mathutils.Vector(
@@ -867,6 +871,112 @@ def circle_to_native(
     spline.resolution_u = 12
 
     # creat object_name
+    curve_obj = bpy.data.objects.new(object_name, curve)
+
+    return curve_obj
+
+
+def ellipse_to_native(
+    speckle_ellipse: Ellipse, object_name: str, data_block_name: str, scale: float = 1.0
+) -> bpy.types.Object:
+    """
+    converts a Speckle ellipse to a Blender NURBS curve.
+    """
+    import mathutils
+
+    # Create the data-block
+    curve = bpy.data.curves.new(data_block_name, type="CURVE")
+    curve.dimensions = "3D"
+
+    # get ellipse properties
+    center = mathutils.Vector(
+        (
+            float(speckle_ellipse.plane.origin.x) * scale,
+            float(speckle_ellipse.plane.origin.y) * scale,
+            float(speckle_ellipse.plane.origin.z) * scale,
+        )
+    )
+
+    radius_x = float(speckle_ellipse.firstRadius) * scale
+    radius_y = float(speckle_ellipse.secondRadius) * scale
+
+    # get normal from plane
+    normal = mathutils.Vector(
+        (
+            float(speckle_ellipse.plane.normal.x),
+            float(speckle_ellipse.plane.normal.y),
+            float(speckle_ellipse.plane.normal.z),
+        )
+    )
+    normal.normalize()
+
+    # get orientation vectors from plane
+    x_axis = mathutils.Vector(
+        (
+            float(speckle_ellipse.plane.xdir.x),
+            float(speckle_ellipse.plane.xdir.y),
+            float(speckle_ellipse.plane.xdir.z),
+        )
+    )
+    x_axis.normalize()
+
+    y_axis = mathutils.Vector(
+        (
+            float(speckle_ellipse.plane.ydir.x),
+            float(speckle_ellipse.plane.ydir.y),
+            float(speckle_ellipse.plane.ydir.z),
+        )
+    )
+    y_axis.normalize()
+
+    spline = curve.splines.new("BEZIER")
+
+    # an ellipse can be nicely represented with 4 Bezier segments
+    spline.bezier_points.add(3)  # add 3 more for a total of 4 points
+
+    # control point factor
+    cp_factor = 0.5522847498307936  # (4/3)*tan(pi/8)
+
+    # point 1 (positive x-axis)
+    spline.bezier_points[0].co = center + x_axis * radius_x
+    spline.bezier_points[0].handle_left = (
+        center + x_axis * radius_x - y_axis * radius_y * cp_factor
+    )
+    spline.bezier_points[0].handle_right = (
+        center + x_axis * radius_x + y_axis * radius_y * cp_factor
+    )
+
+    # point 2 (positive y-axis)
+    spline.bezier_points[1].co = center + y_axis * radius_y
+    spline.bezier_points[1].handle_left = (
+        center + y_axis * radius_y - x_axis * radius_x * cp_factor
+    )
+    spline.bezier_points[1].handle_right = (
+        center + y_axis * radius_y + x_axis * radius_x * cp_factor
+    )
+
+    # point 3 (negative x-axis)
+    spline.bezier_points[2].co = center - x_axis * radius_x
+    spline.bezier_points[2].handle_left = (
+        center - x_axis * radius_x + y_axis * radius_y * cp_factor
+    )
+    spline.bezier_points[2].handle_right = (
+        center - x_axis * radius_x - y_axis * radius_y * cp_factor
+    )
+
+    # point 4 (negative y-axis)
+    spline.bezier_points[3].co = center - y_axis * radius_y
+    spline.bezier_points[3].handle_left = (
+        center - y_axis * radius_y + x_axis * radius_x * cp_factor
+    )
+    spline.bezier_points[3].handle_right = (
+        center - y_axis * radius_y - x_axis * radius_x * cp_factor
+    )
+
+    # close the curve
+    spline.use_cyclic_u = True
+
+    # create the object
     curve_obj = bpy.data.objects.new(object_name, curve)
 
     return curve_obj
