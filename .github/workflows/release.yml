@@ -1,18 +1,16 @@
 name: "Release workflow"
 on:
   push:
-    branches: ["main", "installer-test/**"]
-    tags: ["v3.*"] # Manual delivery on every 3.x tag
+    tags: ["v3.*.*"]
 
 jobs:
   build:
     name: Build zip
     runs-on: ubuntu-latest
     env:
-      SPECKLE_VERSION: "unset"
       ZIP_NAME: "blender.zip"
     outputs:
-      semver: ${{ steps.set-version.outputs.semver }}
+      version: ${{ steps.set-version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - name: 🐍 Install uv and set the python version
@@ -23,11 +21,19 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - id: set-version
-        name: Set semver to output
-        run: echo "semver=${{ env.SPECKLE_VERSION }}" >> "$Env:GITHUB_OUTPUT"
+        name: Set version to output
+        run:
+          | # Processing the ref manually atm.. likely we'll want to use Adam's fancy logic at some point instead
+          TAG=${{ github.ref_name }}
+          if [[ "${{ github.ref }}" != refs/tags/* ]]; then
+            TAG="3.0.99.${{ github.run_number }}"
+          fi
+          SEMVER=$(echo "$TAG" | sed -E 's/\/[a-zA-Z-]+//')
+          VERSION=$(echo "$SEMVER" | sed -E 's/[a-zA-Z]*\///')
+          echo "version=$VERSION" >> "$Env:GITHUB_OUTPUT"
 
       - name: ✏ Patch Version
-        run: python patch_version.py ${{ env.SPECKLE_VERSION }}
+        run: python patch_version.py ${{ steps.set-version.outputs.version }}
 
       - name: 🔄 UV Sync
         run: uv sync --all-extras --dev
@@ -41,7 +47,7 @@ jobs:
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: output-${{ env.SPECKLE_VERSION }}
+          name: output-${{ steps.set-version.outputs.version }}
           path: ${{env.ZIP_NAME}}
           if-no-files-found: error
           retention-days: 1
@@ -57,13 +63,13 @@ jobs:
       IS_TAG_BUILD: ${{ github.ref_type == 'tag' }}
       IS_RELEASE_BRANCH: ${{ startsWith(github.ref_name, 'release/') || github.ref_name == 'main'}}
     steps:
-      - name: 🔫 Trigger Build QGIS
+      - name: 🔫 Trigger Build Installer(s)
         uses: ALEEF02/workflow-dispatch@v3.0.0
         with:
-          workflow: Build QGIS
+          workflow: Build Blender Installer
           repo: specklesystems/connector-installers
           token: ${{ secrets.CONNECTORS_GH_TOKEN }}
-          inputs: '{ "run_id": "${{ github.run_id }}", "version": "${{ needs.build.outputs.version }}", "public_release": ${{ env.IS_TAG_BUILD }} }'
+          inputs: '{ "run_id": "${{ github.run_id }}", "version": "${{ needs.build.outputs.version }}", "public_release": ${{ env.IS_TAG_BUILD }}, "store_artifacts": ${{ env.IS_RELEASE_BRANCH }} }'
           ref: main
           wait-for-completion: true
           wait-for-completion-interval: 10s
