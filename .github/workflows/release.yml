@@ -33,14 +33,11 @@ jobs:
           SEMVER=$(echo "$TAG" | sed -E 's/\/[a-zA-Z-]+//')
           VERSION=$(echo "$SEMVER" | sed -E 's/[a-zA-Z]*\///')
           echo "version=$VERSION" >> "$Env:GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_ENV"
-          echo $VERSION
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo ${{ env.VERSION }}
 
       - name: ✏ Patch Version
-        run: |
-          echo ${{ steps.set-version.outputs.version }}
-          echo ${{ env.VERSION }}
-          python patch_version.py ${{ steps.set-version.outputs.version }}
+        run: python patch_version.py ${{ env.VERSION }}
 
       - name: 🔄 UV Sync
         run: uv sync --all-extras --dev
@@ -54,7 +51,7 @@ jobs:
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: output-${{ steps.set-version.outputs.version }}
+          name: output-${{ env.VERSION }}
           path: ${{env.ZIP_NAME}}
           if-no-files-found: error
           retention-days: 1
