@@ -1,6 +1,6 @@
 from typing import Any, Iterable, List, Optional, Tuple, Dict
 from specklepy.objects import Base
-from specklepy.objects.geometry import Line, Polyline, Mesh
+from specklepy.objects.geometry import Line, Polyline, Mesh, Arc, Circle, Ellipse
 from specklepy.objects.models.units import (
     get_units_from_string,
     get_scale_factor_to_meters,
@@ -104,6 +104,18 @@ def convert_to_native(
         )
     elif isinstance(speckle_object, Polyline):
         converted_object = polyline_to_native(
+            speckle_object, object_name, data_block_name, scale
+        )
+    elif isinstance(speckle_object, Arc):
+        converted_object = arc_to_native(
+            speckle_object, object_name, data_block_name, scale
+        )
+    elif isinstance(speckle_object, Circle):
+        converted_object = circle_to_native(
+            speckle_object, object_name, data_block_name, scale
+        )
+    elif isinstance(speckle_object, Ellipse):
+        converted_object = ellipse_to_native(
             speckle_object, object_name, data_block_name, scale
         )
     elif isinstance(speckle_object, Mesh):
@@ -633,3 +645,369 @@ def render_material_proxy_to_native(
 
     # return the mapping
     return assigned_objects
+
+
+def arc_to_native(
+    speckle_arc: Arc, object_name: str, data_block_name: str, scale: float = 1.0
+) -> bpy.types.Object:
+    """
+    Converts a Speckle arc to a Blender NURBS curve.
+    """
+    import math
+    import mathutils
+
+    # create curve data with data_block_name (the name with ID)
+    curve = bpy.data.curves.new(data_block_name, type="CURVE")
+    curve.dimensions = "3D"
+
+    # get key points from the arc
+    start_point = mathutils.Vector(
+        (
+            float(speckle_arc.startPoint.x) * scale,
+            float(speckle_arc.startPoint.y) * scale,
+            float(speckle_arc.startPoint.z) * scale,
+        )
+    )
+
+    mid_point = mathutils.Vector(
+        (
+            float(speckle_arc.midPoint.x) * scale,
+            float(speckle_arc.midPoint.y) * scale,
+            float(speckle_arc.midPoint.z) * scale,
+        )
+    )
+
+    end_point = mathutils.Vector(
+        (
+            float(speckle_arc.endPoint.x) * scale,
+            float(speckle_arc.endPoint.y) * scale,
+            float(speckle_arc.endPoint.z) * scale,
+        )
+    )
+
+    # calculate center and radius from three points
+    # create vectors for calculation
+    chord1 = mid_point - start_point
+    chord2 = end_point - mid_point
+
+    # get perpendicular vectors in the plane of the arc
+    perp1 = (
+        mathutils.Vector((chord1.y, -chord1.x, 0))
+        if chord1.z == 0
+        else mathutils.Vector((-chord1.z, 0, chord1.x))
+    )
+    perp2 = (
+        mathutils.Vector((chord2.y, -chord2.x, 0))
+        if chord2.z == 0
+        else mathutils.Vector((-chord2.z, 0, chord2.x))
+    )
+
+    # normalize perpendicular vectors
+    perp1.normalize()
+    perp2.normalize()
+
+    # create two lines to find the center
+    mid_chord1 = start_point + chord1 * 0.5
+    mid_chord2 = mid_point + chord2 * 0.5
+
+    # create 3D line equations from midpoints of chords and perpendicular directions
+    # find intersection (arc center) using linear algebra
+    try:
+        # create matrices for line intersection
+        mat_a = mathutils.Matrix(((perp1.x, -perp2.x), (perp1.y, -perp2.y)))
+        mat_b = mathutils.Vector(
+            (mid_chord2.x - mid_chord1.x, mid_chord2.y - mid_chord1.y)
+        )
+
+        # solve for parameters
+        params = mat_a.inverted() @ mat_b
+
+        # calculate center
+        center = mid_chord1 + perp1 * params[0]
+    except:  # noqa: E722
+        # fallback if the matrix is singular (lines are parallel)
+        # use the plane origin as center
+        center = mathutils.Vector(
+            (
+                float(speckle_arc.plane.origin.x) * scale,
+                float(speckle_arc.plane.origin.y) * scale,
+                float(speckle_arc.plane.origin.z) * scale,
+            )
+        )
+
+    # calculate radius
+    radius = (start_point - center).length
+
+    # create vectors from center to points
+    vec_start = start_point - center
+    vec_mid = mid_point - center
+    vec_end = end_point - center
+
+    # calculate normal of the arc plane
+    normal = vec_start.cross(vec_end)
+    normal.normalize()
+
+    # determine start and end angles
+    vec_start.normalize()
+    vec_end.normalize()
+
+    # calculate start angle
+    start_angle = math.atan2(vec_start.y, vec_start.x)
+
+    # to determine direction and angle, check orientation of the three points
+    # direction from start to mid
+    start_to_mid_angle = math.atan2(vec_mid.y, vec_mid.x) - start_angle
+    if start_to_mid_angle < -math.pi:
+        start_to_mid_angle += 2 * math.pi
+    elif start_to_mid_angle > math.pi:
+        start_to_mid_angle -= 2 * math.pi
+
+    # direction from start to end
+    sweep_angle = math.atan2(vec_end.y, vec_end.x) - start_angle
+    if sweep_angle < -math.pi:
+        sweep_angle += 2 * math.pi
+    elif sweep_angle > math.pi:
+        sweep_angle -= 2 * math.pi
+
+    # if the mid point is not between start and end angles in the current direction,
+    # reverse the sweep
+    if (sweep_angle > 0 and start_to_mid_angle < 0) or (
+        sweep_angle < 0 and start_to_mid_angle > 0
+    ):
+        if sweep_angle > 0:
+            sweep_angle = sweep_angle - 2 * math.pi
+        else:
+            sweep_angle = 2 * math.pi + sweep_angle
+
+    # create a NURBS curve
+    spline = curve.splines.new("NURBS")
+
+    # number of points for the arc (more points = smoother arc)
+    num_points = max(
+        8, int(abs(sweep_angle / (math.pi / 4)) * 4)
+    )  # at least 8 points, more for larger arcs
+    spline.points.add(num_points - 1)  # -1 because it already has one point
+
+    # calculate points along the arc
+    for i in range(num_points):
+        t = i / (num_points - 1)  # normalized parameter [0, 1]
+        angle = start_angle + sweep_angle * t
+
+        # calculate point on arc
+        x = center.x + radius * math.cos(angle)
+        y = center.y + radius * math.sin(angle)
+        z = center.z
+
+        # rotate point around normal if needed
+        if normal.z < 0.99:  # if arc is not in the XY plane
+            # create rotation matrix
+            rotation = mathutils.Matrix.Rotation(angle, 4, normal)
+            vec = mathutils.Vector((radius, 0, 0))
+            point = rotation @ vec + center
+            x, y, z = point.x, point.y, point.z
+
+        spline.points[i].co = (x, y, z, 1.0)  # 1.0 is the weight
+
+    # set NURBS properties
+    spline.use_endpoint_u = True
+    spline.order_u = 3
+    spline.resolution_u = 12
+
+    # create object
+    curve_obj = bpy.data.objects.new(object_name, curve)
+
+    return curve_obj
+
+
+def circle_to_native(
+    speckle_circle: Circle, object_name: str, data_block_name: str, scale: float = 1.0
+) -> bpy.types.Object:
+    """
+    converts a Speckle circle to a Blender NURBS curve.
+    """
+    import math
+    import mathutils
+
+    # create data_block_name
+    curve = bpy.data.curves.new(data_block_name, type="CURVE")
+    curve.dimensions = "3D"
+
+    # get circle properties
+    center = mathutils.Vector(
+        (
+            float(speckle_circle.plane.origin.x) * scale,
+            float(speckle_circle.plane.origin.y) * scale,
+            float(speckle_circle.plane.origin.z) * scale,
+        )
+    )
+
+    radius = float(speckle_circle.radius) * scale
+
+    # get normal from plane
+    normal = mathutils.Vector(
+        (
+            float(speckle_circle.plane.normal.x),
+            float(speckle_circle.plane.normal.y),
+            float(speckle_circle.plane.normal.z),
+        )
+    )
+    normal.normalize()
+
+    # get the x-axis of the plane for orientation
+    x_axis = mathutils.Vector(
+        (
+            float(speckle_circle.plane.xdir.x),
+            float(speckle_circle.plane.xdir.y),
+            float(speckle_circle.plane.xdir.z),
+        )
+    )
+    x_axis.normalize()
+
+    # get the y-axis of the plane for orientation
+    y_axis = mathutils.Vector(
+        (
+            float(speckle_circle.plane.ydir.x),
+            float(speckle_circle.plane.ydir.y),
+            float(speckle_circle.plane.ydir.z),
+        )
+    )
+    y_axis.normalize()
+
+    # create a NURBS curve
+    spline = curve.splines.new("NURBS")
+
+    # number of points for the circle
+    num_points = 16  # set it to 16 as default - looks smooth
+    spline.points.add(num_points - 1)  # -1 because it already has one point
+
+    # calculate points along the circle
+    for i in range(num_points):
+        angle = 2 * math.pi * i / num_points
+
+        # calculate point on circle using the plane's coordinate system
+        point = (
+            center
+            + x_axis * (radius * math.cos(angle))
+            + y_axis * (radius * math.sin(angle))
+        )
+
+        # set the NURBS point
+        spline.points[i].co = (point.x, point.y, point.z, 1.0)  # 1.0 is the weight
+
+    # close the curve
+    spline.use_cyclic_u = True
+
+    # set NURBS properties
+    spline.order_u = 4
+    spline.resolution_u = 12
+
+    # creat object_name
+    curve_obj = bpy.data.objects.new(object_name, curve)
+
+    return curve_obj
+
+
+def ellipse_to_native(
+    speckle_ellipse: Ellipse, object_name: str, data_block_name: str, scale: float = 1.0
+) -> bpy.types.Object:
+    """
+    converts a Speckle ellipse to a Blender NURBS curve.
+    """
+    import mathutils
+
+    # Create the data-block
+    curve = bpy.data.curves.new(data_block_name, type="CURVE")
+    curve.dimensions = "3D"
+
+    # get ellipse properties
+    center = mathutils.Vector(
+        (
+            float(speckle_ellipse.plane.origin.x) * scale,
+            float(speckle_ellipse.plane.origin.y) * scale,
+            float(speckle_ellipse.plane.origin.z) * scale,
+        )
+    )
+
+    radius_x = float(speckle_ellipse.firstRadius) * scale
+    radius_y = float(speckle_ellipse.secondRadius) * scale
+
+    # get normal from plane
+    normal = mathutils.Vector(
+        (
+            float(speckle_ellipse.plane.normal.x),
+            float(speckle_ellipse.plane.normal.y),
+            float(speckle_ellipse.plane.normal.z),
+        )
+    )
+    normal.normalize()
+
+    # get orientation vectors from plane
+    x_axis = mathutils.Vector(
+        (
+            float(speckle_ellipse.plane.xdir.x),
+            float(speckle_ellipse.plane.xdir.y),
+            float(speckle_ellipse.plane.xdir.z),
+        )
+    )
+    x_axis.normalize()
+
+    y_axis = mathutils.Vector(
+        (
+            float(speckle_ellipse.plane.ydir.x),
+            float(speckle_ellipse.plane.ydir.y),
+            float(speckle_ellipse.plane.ydir.z),
+        )
+    )
+    y_axis.normalize()
+
+    spline = curve.splines.new("BEZIER")
+
+    # an ellipse can be nicely represented with 4 Bezier segments
+    spline.bezier_points.add(3)  # add 3 more for a total of 4 points
+
+    # control point factor
+    cp_factor = 0.5522847498307936  # (4/3)*tan(pi/8)
+
+    # point 1 (positive x-axis)
+    spline.bezier_points[0].co = center + x_axis * radius_x
+    spline.bezier_points[0].handle_left = (
+        center + x_axis * radius_x - y_axis * radius_y * cp_factor
+    )
+    spline.bezier_points[0].handle_right = (
+        center + x_axis * radius_x + y_axis * radius_y * cp_factor
+    )
+
+    # point 2 (positive y-axis)
+    spline.bezier_points[1].co = center + y_axis * radius_y
+    spline.bezier_points[1].handle_left = (
+        center + y_axis * radius_y - x_axis * radius_x * cp_factor
+    )
+    spline.bezier_points[1].handle_right = (
+        center + y_axis * radius_y + x_axis * radius_x * cp_factor
+    )
+
+    # point 3 (negative x-axis)
+    spline.bezier_points[2].co = center - x_axis * radius_x
+    spline.bezier_points[2].handle_left = (
+        center - x_axis * radius_x + y_axis * radius_y * cp_factor
+    )
+    spline.bezier_points[2].handle_right = (
+        center - x_axis * radius_x - y_axis * radius_y * cp_factor
+    )
+
+    # point 4 (negative y-axis)
+    spline.bezier_points[3].co = center - y_axis * radius_y
+    spline.bezier_points[3].handle_left = (
+        center - y_axis * radius_y + x_axis * radius_x * cp_factor
+    )
+    spline.bezier_points[3].handle_right = (
+        center - y_axis * radius_y - x_axis * radius_x * cp_factor
+    )
+
+    # close the curve
+    spline.use_cyclic_u = True
+
+    # create the object
+    curve_obj = bpy.data.objects.new(object_name, curve)
+
+    return curve_obj
