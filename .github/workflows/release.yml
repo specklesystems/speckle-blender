@@ -32,6 +32,7 @@ jobs:
           SEMVER=$(echo "$TAG" | sed -E 's/\/[a-zA-Z-]+//')
           VERSION=$(echo "$SEMVER" | sed -E 's/[a-zA-Z]*\///')
           echo "version=$VERSION" >> "$Env:GITHUB_OUTPUT"
+          ech $VERSION
 
       - name: ✏ Patch Version
         run: python patch_version.py ${{ steps.set-version.outputs.version }}
