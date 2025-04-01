@@ -1,21 +1,36 @@
 import re
 import sys
 
-def patch_connector(tag):
-    """Patches the connector version within the connector init file"""
-    bpy_file = "bpy_speckle/blender_manifest.toml"
-    tag = tag.split(".")
+def patch_addon(simple_version: str):
+    """Patches the __init__.py bl_info version within the connector init file"""
+    FILE_PATH = "bpy_speckle/__init__.pyl"
+    version = simple_version.split(".")
 
-    with open(bpy_file, "r") as file:
+    with open(FILE_PATH, "r") as file:
+        lines = file.readlines()
+
+        for (index, line) in enumerate(lines):
+            if '"version":' in line:
+                lines[index] = f'    "version": ({version[0]}, {version[1]}, {version[2]}),\n'
+
+        with open(FILE_PATH, "w") as file:
+            file.writelines(lines)
+
+def patch_manifest(simple_version: str):
+    """Patches the connector version within the connector init file"""
+    FILE_PATH = "bpy_speckle/blender_manifest.toml"
+    version = simple_version.split(".")
+
+    with open(FILE_PATH, "r") as file:
         lines = file.readlines()
 
         for (index, line) in enumerate(lines):
             if line.startswith('version ='):
-                lines[index] = f'version = "{tag[0]}.{tag[1]}.{tag[2]}",\n'
-                print(f"Patched connector version number in {bpy_file}")
+                lines[index] = f'version = "{version[0]}.{version[1]}.{version[2]}",\n'
+                print(f"Patched connector version number in {FILE_PATH}")
                 break
 
-        with open(bpy_file, "w") as file:
+        with open(FILE_PATH, "w") as file:
             file.writelines(lines)
 
 def main():
@@ -24,7 +39,9 @@ def main():
         raise ValueError(f"Invalid tag provided: {tag}")
 
     print(f"Patching version: {tag}")
-    patch_connector(tag.split("-")[0])
+    simple_version = tag.split("-")[0]
+    patch_addon(simple_version)
+    patch_manifest(simple_version)
 
 
 if __name__ == "__main__":
