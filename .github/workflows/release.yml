@@ -1,0 +1,76 @@
+name: "Release workflow"
+on:
+  push:
+    branches: ["main", "installer-test/**"]
+    tags: ["v3.*"] # Manual delivery on every 3.x tag
+
+jobs:
+  build:
+    name: Build zip
+    runs-on: ubuntu-latest
+    env:
+      SPECKLE_VERSION: "unset"
+      ZIP_NAME: "blender.zip"
+    outputs:
+      semver: ${{ steps.set-version.outputs.semver }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 🐍 Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - id: set-version
+        name: Set semver to output
+        run: echo "semver=${{ env.SPECKLE_VERSION }}" >> "$Env:GITHUB_OUTPUT"
+
+      - name: ✏ Patch Version
+        run: python patch_version.py ${{ env.SPECKLE_VERSION }}
+
+      - name: 🔄 UV Sync
+        run: uv sync --all-extras --dev
+
+      - name: 📄 Export Package Dependencies
+        run: ./export_dependencies.sh
+
+      - name: 🗃 Zip Package
+        run: zip -r ${{env.ZIP_NAME}} bpy_speckle
+
+      - name: ⬆️ Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-${{ env.SPECKLE_VERSION }}
+          path: ${{env.ZIP_NAME}}
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0 # no compression
+
+      - name: 💾 Minimize uv cache
+        run: uv cache prune --ci
+
+  deploy-installers:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      IS_TAG_BUILD: ${{ github.ref_type == 'tag' }}
+      IS_RELEASE_BRANCH: ${{ startsWith(github.ref_name, 'release/') || github.ref_name == 'main'}}
+    steps:
+      - name: 🔫 Trigger Build QGIS
+        uses: ALEEF02/workflow-dispatch@v3.0.0
+        with:
+          workflow: Build QGIS
+          repo: specklesystems/connector-installers
+          token: ${{ secrets.CONNECTORS_GH_TOKEN }}
+          inputs: '{ "run_id": "${{ github.run_id }}", "version": "${{ needs.build.outputs.version }}", "public_release": ${{ env.IS_TAG_BUILD }} }'
+          ref: main
+          wait-for-completion: true
+          wait-for-completion-interval: 10s
+          wait-for-completion-timeout: 10m
+          display-workflow-run-url: true
+          display-workflow-run-url-interval: 10s
+
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+          name: output-*
