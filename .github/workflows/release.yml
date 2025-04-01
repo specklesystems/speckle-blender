@@ -35,17 +35,14 @@ jobs:
           SEMVER=$(echo "$TAG" | sed -E 's/\/[a-zA-Z-]+//')
           FILE_VERSION=$(echo "$TAG" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z]+\.([0-9]+))?/\1.\2.\3.\5/' | sed 's/\.$/.0/')
 
-          echo "semver=$SEMVER" >> "$Env:GITHUB_OUTPUT"
-          echo "fileVersion=$FILE_VERSION" >> "$Env:GITHUB_OUTPUT"
+          echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
+          echo "fileVersion=$FILE_VERSION" >> "$GITHUB_OUTPUT"
 
-          echo "SEMVER=$SEMVER" >> "$GITHUB_ENV"
-          echo "FILE_VERSION=$FILE_VERSION" >> "$GITHUB_ENV"
-
-          echo ${{ env.SEMVER }}
-          echo ${{ env.FILE_VERSION }}
+          echo $SEMVER
+          echo $FILE_VERSION
 
       - name: ✏ Patch Version
-        run: python patch_version.py ${{ env.FILE_VERSION }}
+        run: python patch_version.py ${{ steps.set-version.outputs.fileVersion }}
 
       - name: 🔄 UV Sync
         run: uv sync --all-extras --dev
@@ -59,7 +56,7 @@ jobs:
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: output-${{ env.SEMVER }}
+          name: output-${{ steps.set-version.outputs.semver }}
           path: ${{env.ZIP_NAME}}
           if-no-files-found: error
           retention-days: 1
@@ -73,7 +70,7 @@ jobs:
     needs: build
     env:
       IS_TAG_BUILD: ${{ github.ref_type == 'tag' }}
-      IS_RELEASE_BRANCH: ${{ startsWith(github.ref_name, 'release/') || github.ref_name == 'main'}}
+      IS_RELEASE_BRANCH: ${{ startsWith(github.ref_name, 'installer-test/') || github.ref_name == 'main'}}
     steps:
       - name: 🔫 Trigger Build Installer(s)
         uses: ALEEF02/workflow-dispatch@v3.0.0
