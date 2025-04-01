@@ -148,7 +148,14 @@ def display_value_to_native(
     """
     fallback conversion mechanism using displayValue if present
     """
-    return _members_to_native(
+    # Before calling _members_to_native, check if the parent object has an applicationId
+    has_app_id = (
+        hasattr(speckle_object, "applicationId") and speckle_object.applicationId
+    )
+    parent_app_id = speckle_object.applicationId if has_app_id else None
+
+    # Get mesh and children
+    mesh, children = _members_to_native(
         speckle_object,
         object_name,
         data_block_name,
@@ -157,6 +164,30 @@ def display_value_to_native(
         True,
         material_mapping,
     )
+
+    # If the parent had an applicationId and we created a mesh, apply the material
+    if (
+        parent_app_id
+        and mesh
+        and material_mapping
+        and parent_app_id in material_mapping
+    ):
+        material = material_mapping[parent_app_id]
+        mesh.materials.append(material)
+
+    # For each child object, check if it needs material from parent
+    for child in children:
+        # Only apply if the child doesn't already have a material
+        if parent_app_id and material_mapping and parent_app_id in material_mapping:
+            if (
+                hasattr(child, "data")
+                and hasattr(child.data, "materials")
+                and len(child.data.materials) == 0
+            ):
+                material = material_mapping[parent_app_id]
+                child.data.materials.append(material)
+
+    return mesh, children
 
 
 def elements_to_native(
