@@ -3,15 +3,15 @@ import sys
 
 def patch_connector(tag):
     """Patches the connector version within the connector init file"""
-    bpy_file = "bpy_speckle/__init__.py"
+    bpy_file = "bpy_speckle/blender_manifest.toml"
     tag = tag.split(".")
 
     with open(bpy_file, "r") as file:
         lines = file.readlines()
 
         for (index, line) in enumerate(lines):
-            if '"version":' in line:
-                lines[index] = f'    "version": ({tag[0]}, {tag[1]}, {tag[2]}),\n'
+            if line.startswith('version ='):
+                lines[index] = f'version = "{tag[0]}.{tag[1]}.{tag[2]}",\n'
                 print(f"Patched connector version number in {bpy_file}")
                 break
 

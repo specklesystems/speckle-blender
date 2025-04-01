@@ -10,9 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ZIP_NAME: "blender.zip"
-      VERSION: "unset"
+      SEMVER: null
+      FILE_VERSION: null
     outputs:
-      version: ${{ steps.set-version.outputs.version }}
+      semver: ${{ steps.set-version.outputs.semver }}
+      fileVersion: ${{ steps.set-version.outputs.fileVersion }}
     steps:
       - uses: actions/checkout@v4
       - name: 🐍 Install uv and set the python version
@@ -31,13 +33,19 @@ jobs:
             TAG="3.0.99.${{ github.run_number }}"
           fi
           SEMVER=$(echo "$TAG" | sed -E 's/\/[a-zA-Z-]+//')
-          VERSION=$(echo "$SEMVER" | sed -E 's/[a-zA-Z]*\///')
-          echo "version=$VERSION" >> "$Env:GITHUB_OUTPUT"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo ${{ env.VERSION }}
+          FILE_VERSION=$(echo "$TAG" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z]+\.([0-9]+))?/\1.\2.\3.\5/' | sed 's/\.$/.0/')
+
+          echo "semver=$SEMVER" >> "$Env:GITHUB_OUTPUT"
+          echo "fileVersion=$FILE_VERSION" >> "$Env:GITHUB_OUTPUT"
+
+          echo "SEMVER=$SEMVER" >> "$GITHUB_ENV"
+          echo "FILE_VERSION=$FILE_VERSION" >> "$GITHUB_ENV"
+
+          echo ${{ env.SEMVER }}
+          echo ${{ env.FILE_VERSION }}
 
       - name: ✏ Patch Version
-        run: python patch_version.py ${{ env.VERSION }}
+        run: python patch_version.py ${{ env.FILE_VERSION }}
 
       - name: 🔄 UV Sync
         run: uv sync --all-extras --dev
@@ -51,7 +59,7 @@ jobs:
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: output-${{ env.VERSION }}
+          name: output-${{ env.SEMVER }}
           path: ${{env.ZIP_NAME}}
           if-no-files-found: error
           retention-days: 1
@@ -73,7 +81,7 @@ jobs:
           workflow: Build Blender Installer
           repo: specklesystems/connector-installers
           token: ${{ secrets.CONNECTORS_GH_TOKEN }}
-          inputs: '{ "run_id": "${{ github.run_id }}", "version": "${{ needs.build.outputs.version }}", "public_release": ${{ env.IS_TAG_BUILD }}, "store_artifacts": ${{ env.IS_RELEASE_BRANCH }} }'
+          inputs: '{ "run_id": "${{ github.run_id }}", "semver": "${{ needs.build.outputs.semver }}", "file_version": "${{ needs.build.outputs.fileVersion }}","public_release": ${{ env.IS_TAG_BUILD }}, "store_artifacts": ${{ env.IS_RELEASE_BRANCH }} }'
           ref: main
           wait-for-completion: true
           wait-for-completion-interval: 10s
