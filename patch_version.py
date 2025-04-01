@@ -3,7 +3,7 @@ import sys
 
 def patch_addon(simple_version: str):
     """Patches the __init__.py bl_info version within the connector init file"""
-    FILE_PATH = "bpy_speckle/__init__.pyl"
+    FILE_PATH = "bpy_speckle/__init__.py"
     version = simple_version.split(".")
 
     with open(FILE_PATH, "r") as file:
