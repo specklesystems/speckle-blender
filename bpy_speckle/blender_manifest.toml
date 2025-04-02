@@ -6,7 +6,7 @@ id = "speckle_blender_addon"
 version = "3.0.0"
 name = "Speckle for Blender BETA"
 tagline = "Speckle connector for Blender"
-maintainer = "Speckle Systems"
+maintainer = "AEC SYSTEMS LTD"
 # Supported types: "add-on", "theme"
 type = "add-on"
 
@@ -28,10 +28,9 @@ license = [
   "SPDX:Apache-2.0",
 ]
 # Optional: required by some licenses.
-# copyright = [
-#   "2002-2024 Developer Name",
-#   "1998 Company Name",
-# ]
+copyright = [
+  "2022-2025 AEC SYSTEMS LTD",
+]
 
 # Optional list of supported platforms. If omitted, the extension will be available in all operating systems.
 # platforms = ["windows-x64", "macos-arm64", "linux-x64"]
@@ -50,9 +49,9 @@ license = [
 # * clipboard (to read and/or write the system clipboard)
 # * camera (to capture photos and videos)
 # * microphone (to capture audio)
-# permissions = ["network"]
+# permissions = ["files", "network", "clipboard"]
 
-#
+
 # If using network, remember to also check `bpy.app.online_access`
 # https://docs.blender.org/manual/en/dev/advanced/extensions/addons.html#internet-access
 #
@@ -60,16 +59,16 @@ license = [
 # Keep this a single short sentence without a period (.) at the end.
 # For longer explanations use the documentation or detail page.
 #
-# [permissions]
-# network = "Need to sync motion-capture data to server"
-# files = "Import/export FBX from/to disk"
-# clipboard = "Copy and paste bone transforms"
+[permissions]
+network = "Speckle Server comms, and PyPI for dependency management"
+files = "Data caching, Account Management, Python dependency management"
+clipboard = "Copy and paste URLs and Names (UI)"
 
 # Optional: build settings.
 # https://docs.blender.org/manual/en/dev/advanced/extensions/command_line_arguments.html#command-line-args-extension-build
-# [build]
-# paths_exclude_pattern = [
-#   "__pycache__/",
-#   "/.git/",
-#   "/*.zip",
-# ]
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.vscode",
+  "*.code-workspace",
+]

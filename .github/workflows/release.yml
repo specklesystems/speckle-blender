@@ -1,0 +1,91 @@
+name: "Release workflow"
+on:
+  push:
+    branches: ["main", "installer-test/**"]
+    tags: ["v3.*.*"]
+
+jobs:
+  build:
+    name: Build Zip
+    runs-on: ubuntu-latest
+    env:
+      ZIP_NAME: "blender.zip"
+      SEMVER: null
+      FILE_VERSION: null
+    outputs:
+      semver: ${{ steps.set-version.outputs.semver }}
+      fileVersion: ${{ steps.set-version.outputs.fileVersion }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 🐍 Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - id: set-version
+        name: Set version to output
+        run:
+          | # Processing the ref manually atm.. likely we'll want to use Adam's fancy logic at some point instead
+          TAG=${{ github.ref_name }}
+          if [[ "${{ github.ref }}" != refs/tags/* ]]; then
+            TAG="3.0.99.${{ github.run_number }}"
+          fi
+          SEMVER=$(echo "$TAG" | sed -E 's/\/[a-zA-Z-]+//')
+          FILE_VERSION=$(echo "$TAG" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z]+\.([0-9]+))?/\1.\2.\3.\5/' | sed 's/\.$/.0/')
+
+          echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
+          echo "fileVersion=$FILE_VERSION" >> "$GITHUB_OUTPUT"
+
+          echo $SEMVER
+          echo $FILE_VERSION
+
+      - name: ✏ Patch Version
+        run: python patch_version.py ${{ steps.set-version.outputs.fileVersion }}
+
+      - name: 🔄 UV Sync
+        run: uv sync --all-extras --dev
+
+      - name: 📄 Export Package Dependencies
+        run: ./export_dependencies.sh
+
+      - name: 🗃 Zip Package
+        run: zip -r ${{env.ZIP_NAME}} bpy_speckle
+
+      - name: ⬆️ Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-${{ steps.set-version.outputs.semver }}
+          path: ${{env.ZIP_NAME}}
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0 # no compression
+
+      - name: 💾 Minimize uv cache
+        run: uv cache prune --ci
+
+  deploy-installers:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      IS_TAG_BUILD: ${{ github.ref_type == 'tag' }}
+      IS_RELEASE_BRANCH: ${{ startsWith(github.ref_name, 'installer-test/') || github.ref_name == 'main'}}
+    steps:
+      - name: 🔫 Trigger Build Installer(s)
+        uses: ALEEF02/workflow-dispatch@v3.0.0
+        with:
+          workflow: Build Blender Installer
+          repo: specklesystems/connector-installers
+          token: ${{ secrets.CONNECTORS_GH_TOKEN }}
+          inputs: '{ "run_id": "${{ github.run_id }}", "semver": "${{ needs.build.outputs.semver }}", "file_version": "${{ needs.build.outputs.fileVersion }}","public_release": ${{ env.IS_TAG_BUILD }}, "store_artifacts": ${{ env.IS_RELEASE_BRANCH }} }'
+          ref: main
+          wait-for-completion: true
+          wait-for-completion-interval: 10s
+          wait-for-completion-timeout: 10m
+          display-workflow-run-url: true
+          display-workflow-run-url-interval: 10s
+
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+          name: output-*
