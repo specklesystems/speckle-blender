@@ -32,8 +32,8 @@ jobs:
           if [[ "${{ github.ref }}" != refs/tags/* ]]; then
             TAG="v3.0.99.${{ github.run_number }}"
           fi
-          SEMVER=$(echo "$TAG" | sed -E 's/^v//')
-          FILE_VERSION=$(echo "$TAG" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z]+\.([0-9]+))?/\1.\2.\3.\5/' | sed 's/\.$/.0/')
+          SEMVER="${TAG#v}"
+          FILE_VERSION=$(echo "$SEMVER" | sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z]+\.([0-9]+))?/\1.\2.\3.\5/' | sed 's/\.$/.0/')
 
           echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
           echo "fileVersion=$FILE_VERSION" >> "$GITHUB_OUTPUT"
