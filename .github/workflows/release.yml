@@ -26,14 +26,13 @@ jobs:
 
       - id: set-version
         name: Set version to output
-        run:
-          | # Processing the ref manually atm.. likely we'll want to use Adam's fancy logic at some point instead
+        run: |
           TAG=${{ github.ref_name }}
           if [[ "${{ github.ref }}" != refs/tags/* ]]; then
             TAG="v3.0.99.${{ github.run_number }}"
           fi
           SEMVER="${TAG#v}"
-          FILE_VERSION=$(echo "$SEMVER" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          FILE_VERSION=$(echo "$TAG" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
           FILE_VERSION="$FILE_VERSION.${{ github.run_number }}"
 
           echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
