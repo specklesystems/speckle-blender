@@ -33,7 +33,7 @@ jobs:
             TAG="v3.0.99.${{ github.run_number }}"
           fi
           SEMVER="${TAG#v}"
-          FILE_VERSION=$(echo "$SEMVER" | sed -E 's/(-[a-zA-Z]+(\.[0-9]+)?)?$//')
+          FILE_VERSION=$(echo "$SEMVER" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
           FILE_VERSION="$FILE_VERSION.${{ github.run_number }}"
 
           echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
