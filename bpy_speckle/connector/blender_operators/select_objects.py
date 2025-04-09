@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import Operator
-from bpy.props import IntProperty
+from bpy.props import StringProperty
 
 class SPECKLE_OT_select_objects(Operator):
     """Select all objects imported from this Speckle model"""
@@ -8,15 +8,18 @@ class SPECKLE_OT_select_objects(Operator):
     bl_label = "Select Objects"
     bl_options = {'REGISTER', 'UNDO'}
     
-    model_card_index: IntProperty(
-        name="Model Card Index",
-        description="Index of the model card",
-        default=0
+    model_card_id: StringProperty(
+        name="Model Card ID",
+        description="ID of the model card",
+        default=""
     )
     
     def execute(self, context):
         # Get the model card
-        model_card = context.scene.speckle_state.model_cards[self.model_card_index]
+        model_card = context.scene.speckle_state.get_model_card_by_id(self.model_card_id)
+        if model_card is None:
+            self.report({'ERROR'}, "Model card not found")
+            return {'CANCELLED'}
         
         # Construct collection name
         collection_name = f"{model_card.model_name} - {model_card.version_id[:8]}"

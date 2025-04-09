@@ -44,11 +44,11 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
         # Group model cards by project name
         project_groups = {}
-        for model_card_index, model_card in enumerate(context.scene.speckle_state.model_cards):
+        for model_card in context.scene.speckle_state.model_cards:
             project_name = model_card.project_name if model_card.project_name else "No Project"
             if project_name not in project_groups:
                 project_groups[project_name] = []
-            project_groups[project_name].append((model_card_index, model_card))
+            project_groups[project_name].append(model_card)
         
         # Render model cards grouped by project
         for project_name, model_cards in project_groups.items():
@@ -58,7 +58,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             project_row.label(text=f"Project: {project_name}", icon='TRIA_RIGHT')
             
             # Render model cards for this project
-            for model_card_index, model_card in model_cards:
+            for model_card in model_cards:
                 box: UILayout = project_box.box()
                 row: UILayout = box.row()
                 icon: str = 'EXPORT' if model_card.is_publish else 'IMPORT'
@@ -66,8 +66,8 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                 row.label(text=f"{model_card.model_name}")
                 # Add selection button
                 select_op = row.operator("speckle.select_objects", text="", icon='RESTRICT_SELECT_OFF')
-                select_op.model_card_index = model_card_index
-                row.operator("speckle.model_card_settings", text="", icon='PREFERENCES').model_card_index = model_card_index
+                select_op.model_card_id = model_card.get_model_card_id()
+                row.operator("speckle.model_card_settings", text="", icon='PREFERENCES').model_card_id = model_card.get_model_card_id()
                 row: UILayout = box.row()
                 # Display selection summary or version ID
                 if model_card.is_publish:
