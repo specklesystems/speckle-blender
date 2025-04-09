@@ -104,4 +104,4 @@ class SPECKLE_OT_delete_model_card(bpy.types.Operator):
     
     def invoke(self, context: Context, event: Event) -> Set[str]:
         # Show a confirmation dialog
-        return context.window_manager.invoke_confirm(self, event)
+        return self.execute(context)
