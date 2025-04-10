@@ -35,10 +35,40 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
         # Add some space
         layout.separator()
 
-        # Publish and Load buttons
-        row: UILayout = layout.row()
-        # row.operator("speckle.publish", text="Publish", icon='EXPORT')
-        row.operator("speckle.load", text="Load", icon='IMPORT')
+        # Window Manager stuff
+        wm = context.window_manager
+        project_selected = bool(getattr(wm, 'selected_project_name', None))
+        model_selected = bool(getattr(wm, 'selected_model_name', None))
+        version_selected = bool(getattr(wm, 'selected_version_id', None))
+
+        # Select Project button
+        row = layout.row()
+        project_name = getattr(wm, "selected_project_name", "")
+        project_button_text = project_name if project_selected else "Select Project"
+        project_button_icon = "CHECKMARK" if project_selected else "PLUS"
+        row.operator("speckle.project_selection_dialog", text=project_button_text, icon=project_button_icon)
+        # Select Model button
+
+        row = layout.row()
+        model_name = getattr(wm, "selected_model_name", "")
+        model_button_text = model_name if model_selected else "Select Model"
+        model_button_icon = "CHECKMARK" if model_selected else "PLUS"
+        row.enabled = project_selected
+        row.operator("speckle.model_selection_dialog", text=model_button_text, icon=model_button_icon)
+        
+
+        # Select Version button
+        row = layout.row()
+        version_id = getattr(wm, "selected_version_id", "")
+        version_button_text = version_id if version_selected else "Select Version"
+        version_button_icon = "CHECKMARK" if version_selected else "PLUS"
+        row.enabled = project_selected and model_selected
+        row.operator("speckle.version_selection_dialog", text=version_button_text, icon=version_button_icon)
+
+        # Load button
+        row = layout.row()
+        row.enabled = project_selected and model_selected and version_selected
+        row.operator("speckle.load", text="Load Model", icon="IMPORT")
 
         layout.separator()
 
