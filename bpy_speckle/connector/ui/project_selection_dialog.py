@@ -123,7 +123,17 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         wm = context.window_manager
         if 0 <= self.project_index < len(wm.speckle_projects):
             selected_project = wm.speckle_projects[self.project_index]
-            bpy.ops.speckle.model_selection_dialog("INVOKE_DEFAULT", project_name=selected_project.name, project_id=selected_project.id)
+            #  Ensure selected_project_id and selected_project_name exists in Window Manager
+            if not hasattr(WindowManager, "selected_project_id"):
+                WindowManager.selected_project_id = bpy.props.StringProperty(name = "Selected Project ID")
+            if not hasattr(WindowManager, "selected_project_name"):
+                WindowManager.selected_project_name = bpy.props.StringProperty(name = "Selected Project Name")
+            
+            # Store these values in wm
+            wm.selected_project_id = selected_project.id
+            wm.selected_project_name = selected_project.name
+
+            print(f"Selected project: {selected_project.name} ({selected_project.id})")
         return {'FINISHED'}
     
     def invoke(self, context: Context, event: Event) -> set[str]:
