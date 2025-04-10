@@ -7,8 +7,6 @@ import bpy
 from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
 from .mouse_position_mixin import MousePositionMixin
 from ..utils.version_manager import get_versions_for_model, get_latest_version
-from ..utils.account_manager import get_server_url_by_account_id
-from ..operations.load_operation import load_operation
 
 
 class speckle_version(bpy.types.PropertyGroup):
@@ -153,32 +151,42 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
-        model_card = context.scene.speckle_state.model_cards.add()
-        model_card.server_url = get_server_url_by_account_id(
-            account_id=wm.selected_account_id
-        )
-        model_card.project_name = self.project_name
-        model_card.project_id = self.project_id
-        model_card.model_id = self.model_id
-        model_card.model_name = self.model_name
-        model_card.is_publish = False
-        model_card.load_option = self.load_option
+
+        if not hasattr(WindowManager, "selected_version_id"):
+            WindowManager.selected_version_id = bpy.props.StringProperty(name = "Selected Version ID")
+        
+        if not hasattr(WindowManager, "selected_version_load_option"):
+            WindowManager.selected_version_load_option = bpy.props.StringProperty(name = "Selected Version Load Option")
+        
+        version_id_to_store = ""
+
         # Store the selected version ID
         if self.load_option == "LATEST":
-            version_id, _, _ = get_latest_version(
-                account_id=context.window_manager.selected_account_id,
+            latest_version = get_latest_version(
+                account_id = wm.selected_account_id,
                 project_id=self.project_id,
                 model_id=self.model_id,
             )
-            model_card.version_id = version_id
-        else:  # SPECIFIC
-            selected_version = context.window_manager.speckle_versions[
-                self.version_index
-            ]
-            model_card.version_id = selected_version.id
+            if latest_version:
+                version_id_to_store = latest_version[0]
+            else:
+                print(f"Could not fetch latest version for model {self.model_id}")
+                return {'CANCELLED'}
 
-        # Call the load process class method
-        load_operation(context=context, model_card=model_card)
+        elif self.load_option == "SPECIFIC":
+            if 0 <= self.version_index < len(wm.speckle_versions):
+                selected_version = wm.speckle_versions[self.version_index]
+                version_id_to_store = selected_version.id
+            else:
+                # Handle case where index is out of bounds (shouldn't normally happen)
+                print(f"Invalid version index {self.version_index}")
+                return {'CANCELLED'}
+
+        # Store selected version details
+        wm.selected_version_id = version_id_to_store
+        wm.selected_version_load_option = self.load_option
+
+        print(f"Selected version: {version_id_to_store} (Option: {self.load_option})")
 
         return {"FINISHED"}
 
