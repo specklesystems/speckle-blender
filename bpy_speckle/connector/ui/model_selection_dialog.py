@@ -118,20 +118,20 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
     model_index: bpy.props.IntProperty(name="Model Index", default=0)  # type: ignore
 
     def execute(self, context: Context) -> set[str]:
-        selected_model = context.window_manager.speckle_models[self.model_index]
-        if context.scene.speckle_state.ui_mode == "PUBLISH":
-            bpy.ops.speckle.selection_filter_dialog("INVOKE_DEFAULT", 
-                project_name=self.project_name, 
-                project_id=self.project_id,
-                model_name=selected_model.name,
-                model_id=selected_model.id)
-        elif context.scene.speckle_state.ui_mode == "LOAD":
-            bpy.ops.speckle.version_selection_dialog("INVOKE_DEFAULT", 
-                project_name=self.project_name,
-                project_id=self.project_id,
-                model_name=selected_model.name,
-                model_id=selected_model.id)
-        return {'FINISHED'}
+        wm = context.window_manager
+        if 0 <= self.model_index < len(wm.speckle_models):
+            selected_model = wm.speckle_models[self.model_index]
+            # Ensure selected_model_id and selected_model_name exists in Window Manager
+            if not hasattr(WindowManager, "selected_model_id"):
+                WindowManager.selected_model_id = bpy.props.StringProperty(name = "Selected Model ID")
+            if not hasattr(WindowManager, "selected_model_name"):
+                WindowManager.selected_model_name = bpy.props.StringProperty(name = "Selected Model Name")
+            
+            # Store selected model details in wm
+            wm.selected_model_id = selected_model.id
+            wm.selected_model_name = selected_model.name
+
+            print(f"Selected model: {selected_model.name} ({selected_model.id})")
 
     def invoke(self, context: Context, event: Event) -> set[str]:
         
