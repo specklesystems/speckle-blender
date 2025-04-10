@@ -13,10 +13,12 @@ from ..utils.get_ascendants import get_ascendants
 from ...converter.to_native import convert_to_native, render_material_proxy_to_native
 
 
-def load_operation(context: Context, model_card) -> None:
+def load_operation(context: Context) -> None:
     """
     load objects from Speckle and maintain hierarchy.
     """
+
+    wm = context.window_manager
 
     # get account
     # to discuss: this looks redundant, we need to cache it somehow
@@ -39,10 +41,10 @@ def load_operation(context: Context, model_card) -> None:
     client.authenticate_with_account(account)
 
     # create a transport
-    transport = ServerTransport(stream_id=model_card.project_id, client=client)
+    transport = ServerTransport(stream_id=wm.selected_project_id, client=client)
 
     # get the version
-    version = client.version.get(model_card.version_id, model_card.project_id)
+    version = client.version.get(wm.selected_version_id, wm.selected_project_id)
     obj_id = version.referenced_object
 
     # receive the data
@@ -56,7 +58,7 @@ def load_operation(context: Context, model_card) -> None:
     traversal_function = create_default_traversal_function()
 
     # create a root collection in Blender to hold all imported objects
-    root_collection_name = f"{model_card.model_name} - {model_card.version_id[:8]}"
+    root_collection_name = f"{wm.selected_model_name} - {wm.selected_version_id[:8]}"
     root_collection = bpy.data.collections.new(root_collection_name)
     context.scene.collection.children.link(root_collection)
 
