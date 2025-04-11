@@ -13,8 +13,6 @@ class SPECKLE_OT_load(bpy.types.Operator):
         return self.execute(context)
 
     def execute(self, context: Context) -> Set[str]:
-        # Sets the UI mode to LOAD
-        context.scene.speckle_state.ui_mode = "LOAD"
         # Load selected model version
         load_operation(context)
 
