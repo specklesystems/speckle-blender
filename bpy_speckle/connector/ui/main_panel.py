@@ -47,8 +47,8 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
         project_button_text = project_name if project_selected else "Select Project"
         project_button_icon = "CHECKMARK" if project_selected else "PLUS"
         row.operator("speckle.project_selection_dialog", text=project_button_text, icon=project_button_icon)
+        
         # Select Model button
-
         row = layout.row()
         model_name = getattr(wm, "selected_model_name", "")
         model_button_text = model_name if model_selected else "Select Model"

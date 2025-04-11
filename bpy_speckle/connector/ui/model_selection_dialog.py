@@ -7,6 +7,7 @@ from Speckle projects within Blender.
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event, WindowManager
 from ..utils.model_manager import get_models_for_project
+from ..utils.version_manager import get_latest_version
 
 class speckle_model(bpy.types.PropertyGroup):
     """PropertyGroup for storing model information.
@@ -104,6 +105,15 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
             wm.selected_model_id = selected_model.id
             wm.selected_model_name = selected_model.name
 
+            latest_version = get_latest_version(
+                account_id = wm.selected_account_id,
+                project_id=wm.selected_project_id,
+                model_id=wm.selected_model_id,
+            )
+            if latest_version:
+                wm.selected_version_load_option = "LATEST"
+                wm.selected_version_id = latest_version[0]
+
             print(f"Selected model: {selected_model.name} ({selected_model.id})")
         return {'FINISHED'}
 
@@ -117,6 +127,14 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
             WindowManager.selected_model_id = bpy.props.StringProperty(name = "Selected Model ID")
         if not hasattr(WindowManager, "selected_model_name"):
             WindowManager.selected_model_name = bpy.props.StringProperty(name = "Selected Model Name")
+        
+        # Ensure selected_version_id and selected_version_load_option exists in Window Manager
+        # Loading Latest version will be the default behaviour
+        if not hasattr(WindowManager, "selected_version_id"):
+            WindowManager.selected_version_id = bpy.props.StringProperty(name = "Selected Version ID")
+        
+        if not hasattr(WindowManager, "selected_version_load_option"):
+            WindowManager.selected_version_load_option = bpy.props.StringProperty(name = "Selected Version Load Option")
             
         # Update models list
         self.update_models_list(context)
