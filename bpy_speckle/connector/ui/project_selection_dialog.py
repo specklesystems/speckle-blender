@@ -122,12 +122,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
         if 0 <= self.project_index < len(wm.speckle_projects):
-            selected_project = wm.speckle_projects[self.project_index]
-            #  Ensure selected_project_id and selected_project_name exists in Window Manager
-            if not hasattr(WindowManager, "selected_project_id"):
-                WindowManager.selected_project_id = bpy.props.StringProperty(name = "Selected Project ID")
-            if not hasattr(WindowManager, "selected_project_name"):
-                WindowManager.selected_project_name = bpy.props.StringProperty(name = "Selected Project Name")
+            selected_project = wm.speckle_projects[self.project_index]           
             
             # Store these values in wm
             wm.selected_project_id = selected_project.id
@@ -144,15 +139,22 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             # Register the collection property
             WindowManager.speckle_projects = bpy.props.CollectionProperty(type=speckle_project)
         
-        # Clear existing projects
-        wm.speckle_projects.clear()
+        #  Ensure selected_project_id and selected_project_name exists in Window Manager
+        if not hasattr(WindowManager, "selected_project_id"):
+            WindowManager.selected_project_id = bpy.props.StringProperty(name = "Selected Project ID")
+        if not hasattr(WindowManager, "selected_project_name"):
+            WindowManager.selected_project_name = bpy.props.StringProperty(name = "Selected Project Name")
         
-        # Get the selected account
-        selected_account_id = self.accounts
-
+        # Ensure selected_account_id exists in Window Manager
         if not hasattr(WindowManager, "selected_account_id"):
             # Register the collection property
             WindowManager.selected_account_id = bpy.props.StringProperty()
+        
+        # Clear existing projects
+        wm.speckle_projects.clear()
+        
+        # Set the selected account
+        selected_account_id = self.accounts
         wm.selected_account_id = selected_account_id
         
         # Fetch projects from server
