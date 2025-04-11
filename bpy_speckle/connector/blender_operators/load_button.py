@@ -2,6 +2,7 @@ import bpy
 from typing import Set
 from bpy.types import Context
 from ..operations.load_operation import load_operation
+from ..utils.account_manager import get_server_url_by_account_id
 
 
 class SPECKLE_OT_load(bpy.types.Operator):
@@ -26,5 +27,13 @@ class SPECKLE_OT_load(bpy.types.Operator):
 
         # Load selected model version
         load_operation(context)
+
+        # Clear selected model details from Window Manager
+        wm.selected_project_id = ""
+        wm.selected_project_name = ""
+        wm.selected_model_id = ""
+        wm.selected_model_name = ""
+        wm.selected_version_load_option = ""
+        wm.selected_version_id = ""
 
         return {"FINISHED"}
