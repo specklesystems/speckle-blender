@@ -84,7 +84,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         
         # Get models for the selected project, using search if provided
         search = self.search_query if self.search_query.strip() else None
-        models = get_models_for_project(wm.selected_account_id, self.project_id, search=search)
+        models = get_models_for_project(wm.selected_account_id, wm.selected_project_id, search=search)
         
         # Populate models list
         for name, id, updated in models:
@@ -131,6 +131,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
             wm.selected_model_name = selected_model.name
 
             print(f"Selected model: {selected_model.name} ({selected_model.id})")
+        return {'FINISHED'}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
         
@@ -146,7 +147,8 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
     
     def draw(self, context: Context) -> None:
         layout : UILayout = self.layout
-        layout.label(text=f"Project: {self.project_name}")
+        wm = context.window_manager
+        layout.label(text=f"Project: {wm.selected_project_name}")
         
         # Search field
         row = layout.row(align=True)
