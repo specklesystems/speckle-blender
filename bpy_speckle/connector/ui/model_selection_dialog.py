@@ -62,21 +62,12 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
 
     This operator manages the UI and functionality for selecting Speckle models,
     including search capabilities and model list display.
-
-    Attributes:
-        search_query: The current search string for filtering models.
-        project_name: The name of the currently selected project.
-        project_id: The ID of the currently selected project.
-        model_index: The index of the currently selected model.
     """
     bl_idname = "speckle.model_selection_dialog"
     bl_label = "Select Model"
 
     def update_models_list(self, context: Context) -> None:
         """Updates the list of models based on the current project and search query.
-
-        Args:
-            context: The current Blender context.
         """
         wm = context.window_manager
         # Clear existing models
@@ -102,29 +93,12 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         update=update_models_list
     )
 
-    project_name: bpy.props.StringProperty(  # type: ignore
-        name="Project Name",
-        description="The name of the project to select",
-        default=""
-    )
-
-    project_id: bpy.props.StringProperty(  # type: ignore
-        name="Project ID",
-        description="The ID of the project to select",
-        default=""
-    )
-
     model_index: bpy.props.IntProperty(name="Model Index", default=0)  # type: ignore
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
         if 0 <= self.model_index < len(wm.speckle_models):
             selected_model = wm.speckle_models[self.model_index]
-            # Ensure selected_model_id and selected_model_name exists in Window Manager
-            if not hasattr(WindowManager, "selected_model_id"):
-                WindowManager.selected_model_id = bpy.props.StringProperty(name = "Selected Model ID")
-            if not hasattr(WindowManager, "selected_model_name"):
-                WindowManager.selected_model_name = bpy.props.StringProperty(name = "Selected Model Name")
             
             # Store selected model details in wm
             wm.selected_model_id = selected_model.id
@@ -135,11 +109,15 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
 
     def invoke(self, context: Context, event: Event) -> set[str]:
         
-        # Ensure WindowManager has the projects collection
+        # Ensure WindowManager has the models collection
         if not hasattr(WindowManager, "speckle_models"):
-            # Register the collection property
             WindowManager.speckle_models = bpy.props.CollectionProperty(type=speckle_model)
-
+        # Ensure selected_model_id and selected_model_name exists in Window Manager
+        if not hasattr(WindowManager, "selected_model_id"):
+            WindowManager.selected_model_id = bpy.props.StringProperty(name = "Selected Model ID")
+        if not hasattr(WindowManager, "selected_model_name"):
+            WindowManager.selected_model_name = bpy.props.StringProperty(name = "Selected Model Name")
+            
         # Update models list
         self.update_models_list(context)
 
