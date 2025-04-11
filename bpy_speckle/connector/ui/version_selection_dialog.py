@@ -93,29 +93,17 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
         name="Search", description="Search a project", default=""
     )
 
-    project_name: bpy.props.StringProperty(  # type: ignore
-        name="Project Name", description="Name of the selected project", default=""
-    )
-
-    model_name: bpy.props.StringProperty(  # type: ignore
-        name="Model Name", description="Name of the selected model", default=""
-    )
-
-    project_id: bpy.props.StringProperty(  # type: ignore
-        name="Project ID", description="ID of the selected project", default=""
-    )
-
-    model_id: bpy.props.StringProperty(  # type: ignore
-        name="Model ID", description="ID of the selected model", default=""
-    )
-
     version_index: bpy.props.IntProperty(name="Model Index", default=0)  # type: ignore
 
     load_option: bpy.props.EnumProperty(  # type: ignore
         name="Load Option",
         description="Choose how to load the version",
         items=[
-            ("LATEST", "Load latest version", "Load the latest version available"),
+            (
+                "LATEST", 
+                "Load latest version", 
+                "Load the latest version available"
+            ),
             (
                 "SPECIFIC",
                 "Load a specific version",
@@ -134,8 +122,8 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
         search = self.search_query if self.search_query.strip() else None
         versions = get_versions_for_model(
             account_id=wm.selected_account_id,
-            project_id=self.project_id,
-            model_id=self.model_id,
+            project_id=wm.selected_project_id,
+            model_id=wm.selected_model_id,
             search=search,
         )
 
@@ -150,12 +138,6 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
-
-        if not hasattr(WindowManager, "selected_version_id"):
-            WindowManager.selected_version_id = bpy.props.StringProperty(name = "Selected Version ID")
-        
-        if not hasattr(WindowManager, "selected_version_load_option"):
-            WindowManager.selected_version_load_option = bpy.props.StringProperty(name = "Selected Version Load Option")
         
         version_id_to_store = ""
 
@@ -163,13 +145,13 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
         if self.load_option == "LATEST":
             latest_version = get_latest_version(
                 account_id = wm.selected_account_id,
-                project_id=self.project_id,
-                model_id=self.model_id,
+                project_id=wm.selected_project_id,
+                model_id=wm.selected_model_id,
             )
             if latest_version:
                 version_id_to_store = latest_version[0]
             else:
-                print(f"Could not fetch latest version for model {self.model_id}")
+                print(f"Could not fetch latest version for model {wm.selected_model_id}")
                 return {'CANCELLED'}
 
         elif self.load_option == "SPECIFIC":
@@ -196,6 +178,12 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             WindowManager.speckle_versions = bpy.props.CollectionProperty(
                 type=speckle_version
             )
+        # Ensure selected_version_id and selected_version_load_option exists in Window Manager
+        if not hasattr(WindowManager, "selected_version_id"):
+            WindowManager.selected_version_id = bpy.props.StringProperty(name = "Selected Version ID")
+        
+        if not hasattr(WindowManager, "selected_version_load_option"):
+            WindowManager.selected_version_load_option = bpy.props.StringProperty(name = "Selected Version Load Option")
 
         # Update versions list
         self.update_versions_list(context)
@@ -204,8 +192,9 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
-        layout.label(text=f"Project: {self.project_name}")
-        layout.label(text=f"Model: {self.model_name}")
+        wm = context.window_manager
+        layout.label(text=f"Project: {wm.selected_project_name}")
+        layout.label(text=f"Model: {wm.selected_model_name}")
 
         # Radio buttons for load options
         layout.prop(self, "load_option", expand=True)
