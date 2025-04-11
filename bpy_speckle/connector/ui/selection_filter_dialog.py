@@ -6,11 +6,10 @@ Blender objects for publishing to Speckle.
 
 import bpy
 from typing import List
-from .mouse_position_mixin import MousePositionMixin
 from bpy.types import Operator, Context, Object
 from bpy.props import EnumProperty, StringProperty
 
-class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
+class SPECKLE_OT_selection_filter_dialog(Operator):
     """Operator for handling object selection and filtering.
 
     This operator manages the UI and functionality for selecting and filtering
@@ -85,8 +84,6 @@ class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
         return {'FINISHED'}
 
     def invoke(self, context: Context, event: bpy.types.Event) -> set:
-        # Initialize mouse position
-        self.init_mouse_position(context, event)
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context: Context):
@@ -124,9 +121,6 @@ class SPECKLE_OT_selection_filter_dialog(MousePositionMixin, Operator):
             row.label(text=str(count))
 
         layout.separator()
-
-        # Restore mouse position
-        self.restore_mouse_position(context)
     def get_icon_for_type(self, obj_type: str) -> str:
         icon_map: dict[str, str] = {
             'MESH': 'OUTLINER_OB_MESH',

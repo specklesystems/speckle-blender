@@ -6,7 +6,6 @@ from Speckle projects within Blender.
 
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event, WindowManager
-from .mouse_position_mixin import MousePositionMixin
 from ..utils.model_manager import get_models_for_project
 
 class speckle_model(bpy.types.PropertyGroup):
@@ -58,7 +57,7 @@ class SPECKLE_UL_models_list(bpy.types.UIList):
             layout.alignment = 'CENTER'
             layout.label(text=item.name)
 
-class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
+class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
     """Operator for displaying and handling the model selection dialog.
 
     This operator manages the UI and functionality for selecting Speckle models,
@@ -143,9 +142,6 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
         # Update models list
         self.update_models_list(context)
 
-        # Store the original mouse position
-        self.init_mouse_position(context, event)
-
         return context.window_manager.invoke_props_dialog(self)
     
     def draw(self, context: Context) -> None:
@@ -160,9 +156,6 @@ class SPECKLE_OT_model_selection_dialog(MousePositionMixin, bpy.types.Operator):
         layout.template_list("SPECKLE_UL_models_list", "", context.window_manager, "speckle_models", self, "model_index")
 
         layout.separator()
-
-        # Move cursor to original position
-        self.restore_mouse_position(context)
 
 def register() -> None:
     bpy.utils.register_class(speckle_model)

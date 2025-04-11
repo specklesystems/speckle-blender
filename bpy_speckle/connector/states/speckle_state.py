@@ -13,7 +13,6 @@ class SpeckleState(PropertyGroup):
     """
     ui_mode: StringProperty(name="UI Mode", default="NONE")  # type: ignore
     model_cards: CollectionProperty(type=speckle_model_card)  # type: ignore
-    mouse_position: IntVectorProperty(size=2)  # type: ignore
 
     def get_model_card_by_id(self, model_card_id: str) -> Optional[speckle_model_card]:
         """Find a model card by its ID.

@@ -5,7 +5,6 @@ Provides the UI components and functionality for selecting versions.
 
 import bpy
 from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
-from .mouse_position_mixin import MousePositionMixin
 from ..utils.version_manager import get_versions_for_model, get_latest_version
 
 
@@ -72,7 +71,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
             layout.label(text=item.id)
 
 
-class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator):
+class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
     """Operator for displaying and handling the version selection dialog.
 
     This operator manages the UI and functionality for selecting Speckle versions,
@@ -201,9 +200,6 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
         # Update versions list
         self.update_versions_list(context)
 
-        # Initialize mouse position
-        self.init_mouse_position(context, event)
-
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context: Context) -> None:
@@ -230,6 +226,3 @@ class SPECKLE_OT_version_selection_dialog(MousePositionMixin, bpy.types.Operator
             )
 
         layout.separator()
-
-        # Restore mouse position
-        self.restore_mouse_position(context)
