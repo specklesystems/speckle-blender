@@ -24,6 +24,11 @@ class speckle_model_card(bpy.types.PropertyGroup):
     version_id: bpy.props.StringProperty(name="Version ID", description="ID of the selected version", default="")  # type: ignore
     load_option: bpy.props.StringProperty(name="Version ID", description="ID of the selected version", default="")  # type: ignore
 
+    def get_model_card_id(self) -> str:
+        if not self.project_id or not self.model_id:
+            raise ValueError("Project ID and Model ID are required to generate a model card ID.")
+        return self.project_id + "-" + self.model_id
+
     def to_dict(self) -> Dict[str, Any]:
         """Converts the model card to a dictionary representation.
 
