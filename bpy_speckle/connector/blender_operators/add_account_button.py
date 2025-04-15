@@ -27,7 +27,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
     def execute(self, context: Context) -> set[str]:
         # Logic to handle sign in
         api_url = "http://localhost:29364"
-        url = f"{api_url}/auth/add-account?server_Url={self.server_url}"
+        url = f"{api_url}/auth/add-account?serverUrl={self.server_url}"
         webbrowser.open(url)
         self.report({'INFO'}, f"Adding account from {self.server_url}: {url}")
             
