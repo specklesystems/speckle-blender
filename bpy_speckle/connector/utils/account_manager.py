@@ -34,7 +34,7 @@ def get_default_account_id() -> Optional[str]:
     Returns:
         Optional[str]: The ID of the default account if one exists, None otherwise.
     """
-    return next((acc.id for acc in get_local_accounts() if acc.isDefault), None)
+    return next((acc.id for acc in get_local_accounts() if acc.isDefault), "NO_ACCOUNTS")
 
 
 def get_server_url_by_account_id(account_id: str) -> Optional[str]:

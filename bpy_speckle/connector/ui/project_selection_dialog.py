@@ -120,7 +120,6 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         name="Account",
         description="Selected account to filter projects by",
         items=get_accounts_callback,
-        default=get_default_account_id(),
         update=update_projects_list
     )
 
@@ -144,13 +143,19 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # Clear existing projects
         wm.speckle_projects.clear()
         
-        # Get the selected account
-        selected_account_id = self.accounts
+        # Get the selected account using get_default_account_id() directly
+        selected_account_id = get_default_account_id()
 
+        # Ensure WindowManager has the selected_account_id property
         if not hasattr(WindowManager, "selected_account_id"):
-            # Register the collection property
-            WindowManager.selected_account_id = bpy.props.StringProperty()
-        wm.selected_account_id = selected_account_id
+            WindowManager.selected_account_id = bpy.props.StringProperty(
+                name="Selected Account ID",
+                description="Currently selected Speckle account ID"
+            )
+        
+        # Set the selected account ID
+        if selected_account_id:
+            wm.selected_account_id = selected_account_id
         
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str]] = get_projects_for_account(selected_account_id)
