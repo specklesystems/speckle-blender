@@ -162,7 +162,9 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         layout: UILayout = self.layout
         
         # Account selection
-        layout.prop(self, "accounts", text="")
+        row = layout.row()
+        row.prop(self, "accounts", text="")
+        row.operator("speckle.add_account", icon='ADD', text="")
         
         # Search field
         row = layout.row(align=True)
