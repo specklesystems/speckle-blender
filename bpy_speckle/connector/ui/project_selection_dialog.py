@@ -109,10 +109,17 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         update=update_projects_list
     )
 
+    def get_accounts_callback(self, context):
+        """Callback to dynamically fetch account enum items.
+        
+        This ensures the accounts list is always up-to-date when the dropdown is opened.
+        """
+        return get_account_enum_items()
+
     accounts: bpy.props.EnumProperty(  # type: ignore
         name="Account",
         description="Selected account to filter projects by",
-        items=get_account_enum_items(),
+        items=get_accounts_callback,
         default=get_default_account_id(),
         update=update_projects_list
     )

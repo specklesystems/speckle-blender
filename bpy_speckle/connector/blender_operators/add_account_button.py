@@ -30,5 +30,10 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
         url = f"{api_url}/auth/add-account?serverUrl={self.server_url}"
         webbrowser.open(url)
         self.report({'INFO'}, f"Adding account from {self.server_url}: {url}")
+        
+        # Force a redraw of all areas to refresh the UI
+        for window in context.window_manager.windows:
+            for area in window.screen.areas:
+                area.tag_redraw()
             
         return {'FINISHED'}
