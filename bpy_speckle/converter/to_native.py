@@ -1094,7 +1094,7 @@ def polycurve_to_native(
             if temp_obj:
                 bpy.data.objects.remove(temp_obj)
 
-            raise ValueError(f"Failed to convert polycurve segment: {str(e)}")
+            raise ValueError("Failed to convert polycurve segment") from e
 
         if temp_curve.users == 0:
             bpy.data.curves.remove(temp_curve)
