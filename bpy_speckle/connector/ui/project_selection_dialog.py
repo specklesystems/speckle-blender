@@ -163,8 +163,11 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         
         # Account selection
         row = layout.row()
-        row.prop(self, "accounts", text="")
-        row.operator("speckle.add_account", icon='ADD', text="")
+        if self.accounts != "NO_ACCOUNTS":
+            row.prop(self, "accounts", text="")
+        add_account_button_text = "Sign In" if self.accounts == "NO_ACCOUNTS" else ""
+        add_account_button_icon = 'WORLD' if self.accounts == "NO_ACCOUNTS" else 'ADD'
+        row.operator("speckle.add_account", icon=add_account_button_icon, text=add_account_button_text)
         
         # Search field
         row = layout.row(align=True)
