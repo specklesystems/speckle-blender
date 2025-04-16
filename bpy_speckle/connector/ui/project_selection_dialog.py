@@ -166,6 +166,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon="VIEWZOOM", text="")
+        row.operator("speckle.add_project_by_url", icon='URL', text="")
         # TODO: Add a button for adding a project by URL
         # row.operator("speckle.add_project_by_url", icon='URL', text="")
 
@@ -180,44 +181,17 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         layout.separator()
 
 
-class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
-    """
-    operator for adding a Speckle project by URL
-    """
-
-    bl_idname = "speckle.add_project_by_url"
-    bl_label = "Add Project by URL"
-    bl_description = "Add a project from a URL"
-
-    url: bpy.props.StringProperty(  # type: ignore
-        name="Project URL", description="Enter the Speckle project URL", default=""
-    )
-
-    def execute(self, context: Context) -> set[str]:
-        # TODO: Implement logic to add project using the URL
-        self.report({"INFO"}, f"Adding project from URL: {self.url}")
-        return {"FINISHED"}
-
-    def invoke(self, context: Context, event: Event) -> set[str]:
-        return context.window_manager.invoke_props_dialog(self)
-
-    def draw(self, context: Context) -> None:
-        layout: UILayout = self.layout
-        layout.prop(self, "url")
-
 
 def register() -> None:
     bpy.utils.register_class(speckle_project)
     bpy.utils.register_class(SPECKLE_UL_projects_list)
     bpy.utils.register_class(SPECKLE_OT_project_selection_dialog)
-    bpy.utils.register_class(SPECKLE_OT_add_project_by_url)
 
 
 def unregister() -> None:
     if hasattr(WindowManager, "speckle_projects"):
         del WindowManager.speckle_projects
 
-    bpy.utils.unregister_class(SPECKLE_OT_add_project_by_url)
     bpy.utils.unregister_class(SPECKLE_OT_project_selection_dialog)
     bpy.utils.unregister_class(SPECKLE_UL_projects_list)
     bpy.utils.unregister_class(speckle_project)
