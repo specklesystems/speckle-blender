@@ -115,6 +115,10 @@ class SPECKLE_OT_delete_model_card(bpy.types.Operator):
         
         # Report success
         self.report({'INFO'}, f"Model card '{model_name}' has been deleted")
+        # Close popup
+        context.window.screen = context.window.screen
+        # Force a redraw of the main panel
+        context.area.tag_redraw()
         return {'FINISHED'}
     
     def invoke(self, context: Context, event: Event) -> Set[str]:
