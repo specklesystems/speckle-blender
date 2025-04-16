@@ -4,6 +4,10 @@ from typing import List, Tuple
 from ..utils.account_manager import get_account_enum_items, get_default_account_id
 from ..utils.project_manager import get_projects_for_account
 
+def get_accounts_callback(self, context):
+    """Callback to dynamically fetch account enum items.
+    """
+    return get_account_enum_items()
 
 class speckle_project(bpy.types.PropertyGroup):
     """
