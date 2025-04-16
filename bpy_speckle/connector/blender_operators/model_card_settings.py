@@ -58,6 +58,8 @@ class SPECKLE_OT_view_in_browser(bpy.types.Operator):
         url = f"{model_card.server_url}/projects/{model_card.project_id}/models/{model_card.model_id}"
         webbrowser.open(url)
         self.report({'INFO'}, f"Viewing in the browser: {url}")
+        # Close popup
+        context.window.screen = context.window.screen
         return {'FINISHED'}
 
 # Operator for viewing the model versions in the browser
@@ -83,6 +85,8 @@ class SPECKLE_OT_view_model_versions(bpy.types.Operator):
         webbrowser.open(url)
 
         self.report({'INFO'}, "Viewing model's versions in the browser")
+        # Close popup
+        context.window.screen = context.window.screen
         return {'FINISHED'}
 
 # Operator for deleting a model card
