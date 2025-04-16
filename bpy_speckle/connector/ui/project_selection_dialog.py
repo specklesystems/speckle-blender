@@ -10,6 +10,11 @@ from typing import List, Tuple
 from ..utils.account_manager import get_account_enum_items, get_default_account_id
 from ..utils.project_manager import get_projects_for_account
 
+def get_accounts_callback(self, context):
+        """Callback to dynamically fetch account enum items.
+        """
+        return get_account_enum_items()
+
 class speckle_project(bpy.types.PropertyGroup):
     """PropertyGroup for storing project information.
 
@@ -112,11 +117,10 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     accounts: bpy.props.EnumProperty(  # type: ignore
         name="Account",
         description="Selected account to filter projects by",
-        items=get_account_enum_items(),
-        default=get_default_account_id(),
+        items=get_accounts_callback,
         update=update_projects_list
     )
-
+    
     project_index: bpy.props.IntProperty(name="Project Index", default=0)  # type: ignore
     
     def execute(self, context: Context) -> set[str]:
@@ -137,13 +141,19 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # Clear existing projects
         wm.speckle_projects.clear()
         
-        # Get the selected account
-        selected_account_id = self.accounts
+        # Get the selected account using get_default_account_id() directly
+        selected_account_id = get_default_account_id()
 
+        # Ensure WindowManager has the selected_account_id property
         if not hasattr(WindowManager, "selected_account_id"):
-            # Register the collection property
-            WindowManager.selected_account_id = bpy.props.StringProperty()
-        wm.selected_account_id = selected_account_id
+            WindowManager.selected_account_id = bpy.props.StringProperty(
+                name="Selected Account ID",
+                description="Currently selected Speckle account ID"
+            )
+        
+        # Set the selected account ID
+        if selected_account_id:
+            wm.selected_account_id = selected_account_id
         
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str]] = get_projects_for_account(selected_account_id)
@@ -160,9 +170,15 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
+        wm = context.window_manager
         
         # Account selection
-        layout.prop(self, "accounts", text="")
+        row = layout.row()
+        if wm.selected_account_id != "NO_ACCOUNTS":
+            row.prop(self, "accounts", text="")
+        add_account_button_text = "Sign In" if wm.selected_account_id == "NO_ACCOUNTS" else ""
+        add_account_button_icon = 'WORLD' if wm.selected_account_id == "NO_ACCOUNTS" else 'ADD'
+        row.operator("speckle.add_account", icon=add_account_button_icon, text=add_account_button_text)
         
         # Search field
         row = layout.row(align=True)
