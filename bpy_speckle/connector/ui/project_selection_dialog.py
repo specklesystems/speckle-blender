@@ -93,11 +93,10 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     accounts: bpy.props.EnumProperty(  # type: ignore
         name="Account",
         description="Selected account to filter projects by",
-        items=get_account_enum_items(),
-        default=get_default_account_id(),
-        update=update_projects_list,
+        items=get_accounts_callback,
+        update=update_projects_list
     )
-
+    
     project_index: bpy.props.IntProperty(name="Project Index", default=0)  # type: ignore
 
     def execute(self, context: Context) -> set[str]:
@@ -154,9 +153,17 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
-
-        layout.prop(self, "accounts", text="")
-
+        wm = context.window_manager
+        
+        # Account selection
+        row = layout.row()
+        if wm.selected_account_id != "NO_ACCOUNTS":
+            row.prop(self, "accounts", text="")
+        add_account_button_text = "Sign In" if wm.selected_account_id == "NO_ACCOUNTS" else ""
+        add_account_button_icon = 'WORLD' if wm.selected_account_id == "NO_ACCOUNTS" else 'ADD'
+        row.operator("speckle.add_account", icon=add_account_button_icon, text=add_account_button_text)
+        
+        # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon="VIEWZOOM", text="")
         # TODO: Add a button for adding a project by URL
