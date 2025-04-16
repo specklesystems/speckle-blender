@@ -3,7 +3,7 @@ from bpy.types import Context
 from bpy.types import Event
 from typing import Set
 
-# Publish Operator
+
 class SPECKLE_OT_publish(bpy.types.Operator):
     bl_idname = "speckle.publish"
 
@@ -14,8 +14,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         return self.execute(context)
 
     def execute(self, context: Context) -> Set[str]:
-        # Sets UI mode to PUBLISH
         context.scene.speckle_state.ui_mode = "PUBLISH"
-        # Opens project selection dialog
+
         bpy.ops.speckle.project_selection_dialog("INVOKE_DEFAULT")
-        return {'FINISHED'}
+        return {"FINISHED"}

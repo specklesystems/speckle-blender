@@ -28,7 +28,6 @@ def create_material_from_proxy(
     """
     creates a Blender material from a Speckle RenderMaterial
     """
-    # check if material already exists with this name
     if material_name in bpy.data.materials:
         return bpy.data.materials[material_name]
 
@@ -38,18 +37,14 @@ def create_material_from_proxy(
     node_tree = material.node_tree
     nodes = node_tree.nodes
 
-    # clear all nodes
     for node in nodes:
         nodes.remove(node)
 
-    # create basic Principled BSDF and output nodes
     bsdf = nodes.new(type="ShaderNodeBsdfPrincipled")
     output = nodes.new(type="ShaderNodeOutputMaterial")
 
-    # link shader to output
     node_tree.links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
 
-    # set material properties
     if hasattr(render_material, "diffuse"):
         diffuse_rgba = to_rgba(render_material.diffuse)
         bsdf.inputs["Base Color"].default_value = (
