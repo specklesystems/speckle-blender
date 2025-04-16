@@ -34,7 +34,7 @@ class SPECKLE_OT_model_card_settings(bpy.types.Operator):
 
     def invoke(self, context: Context, event: Event) -> Set[str]:
         wm = context.window_manager
-        return wm.invoke_props_dialog(self)
+        return wm.invoke_popup(self)
 
 # Operator for viewing the model in the browser
 class SPECKLE_OT_view_in_browser(bpy.types.Operator):
