@@ -1,5 +1,9 @@
 import bpy
-from bpy.types import Context, Event, UILayout
+from bpy.types import Context, Event, UILayout, WindowManager
+from specklepy.api.wrapper import StreamWrapper
+from typing import Tuple
+
+from ...connector.utils.version_manager import get_latest_version
 
 class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
     """
@@ -17,6 +21,32 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
     def execute(self, context: Context) -> set[str]:
         # TODO: Implement logic to add project using the URL
         self.report({"INFO"}, f"Adding project from URL: {self.url}")
+
+        wm = context.window_manager
+
+        wrapper = StreamWrapper(self.url)
+        # Get model details from the wrapper
+        account_id, project_id, project_name, model_id, model_name, version_id, load_option = get_model_details_by_wrapper(wrapper)
+
+        wm.selected_account_id = account_id
+
+        if project_id:
+            wm.selected_project_id = project_id
+            wm.selected_project_name = project_name
+            if model_id:
+                wm.selected_model_id = model_id
+                wm.selected_model_name = model_name
+                if version_id:
+                    wm.selected_version_id = version_id
+                    wm.selected_version_name = version_id
+        
+        if load_option == "LATEST":
+            # something funny going on here
+            wm.selected_version_id = get_latest_version(account_id, project_id, model_id)[0]
+        wm.selected_version_load_option = load_option
+            
+        context.window.screen = context.window.screen
+        context.area.tag_redraw()
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
