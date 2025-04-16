@@ -115,6 +115,8 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
                 wm.selected_version_id = latest_version[0]
 
             print(f"Selected model: {selected_model.name} ({selected_model.id})")
+            # Force refresh the main panel
+            context.area.tag_redraw()
         return {'FINISHED'}
 
     def invoke(self, context: Context, event: Event) -> set[str]:

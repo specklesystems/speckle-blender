@@ -129,6 +129,8 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             wm.selected_project_name = selected_project.name
 
             print(f"Selected project: {selected_project.name} ({selected_project.id})")
+            # Force redraw of the main panel
+            context.area.tag_redraw()
         return {'FINISHED'}
     
     def invoke(self, context: Context, event: Event) -> set[str]:

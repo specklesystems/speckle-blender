@@ -169,6 +169,9 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
 
         print(f"Selected version: {version_id_to_store} (Option: {self.load_option})")
 
+        # Force refresh the main panel
+        context.area.tag_redraw()
+
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
