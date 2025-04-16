@@ -10,6 +10,11 @@ from typing import List, Tuple
 from ..utils.account_manager import get_account_enum_items, get_default_account_id
 from ..utils.project_manager import get_projects_for_account
 
+def get_accounts_callback(self, context):
+        """Callback to dynamically fetch account enum items.
+        """
+        return get_account_enum_items()
+
 class speckle_project(bpy.types.PropertyGroup):
     """PropertyGroup for storing project information.
 
@@ -109,20 +114,13 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         update=update_projects_list
     )
 
-    def get_accounts_callback(self, context):
-        """Callback to dynamically fetch account enum items.
-        
-        This ensures the accounts list is always up-to-date when the dropdown is opened.
-        """
-        return get_account_enum_items()
-
     accounts: bpy.props.EnumProperty(  # type: ignore
         name="Account",
         description="Selected account to filter projects by",
         items=get_accounts_callback,
         update=update_projects_list
     )
-
+    
     project_index: bpy.props.IntProperty(name="Project Index", default=0)  # type: ignore
     
     def execute(self, context: Context) -> set[str]:
@@ -172,13 +170,14 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
+        wm = context.window_manager
         
         # Account selection
         row = layout.row()
-        if self.accounts != "NO_ACCOUNTS":
+        if wm.selected_account_id != "NO_ACCOUNTS":
             row.prop(self, "accounts", text="")
-        add_account_button_text = "Sign In" if self.accounts == "NO_ACCOUNTS" else ""
-        add_account_button_icon = 'WORLD' if self.accounts == "NO_ACCOUNTS" else 'ADD'
+        add_account_button_text = "Sign In" if wm.selected_account_id == "NO_ACCOUNTS" else ""
+        add_account_button_icon = 'WORLD' if wm.selected_account_id == "NO_ACCOUNTS" else 'ADD'
         row.operator("speckle.add_account", icon=add_account_button_icon, text=add_account_button_text)
         
         # Search field
