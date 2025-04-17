@@ -12,13 +12,24 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 # ruff: noqa
 import bpy
-from bpy.props import PointerProperty, CollectionProperty, StringProperty, IntProperty, IntVectorProperty
 from .connector.ui import icons
 import json
 
 # Ensure dependencies
 from .installer import ensure_dependencies
 ensure_dependencies(f"Blender {bpy.app.version[0]}.{bpy.app.version[1]}")
+
+bl_info = {
+    "name": "Speckle Blender ",
+    "author": "Speckle Systems",
+    "version": (3, 999, 999),
+    "blender": (4, 2, 0),
+    "location": "3d viewport toolbar (N), under the Speckle tab.",
+    "description": "The Speckle Connector using specklepy 3.x!",
+    "warning": "This add-on is WIP and should be used with caution",
+    "wiki_url": "https://github.com/specklesystems/speckle-blender",
+    "category": "Scene",
+}
 
 
 # UI
@@ -33,6 +44,7 @@ from .connector.blender_operators.publish_button import SPECKLE_OT_publish
 from .connector.blender_operators.load_button import SPECKLE_OT_load
 from .connector.blender_operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions, SPECKLE_OT_delete_model_card
 from .connector.blender_operators.select_objects import SPECKLE_OT_select_objects
+from .connector.blender_operators.add_account_button import SPECKLE_OT_add_account
 from .connector.blender_operators.load_latest_button import SPECKLE_OT_load_latest
 
 # States
@@ -62,6 +74,7 @@ classes = (
     SPECKLE_OT_selection_filter_dialog,
     speckle_model_card, SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions, SPECKLE_OT_delete_model_card,
     SPECKLE_OT_select_objects,
+    SPECKLE_OT_add_account,
     SPECKLE_OT_load_latest)
 
 @bpy.app.handlers.persistent
