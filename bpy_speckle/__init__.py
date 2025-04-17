@@ -12,6 +12,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 # ruff: noqa
 import bpy
+from bpy.types import WindowManager
 from .connector.ui import icons
 import json
 
@@ -49,6 +50,27 @@ from .connector.blender_operators.load_latest_button import SPECKLE_OT_load_late
 
 # States
 from .connector.states.speckle_state import register as register_speckle_state, unregister as unregister_speckle_state
+
+def invoke_window_manager_properties():
+    WindowManager.selected_account_id = bpy.props.StringProperty()
+    # Projects
+    WindowManager.speckle_projects = bpy.props.CollectionProperty(
+                type=speckle_project
+            )
+    WindowManager.selected_project_id = bpy.props.StringProperty()
+    WindowManager.selected_project_name = bpy.props.StringProperty()        
+    # Models
+    WindowManager.speckle_models = bpy.props.CollectionProperty(
+                type=speckle_model
+            )
+    WindowManager.selected_model_id = bpy.props.StringProperty()
+    WindowManager.selected_model_name = bpy.props.StringProperty()
+    # Versions
+    WindowManager.speckle_versions = bpy.props.CollectionProperty(
+            type=speckle_version
+        )
+    WindowManager.selected_version_id = bpy.props.StringProperty()
+    WindowManager.selected_version_load_option = bpy.props.StringProperty()
 
 def save_model_cards(scene):
     model_cards_data = [card.to_dict() for card in scene.speckle_state.model_cards]
