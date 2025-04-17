@@ -7,6 +7,9 @@ class speckle_model_card(bpy.types.PropertyGroup):
     represents a Speckle model card in the Blender UI
     """
 
+    account_id: bpy.props.StringProperty(
+        name="Account ID", description="ID of the account", default=""
+    )  # type: ignore
     server_url: bpy.props.StringProperty(
         name="Server URL",
         description="URL of the Server",
@@ -38,6 +41,9 @@ class speckle_model_card(bpy.types.PropertyGroup):
     load_option: bpy.props.StringProperty(
         name="Version ID", description="ID of the selected version", default=""
     )  # type: ignore
+    collection_name: bpy.props.StringProperty(
+        name="Collection Name", description="Name of the collection", default=""
+    )  # type: ignore
 
     def get_model_card_id(self) -> str:
         if not self.project_id or not self.model_id:
@@ -51,6 +57,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
         converts the model card to a dictionary representation
         """
         return {
+            "account_id": self.account_id,
             "server_url": self.server_url,
             "project_name": self.project_name,
             "project_id": self.project_id,
@@ -59,6 +66,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
             "is_publish": self.is_publish,
             "selection_summary": self.selection_summary,
             "version_id": self.version_id,
+            "collection_name": self.collection_name,
         }
 
     @classmethod
@@ -67,6 +75,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
         creates a new model card instance from a dictionary
         """
         item = cls()
+        item.account_id = data["account_id"]
         item.server_url = data["server_url"]
         item.project_name = data["project_name"]
         item.project_id = data["project_id"]
@@ -75,3 +84,4 @@ class speckle_model_card(bpy.types.PropertyGroup):
         item.is_publish = data["is_publish"]
         item.selection_summary = data["selection_summary"]
         item.version_id = data["version_id"]
+        item.collection_name = data["collection_name"]
