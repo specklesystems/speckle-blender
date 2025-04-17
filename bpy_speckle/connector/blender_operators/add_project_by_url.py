@@ -84,7 +84,7 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
-        layout.prop(self, "url", text="Speckle URL")
+        layout.prop(self, "url", text="")
 
 def register() -> None:
     bpy.utils.register_class(SPECKLE_OT_add_project_by_url)
