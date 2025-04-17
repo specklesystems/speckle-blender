@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import UILayout, Context
+from bpy.types import UILayout, Context, WindowManager
 from .icons import get_icon
 
 
@@ -99,12 +99,18 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                 box: UILayout = project_box.box()
                 row: UILayout = box.row()
                 icon: str = "EXPORT" if model_card.is_publish else "IMPORT"
-                row.operator("speckle.publish", text="", icon=icon)
+                
+                # Load latest button in the model card
+                row.operator("speckle.load_latest", text="", icon=icon).model_card_id = model_card.get_model_card_id()
                 row.label(text=f"{model_card.model_name}")
+                
+                # Select button in the model card
                 select_op = row.operator(
                     "speckle.select_objects", text="", icon="RESTRICT_SELECT_OFF"
                 )
                 select_op.model_card_id = model_card.get_model_card_id()
+                
+                # Settings button in the model card
                 row.operator(
                     "speckle.model_card_settings", text="", icon="PREFERENCES"
                 ).model_card_id = model_card.get_model_card_id()
