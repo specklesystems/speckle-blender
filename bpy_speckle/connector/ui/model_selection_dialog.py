@@ -101,31 +101,6 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
-        if not hasattr(WindowManager, "speckle_models"):
-            WindowManager.speckle_models = bpy.props.CollectionProperty(
-                type=speckle_model
-            )
-
-        if not hasattr(WindowManager, "selected_model_id"):
-            WindowManager.selected_model_id = bpy.props.StringProperty(
-                name="Selected Model ID"
-            )
-        if not hasattr(WindowManager, "selected_model_name"):
-            WindowManager.selected_model_name = bpy.props.StringProperty(
-                name="Selected Model Name"
-            )
-
-        # Loading Latest version will be the default behaviour
-        if not hasattr(WindowManager, "selected_version_id"):
-            WindowManager.selected_version_id = bpy.props.StringProperty(
-                name="Selected Version ID"
-            )
-
-        if not hasattr(WindowManager, "selected_version_load_option"):
-            WindowManager.selected_version_load_option = bpy.props.StringProperty(
-                name="Selected Version Load Option"
-            )
-
         self.update_models_list(context)
 
         return context.window_manager.invoke_props_dialog(self)
@@ -157,9 +132,6 @@ def register() -> None:
 
 
 def unregister() -> None:
-    if hasattr(WindowManager, "speckle_models"):
-        del WindowManager.speckle_models
-
     bpy.utils.unregister_class(SPECKLE_OT_model_selection_dialog)
     bpy.utils.unregister_class(SPECKLE_UL_models_list)
     bpy.utils.unregister_class(speckle_model)

@@ -115,23 +115,6 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     def invoke(self, context: Context, event: Event) -> set[str]:
         wm = context.window_manager
 
-        if not hasattr(WindowManager, "speckle_projects"):
-            WindowManager.speckle_projects = bpy.props.CollectionProperty(
-                type=speckle_project
-            )
-
-        if not hasattr(WindowManager, "selected_project_id"):
-            WindowManager.selected_project_id = bpy.props.StringProperty(
-                name="Selected Project ID"
-            )
-        if not hasattr(WindowManager, "selected_project_name"):
-            WindowManager.selected_project_name = bpy.props.StringProperty(
-                name="Selected Project Name"
-            )
-
-        if not hasattr(WindowManager, "selected_account_id"):
-            WindowManager.selected_account_id = bpy.props.StringProperty()
-
         wm.speckle_projects.clear()
 
         selected_account_id = self.accounts
@@ -214,8 +197,6 @@ def register() -> None:
 
 
 def unregister() -> None:
-    if hasattr(WindowManager, "speckle_projects"):
-        del WindowManager.speckle_projects
 
     bpy.utils.unregister_class(SPECKLE_OT_add_project_by_url)
     bpy.utils.unregister_class(SPECKLE_OT_project_selection_dialog)
