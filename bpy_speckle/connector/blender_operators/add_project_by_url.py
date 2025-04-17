@@ -23,8 +23,11 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
         self.report({"INFO"}, f"Adding project from URL: {self.url}")
 
         wm = context.window_manager
-
-        wrapper = StreamWrapper(self.url)
+        try:
+            wrapper = StreamWrapper(self.url)
+        except Exception as e:
+            self.report({"ERROR"}, f"Failed to process URL: {str(e)}")
+            return {"CANCELLED"}
         # Get model details from the wrapper
         account_id, project_id, project_name, model_id, model_name, version_id, load_option = get_model_details_by_wrapper(wrapper)
 
