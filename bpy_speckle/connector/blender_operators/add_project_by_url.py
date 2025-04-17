@@ -38,13 +38,8 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
                 wm.selected_model_name = model_name
                 if version_id:
                     wm.selected_version_id = version_id
-                    wm.selected_version_name = version_id
-        
-        if load_option == "LATEST":
-            # something funny going on here
-            wm.selected_version_id = get_latest_version(account_id, project_id, model_id)[0]
-        wm.selected_version_load_option = load_option
-            
+            wm.selected_version_id = version_id
+            wm.selected_version_load_option = load_option
         context.window.screen = context.window.screen
         context.area.tag_redraw()
         return {"FINISHED"}
@@ -107,8 +102,6 @@ def get_model_details_by_wrapper(wrapper: StreamWrapper) -> Tuple[str, str, str,
         model_id = wrapper.model_id
         model = client.model.get(model_id, project_id)
         model_name = model.name
-        load_option = "LATEST"
-    if wrapper.commit_id:
-        version_id = wrapper.commit_id
-        load_option = "SPECIFIC"
+        load_option = "LATEST" if not wrapper.commit_id else "SPECIFIC"
+        version_id = wrapper.commit_id if wrapper.commit_id else client.model.get_with_versions(model_id, project_id, versions_limit = 1).id
     return (account_id, project_id, project_name, model_id, model_name, version_id, load_option)
