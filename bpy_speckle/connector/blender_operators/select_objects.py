@@ -24,7 +24,7 @@ class SPECKLE_OT_select_objects(Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
-        collection_name = f"{model_card.model_name} - {model_card.version_id[:8]}"
+        collection_name = model_card.collection_name
 
         collection = bpy.data.collections.get(collection_name)
         if not collection:
