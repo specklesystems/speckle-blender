@@ -118,6 +118,8 @@ def register():
     bpy.app.handlers.load_post.append(load_handler)
     bpy.app.handlers.save_post.append(save_handler)
 
+    invoke_window_manager_properties()
+
 def unregister():
     icons.unload_icons()
     unregister_speckle_state() # Unregister SpeckleState
