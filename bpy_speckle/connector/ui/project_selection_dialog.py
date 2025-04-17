@@ -1,7 +1,7 @@
 import bpy
-from bpy.types import UILayout, Context, PropertyGroup, Event, WindowManager
+from bpy.types import UILayout, Context, PropertyGroup, Event
 from typing import List, Tuple
-from ..utils.account_manager import get_account_enum_items, get_default_account_id
+from ..utils.account_manager import get_account_enum_items
 from ..utils.project_manager import get_projects_for_account
 
 def get_accounts_callback(self, context):

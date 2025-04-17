@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import UILayout, Context, WindowManager
+from bpy.types import UILayout, Context
 from .icons import get_icon
 
 

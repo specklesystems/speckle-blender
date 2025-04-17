@@ -1,5 +1,5 @@
 import bpy
-from typing import Set, Tuple
+from typing import Set
 from bpy.types import Context
 from ..utils.version_manager import get_latest_version
 from ..operations.load_operation import load_operation

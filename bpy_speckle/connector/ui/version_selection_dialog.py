@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
+from bpy.types import UILayout, Context, PropertyGroup, Event
 from ..utils.version_manager import get_versions_for_model, get_latest_version
 
 
