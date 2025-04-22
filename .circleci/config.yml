@@ -6,7 +6,7 @@ orbs:
 jobs:
   package-connector:
     docker:
-      - image: cimg/python:3.11.0
+      - image: cimg/python:3.11.12
     steps:
       - checkout
       - run:
@@ -30,7 +30,7 @@ jobs:
 
   build-connector-zip:
     docker:
-      - image: cimg/python:3.11.0
+      - image: cimg/python:3.11.12
     steps:
       - attach_workspace:
           at: ./
@@ -44,10 +44,10 @@ jobs:
           root: ./
           paths:
             - bpy_speckle.zip
-  
+
   get-ci-tools: # Clones our ci tools and persists them to the workspace
     docker:
-      - image: cimg/base:2021.01
+      - image: cimg/base:2025.04
     steps:
       - add_ssh_keys:
           fingerprints:
@@ -166,7 +166,7 @@ jobs:
 
   build-installer-manual:
     docker:
-      - image: cimg/base:2021.01
+      - image: cimg/base:2025.04
     parameters:
       slug:
         type: string
@@ -228,7 +228,7 @@ workflows:
           filters: &build_filters
             tags:
               only: /([0-9]+)\.([0-9]+)\.([0-9]+)(?:-\w+)?(?:\.[0-9]+)?/
-      
+
       - build-connector-zip:
           requires:
             - package-connector
