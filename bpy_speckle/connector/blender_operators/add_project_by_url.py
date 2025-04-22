@@ -99,12 +99,11 @@ def get_model_details_by_wrapper(wrapper: StreamWrapper) -> Tuple[str, str, str,
     account_id = wrapper.get_account().id
     if wrapper.stream_id:
         project_id = wrapper.stream_id
-        project = client.project.get(project_id)
-        project_name = project.name
+        project_name = client.project.get(project_id).name
     if wrapper.model_id:
         model_id = wrapper.model_id
         model = client.model.get(model_id, project_id)
         model_name = model.name
         load_option = "LATEST" if not wrapper.commit_id else "SPECIFIC"
-        version_id = wrapper.commit_id if wrapper.commit_id else client.model.get_with_versions(model_id, project_id, versions_limit = 1).id
+        version_id = wrapper.commit_id if wrapper.commit_id else client.version.get_versions(wrapper.model_id, wrapper.stream_id, limit = 1).items[0].id
     return (account_id, project_id, project_name, model_id, model_name, version_id, load_option)
