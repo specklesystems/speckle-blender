@@ -34,7 +34,7 @@ bl_info = {
 
 # UI
 from .connector.ui.main_panel import SPECKLE_PT_main_panel
-from .connector.ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url
+from .connector.ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list
 from .connector.ui.model_selection_dialog import SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list
 from .connector.ui.version_selection_dialog import SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list
 from .connector.ui.selection_filter_dialog import SPECKLE_OT_selection_filter_dialog
@@ -45,6 +45,7 @@ from .connector.blender_operators.load_button import SPECKLE_OT_load
 from .connector.blender_operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions, SPECKLE_OT_delete_model_card
 from .connector.blender_operators.select_objects import SPECKLE_OT_select_objects
 from .connector.blender_operators.add_account_button import SPECKLE_OT_add_account
+from .connector.blender_operators.add_project_by_url import SPECKLE_OT_add_project_by_url
 # States
 from .connector.states.speckle_state import register as register_speckle_state, unregister as unregister_speckle_state
 
@@ -66,13 +67,14 @@ classes = (
     SPECKLE_PT_main_panel,
     SPECKLE_OT_publish,
     SPECKLE_OT_load,
-    SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url,
+    SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list,
     SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list,
     SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list,
     SPECKLE_OT_selection_filter_dialog,
     speckle_model_card, SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions, SPECKLE_OT_delete_model_card,
     SPECKLE_OT_select_objects,
-    SPECKLE_OT_add_account)
+    SPECKLE_OT_add_account, 
+    SPECKLE_OT_add_project_by_url)
 
 @bpy.app.handlers.persistent
 def load_handler(dummy):
