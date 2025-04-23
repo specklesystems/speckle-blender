@@ -16,6 +16,7 @@ class SPECKLE_OT_load(bpy.types.Operator):
     def execute(self, context: Context) -> Set[str]:
         wm = context.window_manager
         model_card = context.scene.speckle_state.model_cards.add()
+        model_card.account_id = wm.selected_account_id
         model_card.server_url = get_server_url_by_account_id(wm.selected_account_id)
         model_card.project_id = wm.selected_project_id
         model_card.project_name = wm.selected_project_name
@@ -24,11 +25,13 @@ class SPECKLE_OT_load(bpy.types.Operator):
         model_card.is_publish = False
         model_card.load_option = wm.selected_version_load_option
         model_card.version_id = wm.selected_version_id
+        model_card.collection_name = f"{wm.selected_model_name} - {wm.selected_version_id[:8]}"
 
         # Load selected model version
         load_operation(context)
 
         # Clear selected model details from Window Manager
+        wm.selected_account_id = ""
         wm.selected_project_id = ""
         wm.selected_project_name = ""
         wm.selected_model_id = ""

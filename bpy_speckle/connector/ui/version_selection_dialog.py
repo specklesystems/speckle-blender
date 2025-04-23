@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import WindowManager, UILayout, Context, PropertyGroup, Event
+from bpy.types import UILayout, Context, PropertyGroup, Event
 from ..utils.version_manager import get_versions_for_model, get_latest_version
 
 
@@ -124,20 +124,6 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
-        if not hasattr(WindowManager, "speckle_versions"):
-            WindowManager.speckle_versions = bpy.props.CollectionProperty(
-                type=speckle_version
-            )
-        if not hasattr(WindowManager, "selected_version_id"):
-            WindowManager.selected_version_id = bpy.props.StringProperty(
-                name="Selected Version ID"
-            )
-
-        if not hasattr(WindowManager, "selected_version_load_option"):
-            WindowManager.selected_version_load_option = bpy.props.StringProperty(
-                name="Selected Version Load Option"
-            )
-
         self.update_versions_list(context)
 
         return context.window_manager.invoke_props_dialog(self)

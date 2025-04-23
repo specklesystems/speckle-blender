@@ -1,7 +1,6 @@
 import bpy
 import webbrowser
-from typing import Set
-from bpy.types import Event, Context, UILayout
+from bpy.types import Event, Context
 
 class SPECKLE_OT_add_account(bpy.types.Operator):
     """Operator for adding a new Speckle account.
