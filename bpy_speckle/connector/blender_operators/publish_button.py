@@ -14,7 +14,5 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         return self.execute(context)
 
     def execute(self, context: Context) -> Set[str]:
-        context.scene.speckle_state.ui_mode = "PUBLISH"
-
         bpy.ops.speckle.project_selection_dialog("INVOKE_DEFAULT")
         return {"FINISHED"}
