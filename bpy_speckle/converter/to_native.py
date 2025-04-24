@@ -1,6 +1,16 @@
 from typing import Any, Iterable, List, Optional, Tuple, Dict
 from specklepy.objects import Base
-from specklepy.objects.geometry import Line, Polyline, Mesh, Arc, Circle, Ellipse
+from specklepy.objects.geometry import (
+    Line,
+    Polyline,
+    Mesh,
+    Arc,
+    Circle,
+    Ellipse,
+    Curve,
+    Polycurve,
+    Point,
+)
 from specklepy.objects.models.units import (
     get_units_from_string,
     get_scale_factor_to_meters,
@@ -36,10 +46,8 @@ def get_scale_factor(speckle_object: Base, fallback: float = 1.0) -> float:
             get_units_from_string(speckle_object.units)
         )
 
-        # Adjust for Blender's unit scale setting
         blender_unit_scale = bpy.context.scene.unit_settings.scale_length
 
-        # Calculate final scale factor
         scale = unit_scale / blender_unit_scale
 
     return scale
@@ -62,7 +70,6 @@ def generate_unique_name(speckle_object: Base) -> Tuple[str, str]:
         parts = speckle_object.speckle_type.split(".")
         base_name = parts[-1]
 
-    # Get the speckle id
     speckle_id = ""
     if hasattr(speckle_object, "id") and speckle_object.id:
         speckle_id = speckle_object.id
@@ -88,12 +95,10 @@ def convert_to_native(
     # Determine scale factor based on object units
     scale = get_scale_factor(speckle_object)
 
-    # Generate names
     object_name, data_block_name = generate_unique_name(speckle_object)
 
     converted_object = None
 
-    # Initialize material mapping if not provided
     if material_mapping is None:
         material_mapping = {}
 
@@ -121,6 +126,18 @@ def convert_to_native(
     elif isinstance(speckle_object, Mesh):
         converted_object = mesh_to_native(
             speckle_object, object_name, data_block_name, scale, material_mapping
+        )
+    elif isinstance(speckle_object, Curve):
+        converted_object = curve_to_native(
+            speckle_object, object_name, data_block_name, scale
+        )
+    elif isinstance(speckle_object, Polycurve):
+        converted_object = polycurve_to_native(
+            speckle_object, object_name, data_block_name, scale
+        )
+    elif isinstance(speckle_object, Point):
+        converted_object = point_to_native(
+            speckle_object, object_name, data_block_name, scale
         )
     else:
         # Fallback to display value if direct conversion not supported
@@ -166,7 +183,6 @@ def display_value_to_native(
     )
     parent_app_id = speckle_object.applicationId if has_app_id else None
 
-    # Get mesh and children
     mesh, children = _members_to_native(
         speckle_object,
         object_name,
@@ -189,7 +205,6 @@ def display_value_to_native(
 
     # For each child object, check if it needs material from parent
     for child in children:
-        # Only apply if the child doesn't already have a material
         if parent_app_id and material_mapping and parent_app_id in material_mapping:
             if (
                 hasattr(child, "data")
@@ -272,7 +287,6 @@ def _members_to_native(
     mesh = None
 
     if meshes:
-        # Use data_block_name (the name with ID) for the mesh datablock
         mesh = meshes_to_native(
             speckle_object, meshes, data_block_name, scale, material_mapping
         )
@@ -294,19 +308,15 @@ def line_to_native(
     """
     converts a speckle line to a blender curve
     """
-    # Check if the line has valid start and end points
     if not speckle_line.start or not speckle_line.end:
         raise ValueError("Line is missing start or end point")
 
-    # Create curve data with data_block_name (the name with ID)
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
     curve.dimensions = "3D"
 
-    # Create a new spline in the curve
     spline = curve.splines.new("POLY")
     spline.points.add(1)
 
-    # Set the coordinates with scale applied
     spline.points[0].co = (
         float(speckle_line.start.x) * scale,
         float(speckle_line.start.y) * scale,
@@ -321,7 +331,6 @@ def line_to_native(
         1.0,
     )
 
-    # Create object with object_name (the simple name)
     curve_obj = bpy.data.objects.new(object_name, curve)
 
     return curve_obj
@@ -336,25 +345,20 @@ def polyline_to_native(
     """
     converts a speckle polyline to blender curve
     """
-    # Check if polyline has valid points
     if not speckle_polyline.value or len(speckle_polyline.value) < 6:
         raise ValueError("Polyline must have at least two points")
 
-    # Create curve data with data_block_name (the name with ID)
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
     curve.dimensions = "3D"
 
-    # Create a new spline in the curve
     spline = curve.splines.new("POLY")
 
-    # Get the number of points in the polyline
     num_points = len(speckle_polyline.value) // 3  # divide by 3 to get point count
 
     # Add the required number of points to the spline
     if num_points > 1:
         spline.points.add(num_points - 1)
 
-    # Set the coordinates for each point with scale applied
     for i in range(num_points):
         # Note: Blender curve points are 4D (x, y, z, w) where w is weight
         spline.points[i].co = (
@@ -364,11 +368,9 @@ def polyline_to_native(
             1.0,
         )
 
-    # Set cyclic property if the polyline is closed
     if hasattr(speckle_polyline, "closed") and speckle_polyline.closed:
         spline.use_cyclic_u = True
 
-    # Create object with object_name (the simple name)
     curve_obj = bpy.data.objects.new(object_name, curve)
 
     return curve_obj
@@ -384,21 +386,16 @@ def mesh_to_native(
     """
     converts a speckle mesh to a blender mesh with material support
     """
-    # Create mesh data with data_block_name (the name with ID)
     mesh = mesh_to_native_mesh(speckle_mesh, data_block_name, scale)
 
-    # Create object with object_name (the simple name)
     mesh_obj = bpy.data.objects.new(object_name, mesh)
 
-    # Add vertex colors if present
     if len(speckle_mesh.colors) > 0:
         add_vertex_colors(mesh, speckle_mesh.colors)
 
-    # Add texture coordinates if present
     if len(speckle_mesh.textureCoordinates) > 0:
         add_texture_coordinates(mesh, speckle_mesh.textureCoordinates)
 
-    # Apply material if available for this mesh
     if material_mapping and hasattr(speckle_mesh, "applicationId"):
         app_id = speckle_mesh.applicationId
         if app_id in material_mapping:
@@ -414,14 +411,11 @@ def mesh_to_native_mesh(
     """
     converts a single Speckle mesh to a Blender mesh object
     """
-    # Check if the mesh has valid vertices and faces
     if not speckle_mesh.vertices or not speckle_mesh.faces:
         raise ValueError("Mesh has no vertices or faces")
 
-    # Create a new mesh object with the provided name (with ID)
     blender_mesh = bpy.data.meshes.new(name)
 
-    # Prepare vertices and faces with scale applied
     vertices = []
     for i in range(0, len(speckle_mesh.vertices), 3):
         vertices.append(
@@ -474,26 +468,20 @@ def meshes_to_native(
 
         return blender_mesh
 
-    # Create a new mesh object with the provided name
     blender_mesh = bpy.data.meshes.new(name)
 
-    # Track face ranges for each mesh for material assignment
     mesh_face_ranges = []  # List of (start_face, end_face, mesh_index)
     current_face = 0
 
-    # Track materials needed
     mesh_materials = {}  # Maps mesh index to material
 
-    # Process all meshes and combine them
     all_vertices = []
     all_faces = []
     vertex_offset = 0
 
-    # First pass: collect vertices, faces, and track face ranges
     for mesh_idx, mesh in enumerate(meshes):
         start_face = current_face
 
-        # Check if this mesh has a material
         if material_mapping and hasattr(mesh, "applicationId"):
             app_id = mesh.applicationId
             if app_id in material_mapping:
@@ -523,20 +511,17 @@ def meshes_to_native(
             face_count += 1
             current_face += 1
 
-        # Update vertex offset for the next mesh
         vertex_offset += len(mesh.vertices) // 3
 
         # Store face range if this mesh has faces
         if face_count > 0:
             mesh_face_ranges.append((start_face, current_face - 1, mesh_idx))
 
-    # Create the combined mesh
     blender_mesh.from_pydata(all_vertices, [], all_faces)
     blender_mesh.update()
 
     # If we have materials, add them to the mesh
     if mesh_materials:
-        # First add all materials to the mesh
         materials_added = set()
         material_indices = {}  # Maps material name to index in the mesh
 
@@ -546,13 +531,11 @@ def meshes_to_native(
                 material_indices[material.name] = len(blender_mesh.materials) - 1
                 materials_added.add(material.name)
 
-        # Now assign materials to faces based on which mesh they came from
         for start_face, end_face, mesh_idx in mesh_face_ranges:
             if mesh_idx in mesh_materials:
                 material = mesh_materials[mesh_idx]
                 material_index = material_indices[material.name]
 
-                # Assign this material to all faces in this range
                 for face_idx in range(start_face, end_face + 1):
                     if face_idx < len(blender_mesh.polygons):
                         blender_mesh.polygons[face_idx].material_index = material_index
@@ -597,13 +580,11 @@ def add_texture_coordinates(
     if not blender_mesh.vertices or len(tex_coords) < len(blender_mesh.vertices) * 2:
         return
 
-    # Create a new UV layer
     if not blender_mesh.uv_layers:
         blender_mesh.uv_layers.new()
 
     uv_layer = blender_mesh.uv_layers.active
 
-    # Set UV coordinates for each loop
     for poly in blender_mesh.polygons:
         for loop_idx in poly.loop_indices:
             vertex_idx = blender_mesh.loops[loop_idx].vertex_index
@@ -636,14 +617,11 @@ def render_material_proxy_to_native(
         render_material = proxy.value
         material_name = getattr(render_material, "name")
 
-        # create blender material
         blender_material = create_material_from_proxy(render_material, material_name)
 
-        # map application ids to this material
         for applicationId in proxy.objects:
             assigned_objects[applicationId] = blender_material
 
-    # return the mapping
     return assigned_objects
 
 
@@ -656,7 +634,6 @@ def arc_to_native(
     import math
     import mathutils
 
-    # create curve data with data_block_name (the name with ID)
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
     curve.dimensions = "3D"
 
@@ -702,27 +679,22 @@ def arc_to_native(
         else mathutils.Vector((-chord2.z, 0, chord2.x))
     )
 
-    # normalize perpendicular vectors
     perp1.normalize()
     perp2.normalize()
 
-    # create two lines to find the center
     mid_chord1 = start_point + chord1 * 0.5
     mid_chord2 = mid_point + chord2 * 0.5
 
     # create 3D line equations from midpoints of chords and perpendicular directions
     # find intersection (arc center) using linear algebra
     try:
-        # create matrices for line intersection
         mat_a = mathutils.Matrix(((perp1.x, -perp2.x), (perp1.y, -perp2.y)))
         mat_b = mathutils.Vector(
             (mid_chord2.x - mid_chord1.x, mid_chord2.y - mid_chord1.y)
         )
 
-        # solve for parameters
         params = mat_a.inverted() @ mat_b
 
-        # calculate center
         center = mid_chord1 + perp1 * params[0]
     except:  # noqa: E722
         # fallback if the matrix is singular (lines are parallel)
@@ -735,23 +707,18 @@ def arc_to_native(
             )
         )
 
-    # calculate radius
     radius = (start_point - center).length
 
-    # create vectors from center to points
     vec_start = start_point - center
     vec_mid = mid_point - center
     vec_end = end_point - center
 
-    # calculate normal of the arc plane
     normal = vec_start.cross(vec_end)
     normal.normalize()
 
-    # determine start and end angles
     vec_start.normalize()
     vec_end.normalize()
 
-    # calculate start angle
     start_angle = math.atan2(vec_start.y, vec_start.x)
 
     # to determine direction and angle, check orientation of the three points
@@ -769,7 +736,6 @@ def arc_to_native(
     elif sweep_angle > math.pi:
         sweep_angle -= 2 * math.pi
 
-    # if the mid point is not between start and end angles in the current direction,
     # reverse the sweep
     if (sweep_angle > 0 and start_to_mid_angle < 0) or (
         sweep_angle < 0 and start_to_mid_angle > 0
@@ -779,26 +745,21 @@ def arc_to_native(
         else:
             sweep_angle = 2 * math.pi + sweep_angle
 
-    # create a NURBS curve
     spline = curve.splines.new("NURBS")
 
-    # number of points for the arc (more points = smoother arc)
     num_points = max(
         8, int(abs(sweep_angle / (math.pi / 4)) * 4)
     )  # at least 8 points, more for larger arcs
     spline.points.add(num_points - 1)  # -1 because it already has one point
 
-    # calculate points along the arc
     for i in range(num_points):
         t = i / (num_points - 1)  # normalized parameter [0, 1]
         angle = start_angle + sweep_angle * t
 
-        # calculate point on arc
         x = center.x + radius * math.cos(angle)
         y = center.y + radius * math.sin(angle)
         z = center.z
 
-        # rotate point around normal if needed
         if normal.z < 0.99:  # if arc is not in the XY plane
             # create rotation matrix
             rotation = mathutils.Matrix.Rotation(angle, 4, normal)
@@ -808,12 +769,10 @@ def arc_to_native(
 
         spline.points[i].co = (x, y, z, 1.0)  # 1.0 is the weight
 
-    # set NURBS properties
     spline.use_endpoint_u = True
     spline.order_u = 3
     spline.resolution_u = 12
 
-    # create object
     curve_obj = bpy.data.objects.new(object_name, curve)
 
     return curve_obj
@@ -828,11 +787,9 @@ def circle_to_native(
     import math
     import mathutils
 
-    # create data_block_name
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
     curve.dimensions = "3D"
 
-    # get circle properties
     center = mathutils.Vector(
         (
             float(speckle_circle.plane.origin.x) * scale,
@@ -843,7 +800,6 @@ def circle_to_native(
 
     radius = float(speckle_circle.radius) * scale
 
-    # get normal from plane
     normal = mathutils.Vector(
         (
             float(speckle_circle.plane.normal.x),
@@ -853,7 +809,6 @@ def circle_to_native(
     )
     normal.normalize()
 
-    # get the x-axis of the plane for orientation
     x_axis = mathutils.Vector(
         (
             float(speckle_circle.plane.xdir.x),
@@ -863,7 +818,6 @@ def circle_to_native(
     )
     x_axis.normalize()
 
-    # get the y-axis of the plane for orientation
     y_axis = mathutils.Vector(
         (
             float(speckle_circle.plane.ydir.x),
@@ -873,35 +827,28 @@ def circle_to_native(
     )
     y_axis.normalize()
 
-    # create a NURBS curve
     spline = curve.splines.new("NURBS")
 
     # number of points for the circle
     num_points = 16  # set it to 16 as default - looks smooth
     spline.points.add(num_points - 1)  # -1 because it already has one point
 
-    # calculate points along the circle
     for i in range(num_points):
         angle = 2 * math.pi * i / num_points
 
-        # calculate point on circle using the plane's coordinate system
         point = (
             center
             + x_axis * (radius * math.cos(angle))
             + y_axis * (radius * math.sin(angle))
         )
 
-        # set the NURBS point
         spline.points[i].co = (point.x, point.y, point.z, 1.0)  # 1.0 is the weight
 
-    # close the curve
     spline.use_cyclic_u = True
 
-    # set NURBS properties
     spline.order_u = 4
     spline.resolution_u = 12
 
-    # creat object_name
     curve_obj = bpy.data.objects.new(object_name, curve)
 
     return curve_obj
@@ -915,11 +862,9 @@ def ellipse_to_native(
     """
     import mathutils
 
-    # Create the data-block
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
     curve.dimensions = "3D"
 
-    # get ellipse properties
     center = mathutils.Vector(
         (
             float(speckle_ellipse.plane.origin.x) * scale,
@@ -931,7 +876,6 @@ def ellipse_to_native(
     radius_x = float(speckle_ellipse.firstRadius) * scale
     radius_y = float(speckle_ellipse.secondRadius) * scale
 
-    # get normal from plane
     normal = mathutils.Vector(
         (
             float(speckle_ellipse.plane.normal.x),
@@ -1004,10 +948,177 @@ def ellipse_to_native(
         center - y_axis * radius_y - x_axis * radius_x * cp_factor
     )
 
-    # close the curve
     spline.use_cyclic_u = True
 
-    # create the object
     curve_obj = bpy.data.objects.new(object_name, curve)
 
     return curve_obj
+
+
+def curve_to_native(
+    speckle_curve: Curve, object_name: str, data_block_name: str, scale: float = 1.0
+) -> Optional[Object]:
+    """
+    converts a speckle NURBS curve to a blender curve object
+    """
+
+    if not isinstance(speckle_curve, Curve):
+        raise TypeError("Expected a Speckle Curve object.")
+
+    curve = bpy.data.curves.new(data_block_name, type="CURVE")
+    curve.dimensions = "3D"
+
+    spline = curve.splines.new("NURBS")
+
+    # calculate the number of control points
+    point_count = len(speckle_curve.points) // 3
+
+    # resize spline to fit all control points
+    if point_count > 1:
+        spline.points.add(point_count - 1)
+
+    for i in range(point_count):
+        x = float(speckle_curve.points[i * 3]) * scale
+        y = float(speckle_curve.points[i * 3 + 1]) * scale
+        z = float(speckle_curve.points[i * 3 + 2]) * scale
+
+        w = 1.0
+        if hasattr(speckle_curve, "weights") and len(speckle_curve.weights) > i:
+            w = float(speckle_curve.weights[i])
+
+        spline.points[i].co = (x, y, z, w)
+
+    spline.use_endpoint_u = True
+    spline.order_u = speckle_curve.degree + 1  # blender order = degree + 1
+
+    if hasattr(speckle_curve, "rational"):
+        if speckle_curve.rational:
+            pass
+        else:
+            for i in range(point_count):
+                spline.points[i].co[3] = 1.0
+
+    if hasattr(speckle_curve, "closed") and speckle_curve.closed:
+        spline.use_cyclic_u = True
+
+    if hasattr(speckle_curve, "periodic") and speckle_curve.periodic:
+        spline.use_cyclic_u = True
+
+    curve_obj = bpy.data.objects.new(object_name, curve)
+
+    return curve_obj
+
+
+def polycurve_to_native(
+    speckle_polycurve: Polycurve,
+    object_name: str,
+    data_block_name: str,
+    scale: float = 1.0,
+) -> Optional[Object]:
+    """
+    converts a speckle polycurve to a blender curve object
+    """
+    if not hasattr(speckle_polycurve, "segments") or not speckle_polycurve.segments:
+        raise ValueError("Polycurve is missing segments")
+
+    curve = bpy.data.curves.new(data_block_name, type="CURVE")
+    curve.dimensions = "3D"
+
+    for segment in speckle_polycurve.segments:
+        segment_type = type(segment)
+
+        temp_curve = bpy.data.curves.new("temp_curve", type="CURVE")
+        temp_curve.dimensions = "3D"
+
+        # Convert the segment based on its type
+        temp_obj = None
+        try:
+            if isinstance(segment, Line):
+                temp_obj = line_to_native(segment, "temp_line", "temp_line_data", scale)
+            elif isinstance(segment, Polyline):
+                temp_obj = polyline_to_native(
+                    segment, "temp_polyline", "temp_polyline_data", scale
+                )
+            elif isinstance(segment, Arc):
+                temp_obj = arc_to_native(segment, "temp_arc", "temp_arc_data", scale)
+            elif isinstance(segment, Circle):
+                temp_obj = circle_to_native(
+                    segment, "temp_circle", "temp_circle_data", scale
+                )
+            elif isinstance(segment, Ellipse):
+                temp_obj = ellipse_to_native(
+                    segment, "temp_ellipse", "temp_ellipse_data", scale
+                )
+            elif isinstance(segment, Curve):
+                temp_obj = curve_to_native(
+                    segment, "temp_curve", "temp_curve_data", scale
+                )
+            else:
+                # If segment type is not supported, fail the entire conversion
+                bpy.data.curves.remove(temp_curve)
+                bpy.data.curves.remove(curve)
+                raise ValueError(f"Unsupported curve segment type: {segment_type}")
+
+            if temp_obj and temp_obj.data and hasattr(temp_obj.data, "splines"):
+                for src_spline in temp_obj.data.splines:
+                    dst_spline = curve.splines.new(src_spline.type)
+
+                    if src_spline.type == "BEZIER":
+                        if len(src_spline.bezier_points) > 1:
+                            dst_spline.bezier_points.add(
+                                len(src_spline.bezier_points) - 1
+                            )
+                        for i, bp in enumerate(src_spline.bezier_points):
+                            dst_spline.bezier_points[i].co = bp.co
+                            dst_spline.bezier_points[i].handle_left = bp.handle_left
+                            dst_spline.bezier_points[i].handle_right = bp.handle_right
+                    else:
+                        if len(src_spline.points) > 1:
+                            dst_spline.points.add(len(src_spline.points) - 1)
+                        for i, point in enumerate(src_spline.points):
+                            dst_spline.points[i].co = point.co
+
+                    dst_spline.use_cyclic_u = src_spline.use_cyclic_u
+                    if hasattr(src_spline, "order_u"):
+                        dst_spline.order_u = src_spline.order_u
+
+                bpy.data.objects.remove(temp_obj)
+            else:
+                raise ValueError(f"Failed to convert segment of type {segment_type}")
+
+        except Exception as e:
+            if temp_curve.users == 0:
+                bpy.data.curves.remove(temp_curve)
+            bpy.data.curves.remove(curve)
+
+            if temp_obj:
+                bpy.data.objects.remove(temp_obj)
+
+            raise ValueError("Failed to convert polycurve segment") from e
+
+        if temp_curve.users == 0:
+            bpy.data.curves.remove(temp_curve)
+
+    curve_obj = bpy.data.objects.new(object_name, curve)
+
+    return curve_obj
+
+
+def point_to_native(
+    speckle_point: Point, object_name: str, data_block_name: str, scale: float = 1.0
+) -> bpy.types.Object:
+    """
+    converts a speckle point to a blender empty object of type 'PLAIN_AXES'
+    """
+    point_obj = bpy.data.objects.new(object_name, None)
+
+    point_obj.empty_display_type = "PLAIN_AXES"
+    point_obj.empty_display_size = 0.1  # default size
+
+    point_obj.location = (
+        float(speckle_point.x) * scale,
+        float(speckle_point.y) * scale,
+        float(speckle_point.z) * scale,
+    )
+
+    return point_obj

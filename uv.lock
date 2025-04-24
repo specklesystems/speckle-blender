@@ -489,7 +489,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "specklepy", specifier = ">=3.0.0a3" }]
+requires-dist = [{ name = "specklepy", specifier = ">=3.0.0a4" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -499,7 +499,7 @@ dev = [
 
 [[package]]
 name = "specklepy"
-version = "3.0.0a3"
+version = "3.0.0a4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "appdirs" },
@@ -509,19 +509,12 @@ dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "stringcase" },
     { name = "ujson" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/43/83/e4d9bb86c3a00dbbe00db53ace96710439a5f208440898ba2fe152874d72/specklepy-3.0.0a3.tar.gz", hash = "sha256:27f8b4553e748251d09a39fa2d4f75bfedaed46bff457730e8b2b73654a041b9", size = 199614 }
+sdist = { url = "https://files.pythonhosted.org/packages/d9/40/0df270e2b0eb4a58ebfcef396261a20e2d9d89518269f770d136b1e0885b/specklepy-3.0.0a4.tar.gz", hash = "sha256:36164e90f4b018f89837d4200ca0260c13b833c6f2569cc53a4024bf0657a2d0", size = 201224 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8a/30/89e57b11b6908057c95e015fe66f024d8c60fbb50368d9fb8608e316cdf8/specklepy-3.0.0a3-py3-none-any.whl", hash = "sha256:6d342c138807b310d3b27995cde6ac955cba4c2e6735b01dee3376f9e1db874d", size = 110320 },
+    { url = "https://files.pythonhosted.org/packages/38/90/6db2f012fde0618142449801854549b4aab91cb3b821ba01d40f79160f11/specklepy-3.0.0a4-py3-none-any.whl", hash = "sha256:776ae24e1f010c8830dbb5c3c0c53707a43fb42a43cbf9fb8d5c6081f2d7b457", size = 113919 },
 ]
-
-[[package]]
-name = "stringcase"
-version = "1.2.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f3/1f/1241aa3d66e8dc1612427b17885f5fcd9c9ee3079fc0d28e9a3aeeb36fa3/stringcase-1.2.0.tar.gz", hash = "sha256:48a06980661908efe8d9d34eab2b6c13aefa2163b3ced26972902e3bdfd87008", size = 2958 }
 
 [[package]]
 name = "typing-extensions"

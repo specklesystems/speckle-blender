@@ -12,6 +12,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 # ruff: noqa
 import bpy
+from bpy.types import WindowManager
 from .connector.ui import icons
 import json
 
@@ -34,7 +35,7 @@ bl_info = {
 
 # UI
 from .connector.ui.main_panel import SPECKLE_PT_main_panel
-from .connector.ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url
+from .connector.ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list
 from .connector.ui.model_selection_dialog import SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list
 from .connector.ui.version_selection_dialog import SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list
 from .connector.ui.selection_filter_dialog import SPECKLE_OT_selection_filter_dialog
@@ -42,11 +43,34 @@ from .connector.ui.model_card import speckle_model_card
 # Operators
 from .connector.blender_operators.publish_button import SPECKLE_OT_publish
 from .connector.blender_operators.load_button import SPECKLE_OT_load
-from .connector.blender_operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions
+from .connector.blender_operators.model_card_settings import SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions, SPECKLE_OT_delete_model_card
 from .connector.blender_operators.select_objects import SPECKLE_OT_select_objects
-
+from .connector.blender_operators.add_account_button import SPECKLE_OT_add_account
+from .connector.blender_operators.load_latest_button import SPECKLE_OT_load_latest
+from .connector.blender_operators.add_project_by_url import SPECKLE_OT_add_project_by_url
 # States
 from .connector.states.speckle_state import register as register_speckle_state, unregister as unregister_speckle_state
+
+def invoke_window_manager_properties():
+    WindowManager.selected_account_id = bpy.props.StringProperty()
+    # Projects
+    WindowManager.speckle_projects = bpy.props.CollectionProperty(
+                type=speckle_project
+            )
+    WindowManager.selected_project_id = bpy.props.StringProperty()
+    WindowManager.selected_project_name = bpy.props.StringProperty()        
+    # Models
+    WindowManager.speckle_models = bpy.props.CollectionProperty(
+                type=speckle_model
+            )
+    WindowManager.selected_model_id = bpy.props.StringProperty()
+    WindowManager.selected_model_name = bpy.props.StringProperty()
+    # Versions
+    WindowManager.speckle_versions = bpy.props.CollectionProperty(
+            type=speckle_version
+        )
+    WindowManager.selected_version_id = bpy.props.StringProperty()
+    WindowManager.selected_version_load_option = bpy.props.StringProperty()
 
 def save_model_cards(scene):
     model_cards_data = [card.to_dict() for card in scene.speckle_state.model_cards]
@@ -66,12 +90,15 @@ classes = (
     SPECKLE_PT_main_panel,
     SPECKLE_OT_publish,
     SPECKLE_OT_load,
-    SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, SPECKLE_OT_add_project_by_url,
+    SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list,
     SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list,
     SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list,
     SPECKLE_OT_selection_filter_dialog,
-    speckle_model_card, SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions,
-    SPECKLE_OT_select_objects)
+    speckle_model_card, SPECKLE_OT_model_card_settings, SPECKLE_OT_view_in_browser, SPECKLE_OT_view_model_versions, SPECKLE_OT_delete_model_card,
+    SPECKLE_OT_select_objects,
+    SPECKLE_OT_add_account,
+    SPECKLE_OT_load_latest,
+    SPECKLE_OT_add_project_by_url)
 
 @bpy.app.handlers.persistent
 def load_handler(dummy):
@@ -91,6 +118,8 @@ def register():
 
     bpy.app.handlers.load_post.append(load_handler)
     bpy.app.handlers.save_post.append(save_handler)
+
+    invoke_window_manager_properties()
 
 def unregister():
     icons.unload_icons()
