@@ -1,3 +1,5 @@
+import bpy
+import os
 from datetime import datetime, timezone
 
 
@@ -45,3 +47,12 @@ def format_role(role: str) -> str:
     """
     split_role = role.split(":")
     return f"{split_role[1]}"
+
+def get_blender_filename() -> str:
+    """
+    Get the name of the current Blender file
+    """
+
+    filepath = bpy.data.filepath
+    filename = os.path.basename(filepath) if filepath else ""
+    return filename
