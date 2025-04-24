@@ -143,11 +143,11 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         if wm.selected_account_id != "NO_ACCOUNTS":
             row.prop(self, "accounts", text="")
         add_account_button_text = "Sign In" if wm.selected_account_id == "NO_ACCOUNTS" else ""
-        add_account_button_icon = 'WORLD' if wm.selected_account_id == "NO_ACCOUNTS" else 'ADD'
+        add_account_button_icon = 'WORLD' if wm.selected_account_id == "NO_ACCOUNTS" else 'PLUS'
         row.operator("speckle.add_account", icon=add_account_button_icon, text=add_account_button_text)
         
         
-        row = layout.row(align=True)
+        row = layout.row()
         # Search field
         row.prop(self, "search_query", icon="VIEWZOOM", text="")
         # Create project button
