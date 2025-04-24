@@ -59,6 +59,11 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
         )
         if wm.ui_mode == "PUBLISH":
             #TODO: implement Publish flow
+            # Selection filter
+            row = layout.row()
+            row.enabled = project_selected and model_selected
+            row.operator("speckle.selection_filter_dialog", icon="PLUS")
+            
 
             # Publish button
             row = layout.row()
