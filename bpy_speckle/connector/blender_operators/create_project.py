@@ -6,7 +6,6 @@ from specklepy.core.api.credentials import Account
 from specklepy.core.api.inputs import ProjectCreateInput
 from specklepy.core.api.enums import ProjectVisibility
 from typing import List, Tuple, Optional
-from ..utils.misc import get_blender_filename
 
 class SPECKLE_OT_create_project(bpy.types.Operator):
     """
@@ -37,7 +36,7 @@ class SPECKLE_OT_create_project(bpy.types.Operator):
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
-        layout.prop(self, "project_name", placeholder=get_blender_filename())
+        layout.prop(self, "project_name")
 
 def register() -> None:
     bpy.utils.register_class(SPECKLE_OT_create_project)
