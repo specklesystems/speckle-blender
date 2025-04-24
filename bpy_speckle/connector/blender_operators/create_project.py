@@ -18,20 +18,11 @@ class SPECKLE_OT_create_project(bpy.types.Operator):
     bl_description = "Create a new Speckle project"
 
     project_name: bpy.props.StringProperty(name="Project Name")
-    visibility: bpy.props.EnumProperty(  # type: ignore
-        name="Visibility",
-        description="Project visibility",
-        items=[
-            ("PUBLIC", "Public", "Public", "VIEW_LOCKED", 0),
-            ("PRIVATE", "Private", "Private", "VIEW_UNLOCKED", 1),
-        ],
-        default="PUBLIC",
-    )
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
         project_id, project_name = create_project(
-            wm.selected_account_id, self.project_name, self.visibility
+            wm.selected_account_id, self.project_name
         )
         wm.selected_project_id = project_id
         wm.selected_project_name = project_name
@@ -46,8 +37,7 @@ class SPECKLE_OT_create_project(bpy.types.Operator):
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
-        layout.prop(self, "project_name", text="", placeholder=get_blender_filename())
-        layout.prop(self, "visibility", expand=True)
+        layout.prop(self, "project_name", placeholder=get_blender_filename())
 
 def register() -> None:
     bpy.utils.register_class(SPECKLE_OT_create_project)
@@ -55,7 +45,7 @@ def register() -> None:
 def unregister() -> None:
     bpy.utils.unregister_class(SPECKLE_OT_create_project)
 
-def create_project(account_id: str, project_name: str, visibility: str) -> Tuple[str, str]:
+def create_project(account_id: str, project_name: str) -> Tuple[str, str]:
     accounts: List[Account] = get_local_accounts()
     account: Optional[Account] = next(
             (acc for acc in accounts if acc.id == account_id), None
@@ -64,5 +54,5 @@ def create_project(account_id: str, project_name: str, visibility: str) -> Tuple
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
 
-    project = client.project.create(input=ProjectCreateInput(name=project_name, description="", visibility = ProjectVisibility(visibility)))
+    project = client.project.create(input=ProjectCreateInput(name=project_name, description="", visibility = ProjectVisibility("PUBLIC")))
     return [project.id, project.name]
