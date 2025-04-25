@@ -36,6 +36,13 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         #     summary += f"{obj_type}: {count}, "
         
         # TODO: implement selection filtering
+        wm = context.window_manager
+        wm.speckle_objects.clear()
+        user_selection = context.selected_objects
+        for sel in user_selection:
+            obj = wm.speckle_objects.add()
+            obj.name = sel.name
+            
         self.report({"INFO"}, "Selection filter dialog closed")
         context.area.tag_redraw()
         return {"FINISHED"}
@@ -96,3 +103,10 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
 
     def check(self, context: Context) -> bool:
         return True  # this forces the dialog to redraw
+
+class speckle_object(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing model information
+    """
+
+    name: bpy.props.StringProperty()  # type: ignore
