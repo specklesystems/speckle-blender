@@ -30,6 +30,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
         project_selected = bool(getattr(wm, "selected_project_name", None))
         model_selected = bool(getattr(wm, "selected_model_name", None))
         version_selected = bool(getattr(wm, "selected_version_id", None))
+        selection_made = bool(getattr(wm, "speckle_objects", None))
 
         # UI Mode Switch
         row = layout.row()
@@ -62,12 +63,13 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             # Selection filter
             row = layout.row()
             row.enabled = project_selected and model_selected
-            row.operator("speckle.selection_filter_dialog", icon="PLUS")
+            selection_button_text = f"{len(wm.speckle_objects)} Objects" if wm.speckle_objects else "Select Objects"
+            row.operator("speckle.selection_filter_dialog", text=selection_button_text, icon="PLUS")
             
 
             # Publish button
             row = layout.row()
-            row.enabled = project_selected and model_selected
+            row.enabled = project_selected and model_selected and selection_made
             row.operator("speckle.publish", text="Publish Model", icon="EXPORT")
             pass
 
