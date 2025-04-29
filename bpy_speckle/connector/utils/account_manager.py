@@ -11,12 +11,14 @@ def get_account_enum_items() -> List[Tuple[str, str, str]]:
     accounts: List[Account] = get_local_accounts()
     if not accounts:
         return [
+            print ("No accounts found!")
             (
                 "NO_ACCOUNTS",
                 "No accounts found! Please add an account from Manager for Speckle.",
                 "",
             )
         ]
+    print ("Accounts added")
     return [
         (
             acc.id,
