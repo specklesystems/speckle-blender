@@ -48,10 +48,15 @@ from .connector.blender_operators.select_objects import SPECKLE_OT_select_object
 from .connector.blender_operators.add_account_button import SPECKLE_OT_add_account
 from .connector.blender_operators.load_latest_button import SPECKLE_OT_load_latest
 from .connector.blender_operators.add_project_by_url import SPECKLE_OT_add_project_by_url
+from .connector.utils.account_manager import speckle_account
 # States
 from .connector.states.speckle_state import register as register_speckle_state, unregister as unregister_speckle_state
 
 def invoke_window_manager_properties():
+    # Accounts
+    WindowManager.speckle_accounts = bpy.props.CollectionProperty(
+        type = speckle_account
+    )
     WindowManager.selected_account_id = bpy.props.StringProperty()
     # Projects
     WindowManager.speckle_projects = bpy.props.CollectionProperty(
@@ -98,7 +103,8 @@ classes = (
     SPECKLE_OT_select_objects,
     SPECKLE_OT_add_account,
     SPECKLE_OT_load_latest,
-    SPECKLE_OT_add_project_by_url)
+    SPECKLE_OT_add_project_by_url,
+    speckle_account)
 
 @bpy.app.handlers.persistent
 def load_handler(dummy):

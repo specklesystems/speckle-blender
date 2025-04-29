@@ -1,32 +1,25 @@
+import bpy
 from specklepy.api.credentials import get_local_accounts
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
 
 
-def get_account_enum_items() -> List[Tuple[str, str, str]]:
-    """
-    retrieves a list of Speckle accounts formatted for Blender enum properties
-    """
+class speckle_account(bpy.types.PropertyGroup):
+    id:bpy.props.StringProperty() # type: ignore
+    user_name: bpy.props.StringProperty() # type: ignore
+    server_url: bpy.props.StringProperty() # type: ignore
+    user_email: bpy.props.StringProperty() # type: ignore
 
+def get_account_enum_items() -> List[Tuple[str, str, str, str]]:
     accounts: List[Account] = get_local_accounts()
     if not accounts:
         print ("No accounts found!")
-        return [
-            (
-                "NO_ACCOUNTS",
-                "No accounts found! Please add an account from Manager for Speckle.",
-                "",
-            )
-        ]
+        return [("NO_ACCOUNTS", "No accounts found!", "", "")]
     print ("Accounts added")
-    return [
-        (
-            acc.id,
-            f"{acc.userInfo.name} - {acc.serverInfo.url} - {acc.userInfo.email}",
-            "",
-        )
-        for acc in accounts
-    ]
+    speckle_accounts = []
+    for acc in accounts:
+        speckle_accounts.append((acc.id, acc.userInfo.name, acc.serverInfo.url, acc.userInfo.email))
+    return speckle_accounts
 
 
 def get_default_account_id() -> Optional[str]:
