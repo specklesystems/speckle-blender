@@ -1,5 +1,10 @@
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 import bpy
+import mathutils
+from specklepy.objects import Base
+from specklepy.objects.graph_traversal.default_traversal import (
+    create_default_traversal_function,
+)
 
 
 def to_rgba(argb_int: int) -> Tuple[float, float, float, float]:
@@ -83,3 +88,54 @@ def create_material_from_proxy(
             bsdf.inputs["Emission Strength"].default_value = 1.0
 
     return material
+
+
+def transform_matrix(transform: List[float]) -> mathutils.Matrix:
+    """
+    converts a speckle transform array to a 4x4 matrix (blender needs it)
+    """
+
+    if len(transform) != 16:
+        raise ValueError(f"Expected transform with 16 values, got {len(transform)}")
+
+    return mathutils.Matrix(
+        (
+            (transform[0], transform[4], transform[8], transform[12]),
+            (transform[1], transform[5], transform[9], transform[13]),
+            (transform[2], transform[6], transform[10], transform[14]),
+            (transform[3], transform[7], transform[11], transform[15]),
+        )
+    )
+
+
+def find_object_by_id(root_object: Base, target_id: str) -> Optional[Base]:
+    """
+    Find an object using traversal, checking both id and applicationId
+    """
+    print(f"\nSearching for object with ID: {target_id}")
+
+    traversal_function = create_default_traversal_function()
+
+    for traversal_item in traversal_function.traverse(root_object):
+        obj = traversal_item.current
+
+        if not hasattr(obj, "id"):
+            continue
+
+        print(f"Checking object {obj.id} of type {obj.speckle_type}")
+
+        # Check regular id
+        if obj.id == target_id:
+            print("Found match by id!")
+            return obj
+
+        # Check applicationId
+        if hasattr(obj, "applicationId"):
+            app_id = obj.applicationId
+            print(f"Checking applicationId: {app_id}")
+            if app_id == target_id:
+                print("Found match by applicationId!")
+                return obj
+
+    print(f"Object not found with ID: {target_id}")
+    return None
