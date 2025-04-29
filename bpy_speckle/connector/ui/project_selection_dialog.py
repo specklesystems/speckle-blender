@@ -80,7 +80,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             project.role = role
             project.updated = updated
             project.id = id
-
+        print("Updated Projects List!")
         return None
 
     search_query: bpy.props.StringProperty(  # type: ignore
