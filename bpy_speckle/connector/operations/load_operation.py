@@ -64,9 +64,6 @@ def load_operation(context: Context) -> None:
     definitions_root_collection = None
     if definition_collections:
         definitions_root_collection = bpy.data.collections.new("InstanceDefinitions")
-        # definitions_root_collection.hide_viewport = True
-        # definitions_root_collection.hide_render = True
-        # context.scene.collection.children.link(definitions_root_collection)
 
         for collection in definition_collections.values():
             definitions_root_collection.children.link(collection)

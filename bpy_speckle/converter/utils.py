@@ -110,9 +110,8 @@ def transform_matrix(transform: List[float]) -> mathutils.Matrix:
 
 def find_object_by_id(root_object: Base, target_id: str) -> Optional[Base]:
     """
-    Find an object using traversal, checking both id and applicationId
+    finds an object using traversal, checking both id and applicationId
     """
-    print(f"\nSearching for object with ID: {target_id}")
 
     traversal_function = create_default_traversal_function()
 
@@ -122,20 +121,14 @@ def find_object_by_id(root_object: Base, target_id: str) -> Optional[Base]:
         if not hasattr(obj, "id"):
             continue
 
-        print(f"Checking object {obj.id} of type {obj.speckle_type}")
-
         # Check regular id
         if obj.id == target_id:
-            print("Found match by id!")
             return obj
 
         # Check applicationId
         if hasattr(obj, "applicationId"):
             app_id = obj.applicationId
-            print(f"Checking applicationId: {app_id}")
             if app_id == target_id:
-                print("Found match by applicationId!")
                 return obj
 
-    print(f"Object not found with ID: {target_id}")
     return None

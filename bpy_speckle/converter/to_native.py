@@ -1183,7 +1183,6 @@ def instance_definition_proxy_to_native(
 
     existing_definitions = bpy.data.collections.get("InstanceDefinitions")
     if existing_definitions:
-        print("Cleaning up existing definitions")
         for coll in existing_definitions.children:
             for obj in coll.objects:
                 bpy.data.objects.remove(obj, do_unlink=True)
@@ -1191,9 +1190,7 @@ def instance_definition_proxy_to_native(
         bpy.data.collections.remove(existing_definitions, do_unlink=True)
 
     for definition_id, definition in definitions.items():
-        print(f"\nProcessing definition: {definition_id}")
         collection_name = getattr(definition, "name", f"Definition_{definition_id[:8]}")
-        print(f"Creating collection: {collection_name}")
 
         definition_collection = bpy.data.collections.new(collection_name)
         definition_collections[definition_id] = definition_collection
