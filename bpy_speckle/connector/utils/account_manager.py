@@ -3,6 +3,7 @@ from specklepy.api.credentials import get_local_accounts
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
 from specklepy.api.client import SpeckleClient
+from .misc import strip_non_ascii
 
 class speckle_account(bpy.types.PropertyGroup):
     id:bpy.props.StringProperty() # type: ignore
@@ -25,7 +26,7 @@ def get_account_enum_items() -> List[Tuple[str, str, str, str]]:
     print ("Accounts added")
     speckle_accounts = []
     for acc in accounts:
-        speckle_accounts.append((acc.id, acc.userInfo.name, acc.serverInfo.url, acc.userInfo.email))
+        speckle_accounts.append((acc.id, strip_non_ascii(acc.userInfo.name), acc.serverInfo.url, acc.userInfo.email))
     return speckle_accounts
 
 
@@ -37,9 +38,10 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
     workspaces = client.active_user.get_workspaces().items
-    workspaces_list = [(ws.id, ws.name) for ws in workspaces]
+    workspaces_list = [(ws.id, strip_non_ascii(ws.name)) for ws in workspaces]
     if client.active_user.can_create_personal_projects().authorized:
         workspaces_list.append(("personal", "Personal Projects (Legacy)"))
+    
     print("Workspaces added")
     return reorder_tuple(workspaces_list, get_default_workspace_id(account_id))
 

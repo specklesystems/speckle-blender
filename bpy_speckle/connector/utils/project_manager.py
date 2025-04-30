@@ -3,8 +3,7 @@ from specklepy.api.credentials import get_local_accounts
 from specklepy.core.api.inputs.user_inputs import UserProjectsFilter
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
-from .misc import format_relative_time, format_role
-
+from .misc import format_relative_time, format_role, strip_non_ascii
 
 def get_projects_for_account(
     account_id: str, workspace_id: str = None, search: Optional[str] = None
@@ -32,7 +31,7 @@ def get_projects_for_account(
 
         return [
             (
-                project.name,
+                strip_non_ascii(project.name),
                 format_role(project.role),
                 format_relative_time(project.updated_at),
                 project.id,
