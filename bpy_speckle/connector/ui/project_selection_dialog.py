@@ -183,11 +183,12 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             workspace: speckle_workspace = wm.speckle_workspaces.add()
             workspace.id = id
             workspace.name = name
-        wm.selected_workspace_id = self.workspaces
+        selected_workspace_id = self.workspaces
+        wm.selected_workspace_id = selected_workspace_id
 
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str]] = get_projects_for_account(
-            selected_account_id
+            selected_account_id, workspace_id=selected_workspace_id
         )
 
         for name, role, updated, id in projects:

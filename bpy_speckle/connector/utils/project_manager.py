@@ -7,7 +7,7 @@ from .misc import format_relative_time, format_role
 
 
 def get_projects_for_account(
-    account_id: str, search: Optional[str] = None
+    account_id: str, workspace_id: str = None, search: Optional[str] = None
 ) -> List[Tuple[str, str, str, str]]:
     """
     fetches projects for a given account from the Speckle server
@@ -24,7 +24,7 @@ def get_projects_for_account(
         client = SpeckleClient(host=account.serverInfo.url)
         client.authenticate_with_account(account)
 
-        filter = UserProjectsFilter(search=search) if search else None
+        filter = UserProjectsFilter(search=search, workspaceId=workspace_id) if search else UserProjectsFilter(workspaceId=workspace_id)
 
         projects = client.active_user.get_projects(limit=10, filter=filter).items
 
