@@ -2,13 +2,20 @@ import bpy
 from specklepy.api.credentials import get_local_accounts
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
-
+from specklepy.api.client import SpeckleClient
 
 class speckle_account(bpy.types.PropertyGroup):
     id:bpy.props.StringProperty() # type: ignore
     user_name: bpy.props.StringProperty() # type: ignore
     server_url: bpy.props.StringProperty() # type: ignore
     user_email: bpy.props.StringProperty() # type: ignore
+
+class speckle_workspace(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing workspace information
+    """
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
+    name: bpy.props.StringProperty()  # type: ignore
 
 def get_account_enum_items() -> List[Tuple[str, str, str, str]]:
     accounts: List[Account] = get_local_accounts()
@@ -20,6 +27,21 @@ def get_account_enum_items() -> List[Tuple[str, str, str, str]]:
     for acc in accounts:
         speckle_accounts.append((acc.id, acc.userInfo.name, acc.serverInfo.url, acc.userInfo.email))
     return speckle_accounts
+
+
+def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
+    """
+    retrieves the workspaces for a given account ID
+    """
+    account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
+    client = SpeckleClient(host=account.serverInfo.url)
+    client.authenticate_with_account(account)
+    workspaces = client.active_user.get_workspaces().items
+    workspaces_list = [(ws.id, ws.name) for ws in workspaces]
+    if client.active_user.can_create_personal_projects:
+        workspaces_list.append(("personal", "Personal Projects (Legacy)"))
+    print("Workspaces added")
+    return [(ws.id, ws.name) for ws in workspaces]
 
 
 def get_default_account_id() -> Optional[str]:

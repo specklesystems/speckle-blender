@@ -35,7 +35,7 @@ bl_info = {
 
 # UI
 from .connector.ui.main_panel import SPECKLE_PT_main_panel
-from .connector.ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list
+from .connector.ui.project_selection_dialog import SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, speckle_workspace
 from .connector.ui.model_selection_dialog import SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list
 from .connector.ui.version_selection_dialog import SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list
 from .connector.ui.selection_filter_dialog import SPECKLE_OT_selection_filter_dialog
@@ -58,6 +58,11 @@ def invoke_window_manager_properties():
         type = speckle_account
     )
     WindowManager.selected_account_id = bpy.props.StringProperty()
+    # Workspaces
+    WindowManager.speckle_workspaces = bpy.props.CollectionProperty(
+        type = speckle_workspace
+    )
+    WindowManager.selected_workspace_id = bpy.props.StringProperty()
     # Projects
     WindowManager.speckle_projects = bpy.props.CollectionProperty(
                 type=speckle_project
@@ -95,7 +100,7 @@ classes = (
     SPECKLE_PT_main_panel,
     SPECKLE_OT_publish,
     SPECKLE_OT_load,
-    SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list,
+    SPECKLE_OT_project_selection_dialog, speckle_project, SPECKLE_UL_projects_list, speckle_workspace,
     SPECKLE_OT_model_selection_dialog, speckle_model, SPECKLE_UL_models_list,
     SPECKLE_OT_version_selection_dialog, speckle_version, SPECKLE_UL_versions_list,
     SPECKLE_OT_selection_filter_dialog,
