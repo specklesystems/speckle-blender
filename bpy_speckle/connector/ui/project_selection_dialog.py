@@ -11,7 +11,7 @@ def get_accounts_callback(self, context):
     return [
         (
             account.id,
-            f"{account.user_name} - {account.server_url} - {account.user_email}",
+            f"{account.user_name} - {account.user_email} - {account.server_url}",
             ""
         )
         for account in wm.speckle_accounts
