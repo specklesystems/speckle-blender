@@ -41,7 +41,7 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     if client.active_user.can_create_personal_projects:
         workspaces_list.append(("personal", "Personal Projects (Legacy)"))
     print("Workspaces added")
-    return [(ws.id, ws.name) for ws in workspaces]
+    return workspaces_list
 
 
 def get_default_account_id() -> Optional[str]:
