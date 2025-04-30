@@ -403,10 +403,15 @@ def mesh_to_native(
 
     mesh_obj = bpy.data.objects.new(object_name, mesh)
 
-    if len(speckle_mesh.colors) > 0:
+    # Add this hasattr check before accessing colors
+    if hasattr(speckle_mesh, "colors") and len(speckle_mesh.colors) > 0:
         add_vertex_colors(mesh, speckle_mesh.colors)
 
-    if len(speckle_mesh.textureCoordinates) > 0:
+    # Add this hasattr check before accessing textureCoordinates
+    if (
+        hasattr(speckle_mesh, "textureCoordinates")
+        and len(speckle_mesh.textureCoordinates) > 0
+    ):
         add_texture_coordinates(mesh, speckle_mesh.textureCoordinates)
 
     if material_mapping and hasattr(speckle_mesh, "applicationId"):
