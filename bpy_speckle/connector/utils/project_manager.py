@@ -24,7 +24,9 @@ def get_projects_for_account(
         client = SpeckleClient(host=account.serverInfo.url)
         client.authenticate_with_account(account)
 
-        filter = UserProjectsFilter(search=search, workspaceId=workspace_id) if search else UserProjectsFilter(workspaceId=workspace_id)
+        personal_only = workspace_id == "personal"
+        workspace_id = None if personal_only else workspace_id
+        filter = UserProjectsFilter(search=search, workspaceId=workspace_id, personalOnly=personal_only)
 
         projects = client.active_user.get_projects(limit=10, filter=filter).items
 

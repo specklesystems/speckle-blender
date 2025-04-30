@@ -38,7 +38,7 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     client.authenticate_with_account(account)
     workspaces = client.active_user.get_workspaces().items
     workspaces_list = [(ws.id, ws.name) for ws in workspaces]
-    if client.active_user.can_create_personal_projects:
+    if client.active_user.can_create_personal_projects().authorized:
         workspaces_list.append(("personal", "Personal Projects (Legacy)"))
     print("Workspaces added")
     return workspaces_list
