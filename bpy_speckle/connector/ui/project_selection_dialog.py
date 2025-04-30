@@ -82,10 +82,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
 
-    def update_workspaces_list(self, context: Context) -> None:
-        """
-        updates the list of workspaces based on the selected account
-        """
+    def update_workspaces_and_projects_list(self, context: Context) -> None:
         wm = context.window_manager
         wm.selected_account_id = self.accounts
         wm.speckle_workspaces.clear()
@@ -95,6 +92,23 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             workspace.id = id
             workspace.name = name
         print("Updated Workspaces List!")
+
+        wm.speckle_projects.clear()
+
+        # get projects for the selected account, using search if provided
+        search = self.search_query if self.search_query.strip() else None
+        projects: List[Tuple[str, str, str, str]] = get_projects_for_account(
+            self.accounts, search=search, workspace_id=self.workspaces
+        )
+
+        for name, role, updated, id in projects:
+            project: speckle_project = wm.speckle_projects.add()
+            project.name = name
+            project.role = role
+            project.updated = updated
+            project.id = id
+        print("Updated Projects List!")
+
         return None
 
     def update_projects_list(self, context: Context) -> None:
@@ -134,7 +148,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         name="Account",
         description="Selected account to filter projects by",
         items=get_accounts_callback,
-        update=update_projects_list
+        update=update_workspaces_and_projects_list,
     )
 
     workspaces: bpy.props.EnumProperty(  # type: ignore

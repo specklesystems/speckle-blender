@@ -41,7 +41,7 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     if client.active_user.can_create_personal_projects().authorized:
         workspaces_list.append(("personal", "Personal Projects (Legacy)"))
     print("Workspaces added")
-    return workspaces_list
+    return reorder_tuple(workspaces_list, get_default_workspace_id(account_id))
 
 
 def get_default_account_id() -> Optional[str]:
@@ -60,3 +60,25 @@ def get_server_url_by_account_id(account_id: str) -> Optional[str]:
         if acc.id == account_id:
             return acc.serverInfo.url
     return None
+
+def get_default_workspace_id(account_id: str) -> Optional[str]:
+    """
+    retrieves the ID of the default workspace for a given account ID
+    """
+    account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
+    client = SpeckleClient(host=account.serverInfo.url)
+    client.authenticate_with_account(account)
+    return client.active_user.get_active_workspace().id
+
+def reorder_tuple(tuple_list, target_id):
+    for i, (id, value) in enumerate(tuple_list):
+        if id == target_id:
+            # Remove the tuple from its current position
+            target_tuple = tuple_list.pop(i)
+            # Insert it at the beginning of the list
+            tuple_list.insert(0, target_tuple)
+            return tuple_list
+    
+    # If the target_id wasn't found
+    print(f"Tuple with ID {target_id} not found in the list")
+    return tuple_list
