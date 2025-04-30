@@ -111,7 +111,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # get projects for the selected account, using search if provided
         search = self.search_query if self.search_query.strip() else None
         projects: List[Tuple[str, str, str, str]] = get_projects_for_account(
-            self.accounts, search=search
+            self.accounts, search=search, workspace_id=self.workspaces
         )
 
         for name, role, updated, id in projects:
