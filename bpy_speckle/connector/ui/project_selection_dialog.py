@@ -1,13 +1,22 @@
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from typing import List, Tuple
-from ..utils.account_manager import get_account_enum_items
+from ..utils.account_manager import get_account_enum_items, speckle_account
 from ..utils.project_manager import get_projects_for_account
 
 def get_accounts_callback(self, context):
     """Callback to dynamically fetch account enum items.
     """
-    return get_account_enum_items()
+    wm = context.window_manager
+    return [
+        (
+            account.id,
+            f"{account.user_name} - {account.server_url} - {account.user_email}",
+            ""
+        )
+        for account in wm.speckle_accounts
+    ]
+
 
 class speckle_project(bpy.types.PropertyGroup):
     """
@@ -80,7 +89,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             project.role = role
             project.updated = updated
             project.id = id
-
+        print("Updated Projects List!")
         return None
 
     search_query: bpy.props.StringProperty(  # type: ignore
@@ -115,7 +124,16 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     def invoke(self, context: Context, event: Event) -> set[str]:
         wm = context.window_manager
 
+        # Clear existing accounts and projects
+        wm.speckle_accounts.clear()
         wm.speckle_projects.clear()
+
+        for id, user_name, server_url, user_email in get_account_enum_items():
+            account: speckle_account = wm.speckle_accounts.add()
+            account.id = id
+            account.user_name = user_name
+            account.server_url = server_url
+            account.user_email = user_email
 
         selected_account_id = self.accounts
         wm.selected_account_id = selected_account_id
