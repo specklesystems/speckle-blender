@@ -68,16 +68,14 @@ def load_operation(context: Context) -> None:
 
     definition_object_ids = set()
     for definition in find_instance_definitions(version_data).values():
-        if hasattr(definition, "objects"):
-            if isinstance(definition.objects, list):
-                definition_object_ids.update(definition.objects)
-                for obj_id in definition.objects:
-                    found_obj = find_object_by_id(version_data, obj_id)
-                    if found_obj:
-                        if hasattr(found_obj, "id"):
-                            definition_object_ids.add(found_obj.id)
-                        if hasattr(found_obj, "applicationId"):
-                            definition_object_ids.add(found_obj.applicationId)
+        definition_object_ids.update(definition.objects)
+        for obj_id in definition.objects:
+            found_obj = find_object_by_id(version_data, obj_id)
+            if found_obj:
+                if hasattr(found_obj, "id"):
+                    definition_object_ids.add(found_obj.id)
+                if hasattr(found_obj, "applicationId"):
+                    definition_object_ids.add(found_obj.applicationId)
 
     traversal_function = create_default_traversal_function()
 
@@ -99,10 +97,6 @@ def load_operation(context: Context) -> None:
 
     for traversal_item in traversal_function.traverse(version_data):
         speckle_obj = traversal_item.current
-
-        if not hasattr(speckle_obj, "id"):
-            print("Skipping object without ID")
-            continue
 
         # Skip objects that are part of instance definitions
         if speckle_obj.id in definition_object_ids or (
