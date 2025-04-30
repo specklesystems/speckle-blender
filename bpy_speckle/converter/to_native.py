@@ -1297,26 +1297,27 @@ def instance_proxy_to_native(
         print(f"Definition collection not found for instance {speckle_instance.id}")
         return None
 
-    # Convert transformation matrix with scale
+    # Convert transformation matrix
+    # Important: We need to properly handle the scale for each component
     matrix = mathutils.Matrix(
         [
             [
-                speckle_instance.transform[0] * scale,
+                speckle_instance.transform[0],
                 speckle_instance.transform[1],
                 speckle_instance.transform[2],
-                speckle_instance.transform[3] * scale,
+                speckle_instance.transform[3],
             ],
             [
                 speckle_instance.transform[4],
                 speckle_instance.transform[5],
                 speckle_instance.transform[6],
-                speckle_instance.transform[7] * scale,
+                speckle_instance.transform[7],
             ],
             [
                 speckle_instance.transform[8],
                 speckle_instance.transform[9],
                 speckle_instance.transform[10],
-                speckle_instance.transform[11] * scale,
+                speckle_instance.transform[11],
             ],
             [
                 speckle_instance.transform[12],
@@ -1327,15 +1328,19 @@ def instance_proxy_to_native(
         ]
     )
 
+    # Extract components and apply scale correctly
     location, rotation, scale_vector = matrix.decompose()
 
-    # Create collection instance
+    # Apply global scale to location
+    location = location * scale
+
+    # Create collection instance with correct initial transform
     bpy.ops.object.collection_instance_add(
         collection=definition_collection.name,
         align="WORLD",
-        location=location,
-        rotation=rotation.to_euler(),
-        scale=scale_vector,
+        location=(0, 0, 0),  # We'll set the final transform later
+        rotation=(0, 0, 0),
+        scale=(1, 1, 1),
     )
 
     instance_obj = bpy.context.active_object
@@ -1357,7 +1362,14 @@ def instance_proxy_to_native(
     if hasattr(speckle_instance, "maxDepth"):
         instance_obj["max_depth"] = speckle_instance.maxDepth
 
-    # Apply the transformation matrix
-    instance_obj.matrix_world = matrix
+    # Create a new matrix with scaled components
+    final_matrix = (
+        mathutils.Matrix.Translation(location)
+        @ rotation.to_matrix().to_4x4()
+        @ mathutils.Matrix.Diagonal(scale_vector).to_4x4()
+    )
+
+    # Apply the final transformation
+    instance_obj.matrix_world = final_matrix
 
     return instance_obj
