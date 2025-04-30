@@ -49,7 +49,7 @@ def load_operation(context: Context) -> None:
 
     version = client.version.get(wm.selected_version_id, wm.selected_project_id)
     obj_id = version.referenced_object
-    print(f"Loading object with ID: {obj_id}")
+    # print(f"Loading object with ID: {obj_id}")
 
     version_data = operations.receive(obj_id, transport)
 
@@ -70,19 +70,15 @@ def load_operation(context: Context) -> None:
 
     definition_object_ids = set()
     for definition in find_instance_definitions(version_data).values():
-        print(f"\nFound definition: {getattr(definition, 'name', 'unnamed')}")
         if hasattr(definition, "objects"):
             if isinstance(definition.objects, list):
-                print(f"Adding object references: {definition.objects}")
                 definition_object_ids.update(definition.objects)
                 for obj_id in definition.objects:
                     found_obj = find_object_by_id(version_data, obj_id)
                     if found_obj:
                         if hasattr(found_obj, "id"):
-                            print(f"Adding regular ID: {found_obj.id}")
                             definition_object_ids.add(found_obj.id)
                         if hasattr(found_obj, "applicationId"):
-                            print(f"Adding applicationId: {found_obj.applicationId}")
                             definition_object_ids.add(found_obj.applicationId)
 
     traversal_function = create_default_traversal_function()
@@ -115,8 +111,6 @@ def load_operation(context: Context) -> None:
             hasattr(speckle_obj, "applicationId")
             and speckle_obj.applicationId in definition_object_ids
         ):
-            print(f"Skipping definition object: {speckle_obj.id}")
-            print(f"(applicationId: {getattr(speckle_obj, 'applicationId', 'none')})")
             continue
 
         all_objects[speckle_obj.id] = speckle_obj
@@ -153,7 +147,7 @@ def load_operation(context: Context) -> None:
                 )
 
         else:
-            print(f"Found object: {speckle_obj.speckle_type} ({speckle_obj.id})")
+            pass
 
     def get_collection_depth(coll_id):
         parent_id = collection_hierarchy[coll_id]["parent_id"]
@@ -239,7 +233,6 @@ def load_operation(context: Context) -> None:
                         coll_info = collection_hierarchy[parent_id]
                         if coll_info["blender_collection"]:
                             target_collection = coll_info["blender_collection"]
-                            print(f"Found target collection: {target_collection.name}")
                             break
 
             blender_obj = convert_to_native(
@@ -261,7 +254,6 @@ def load_operation(context: Context) -> None:
                     already_linked = False
                     for coll in bpy.data.collections:
                         if blender_obj.name in coll.objects:
-                            print(f"Object already linked to: {coll.name}")
                             already_linked = True
 
                     if not already_linked:
