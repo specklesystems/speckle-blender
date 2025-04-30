@@ -1170,24 +1170,22 @@ def find_instance_definitions(root_object: Base) -> Dict[str, Base]:
 
 
 def sort_instance_components(definitions, instances):
-    """Sort instance components by max depth and type (definitions first)"""
+    """
+    sort instance components by max depth and type (definitions first)
+    """
     components = []
 
     # Add definitions with their max_depth
     for def_id, definition in definitions.items():
         max_depth = getattr(definition, "maxDepth", 0)
-        components.append((max_depth, 0, def_id, definition))  # 0 = definition type
+        components.append((max_depth, 0, def_id, definition))
 
-    # Add instances with their definition's max_depth
     for instance in instances:
         if hasattr(instance, "definitionId") and instance.definitionId in definitions:
             definition = definitions[instance.definitionId]
             max_depth = getattr(definition, "maxDepth", 0)
-            components.append(
-                (max_depth, 1, instance.id, instance)
-            )  # 1 = instance type
+            components.append((max_depth, 1, instance.id, instance))
 
-    # Sort by max_depth (descending) and type (definitions first)
     components.sort(key=lambda x: (-x[0], x[1]))
     return components
 
@@ -1198,7 +1196,7 @@ def instance_definition_proxy_to_native(
     processed_definitions: Dict[str, Any] = None,
 ) -> Tuple[Dict[str, bpy.types.Collection], Dict[str, Any]]:
     """
-    Converts instance definition proxies to Blender collections recursively
+    converts instance definition proxies to Blender collections recursively
     """
     processed_definitions = processed_definitions or {}
     definition_collections = {}
@@ -1209,7 +1207,6 @@ def instance_definition_proxy_to_native(
         print("No definitions found!")
         return definition_collections, converted_objects
 
-    # Clean up existing definitions
     existing_definitions = bpy.data.collections.get("InstanceDefinitions")
     if existing_definitions:
         for coll in existing_definitions.children:
@@ -1218,7 +1215,6 @@ def instance_definition_proxy_to_native(
             bpy.data.collections.remove(coll, do_unlink=True)
         bpy.data.collections.remove(existing_definitions, do_unlink=True)
 
-    # Sort definitions and instances by max depth
     sorted_components = sort_instance_components(definitions, [])
 
     for _, _, def_id, definition in sorted_components:
@@ -1283,6 +1279,35 @@ def instance_definition_proxy_to_native(
     return definition_collections, converted_objects
 
 
+def proxy_scale(speckle_object: Base, fallback: float = 1.0) -> float:
+    """
+    determines the correct scale factor based on object units and Blender settings
+    (will change it in the future)
+    """
+    unit_settings = bpy.context.scene.unit_settings
+
+    if unit_settings.system != "METRIC":
+        original_system = unit_settings.system
+        unit_settings.system = "METRIC"
+        unit_settings.system = original_system
+
+    blender_scale = unit_settings.scale_length
+
+    unit_scale = 1.0
+
+    if hasattr(speckle_object, "units"):
+        if speckle_object.units == "cm":
+            unit_scale = 0.01
+        elif speckle_object.units == "mm":
+            unit_scale = 0.001
+        elif speckle_object.units == "m":
+            unit_scale = 1.0
+
+    final_scale = unit_scale / blender_scale
+
+    return final_scale
+
+
 def instance_proxy_to_native(
     speckle_instance: InstanceProxy,
     definition_collection: bpy.types.Collection,
@@ -1290,15 +1315,15 @@ def instance_proxy_to_native(
     scale: float = 1.0,
 ) -> Optional[bpy.types.Object]:
     """
-    Converts a Speckle InstanceProxy to Blender collection instance,
-    handling nested instances and transformations.
+    converts a Speckle InstanceProxy to Blender collection instance
     """
     if not definition_collection:
         print(f"Definition collection not found for instance {speckle_instance.id}")
         return None
 
-    # Convert transformation matrix
-    # Important: We need to properly handle the scale for each component
+    unit_scale = proxy_scale(speckle_instance)
+
+    # convert transformation matrix
     matrix = mathutils.Matrix(
         [
             [
@@ -1328,48 +1353,42 @@ def instance_proxy_to_native(
         ]
     )
 
-    # Extract components and apply scale correctly
     location, rotation, scale_vector = matrix.decompose()
 
-    # Apply global scale to location
-    location = location * scale
+    location = location * unit_scale
 
-    # Create collection instance with correct initial transform
     bpy.ops.object.collection_instance_add(
         collection=definition_collection.name,
         align="WORLD",
-        location=(0, 0, 0),  # We'll set the final transform later
+        location=(0, 0, 0),
         rotation=(0, 0, 0),
         scale=(1, 1, 1),
     )
 
     instance_obj = bpy.context.active_object
 
-    # Name the instance based on the instance ID
+    instance_obj.empty_display_size = 0
+
     instance_name = f"Instance_{speckle_instance.id[:8]}"
     instance_obj.name = instance_name
 
-    # Ensure instance is in the correct collection
     if instance_obj.name not in root_collection.objects:
         for coll in instance_obj.users_collection:
             coll.objects.unlink(instance_obj)
         root_collection.objects.link(instance_obj)
 
-    # Store Speckle metadata
     instance_obj["speckle_id"] = speckle_instance.id
     instance_obj["speckle_type"] = speckle_instance.speckle_type
     instance_obj["definition_id"] = speckle_instance.definitionId
     if hasattr(speckle_instance, "maxDepth"):
         instance_obj["max_depth"] = speckle_instance.maxDepth
 
-    # Create a new matrix with scaled components
     final_matrix = (
         mathutils.Matrix.Translation(location)
         @ rotation.to_matrix().to_4x4()
         @ mathutils.Matrix.Diagonal(scale_vector).to_4x4()
     )
 
-    # Apply the final transformation
     instance_obj.matrix_world = final_matrix
 
     return instance_obj

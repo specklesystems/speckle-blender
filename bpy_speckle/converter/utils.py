@@ -112,10 +112,8 @@ def find_object_by_id(root_object: Base, target_id: str) -> Optional[Base]:
     """
     finds an object using traversal, checking both id and applicationId
     """
-    # First try a direct lookup in __closure if it exists
     if hasattr(root_object, "__closure") and root_object.__closure:
         if target_id in root_object.__closure:
-            # The object might be in the root elements
             if hasattr(root_object, "elements"):
                 for element in root_object.elements:
                     if hasattr(element, "id") and element.id == target_id:
@@ -126,7 +124,6 @@ def find_object_by_id(root_object: Base, target_id: str) -> Optional[Base]:
                     ):
                         return find_object_by_id(root_object, element.referencedId)
 
-            # Or it might be in the @elements
             if hasattr(root_object, "@elements"):
                 for element in root_object["@elements"]:
                     if hasattr(element, "id") and element.id == target_id:
@@ -145,44 +142,35 @@ def find_object_by_id(root_object: Base, target_id: str) -> Optional[Base]:
         if not hasattr(obj, "id"):
             continue
 
-        # Check regular id
         if obj.id == target_id:
             return obj
 
-        # Check applicationId
         if hasattr(obj, "applicationId"):
             app_id = obj.applicationId
             if app_id == target_id:
                 return obj
 
-    # If still not found, perform a more expensive deep search through collections
     def deep_search(search_obj):
-        # Check if this object is what we're looking for
         if hasattr(search_obj, "id") and search_obj.id == target_id:
             return search_obj
 
-        # Check elements
         elements_attrs = ["elements", "@elements"]
         for attr in elements_attrs:
             if hasattr(search_obj, attr):
                 elements = getattr(search_obj, attr)
                 if elements and isinstance(elements, list):
                     for element in elements:
-                        # Check if this element is the target
                         if hasattr(element, "id") and element.id == target_id:
                             return element
-                        # Check for reference
                         if (
                             hasattr(element, "referencedId")
                             and element.referencedId == target_id
                         ):
-                            # Try to find the referenced object
                             ref_obj = find_object_by_id(
                                 root_object, element.referencedId
                             )
                             if ref_obj:
                                 return ref_obj
-                        # Recursively search this element
                         result = deep_search(element)
                         if result:
                             return result

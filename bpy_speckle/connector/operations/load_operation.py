@@ -49,14 +49,12 @@ def load_operation(context: Context) -> None:
 
     version = client.version.get(wm.selected_version_id, wm.selected_project_id)
     obj_id = version.referenced_object
-    # print(f"Loading object with ID: {obj_id}")
 
     version_data = operations.receive(obj_id, transport)
 
     # Create material mapping first
     material_mapping = render_material_proxy_to_native(version_data)
 
-    # Process instance definitions before regular geometry
     definition_collections, definition_objects = instance_definition_proxy_to_native(
         version_data, material_mapping
     )
@@ -203,9 +201,6 @@ def load_operation(context: Context) -> None:
         speckle_obj = traversal_item.current
 
         if isinstance(speckle_obj, SCollection):
-            print(
-                f"Skipping collection in second pass: {getattr(speckle_obj, 'name', 'unnamed')}"
-            )
             continue
 
         if not hasattr(speckle_obj, "id"):
