@@ -106,6 +106,11 @@ def convert_to_native(
     if material_mapping is None:
         material_mapping = {}
 
+    # first check for render material proxies in the root object
+    if hasattr(speckle_object, "renderMaterialProxies"):
+        render_materials = render_material_proxy_to_native(speckle_object)
+        material_mapping.update(render_materials)
+
     # Try direct conversion based on object type
     if isinstance(speckle_object, InstanceProxy):
         if definition_collections:
@@ -176,6 +181,8 @@ def convert_to_native(
     if converted_object:
         # Store Speckle ID in custom property
         converted_object["speckle_id"] = speckle_object.id
+        if hasattr(speckle_object, "applicationId"):
+            converted_object["speckle_application_id"] = speckle_object.applicationId
 
     return converted_object
 
@@ -403,17 +410,18 @@ def mesh_to_native(
 
     mesh_obj = bpy.data.objects.new(object_name, mesh)
 
-    # Add this hasattr check before accessing colors
+    # Add vertex colors if available
     if hasattr(speckle_mesh, "colors") and len(speckle_mesh.colors) > 0:
         add_vertex_colors(mesh, speckle_mesh.colors)
 
-    # Add this hasattr check before accessing textureCoordinates
+    # Add texture coordinates if available
     if (
         hasattr(speckle_mesh, "textureCoordinates")
         and len(speckle_mesh.textureCoordinates) > 0
     ):
         add_texture_coordinates(mesh, speckle_mesh.textureCoordinates)
 
+    # Apply material if available in mapping
     if material_mapping and hasattr(speckle_mesh, "applicationId"):
         app_id = speckle_mesh.applicationId
         if app_id in material_mapping:
@@ -500,6 +508,7 @@ def meshes_to_native(
     for mesh_idx, mesh in enumerate(meshes):
         start_face = current_face
 
+        # check if we have a material for this mesh
         if material_mapping and hasattr(mesh, "applicationId"):
             app_id = mesh.applicationId
             if app_id in material_mapping:
@@ -543,12 +552,14 @@ def meshes_to_native(
         materials_added = set()
         material_indices = {}  # Maps material name to index in the mesh
 
+        # first add all unique materials
         for mesh_idx, material in mesh_materials.items():
             if material.name not in materials_added:
                 blender_mesh.materials.append(material)
                 material_indices[material.name] = len(blender_mesh.materials) - 1
                 materials_added.add(material.name)
 
+        # then assign material indices to faces
         for start_face, end_face, mesh_idx in mesh_face_ranges:
             if mesh_idx in mesh_materials:
                 material = mesh_materials[mesh_idx]
@@ -618,7 +629,8 @@ def render_material_proxy_to_native(
     speckle_object: Base,
 ) -> Dict[str, bpy.types.Material]:
     """
-    converts RenderMaterialProxies to Blender materials
+    converts RenderMaterialProxies to Blender materials and maintains a mapping
+    of applicationId to material.
     """
     assigned_objects = {}
 
@@ -630,13 +642,16 @@ def render_material_proxy_to_native(
     # process each render material proxy
     for proxy in speckle_object.renderMaterialProxies:
         if not hasattr(proxy, "value") or not hasattr(proxy, "objects"):
-            print("Render material proxy has no value or no object has assigned!")
+            print("Render material proxy has no value or no object has been assigned!")
             continue
-        render_material = proxy.value
-        material_name = getattr(render_material, "name")
 
+        render_material = proxy.value
+        material_name = getattr(render_material, "name", "Material")
+
+        # create or get existing material
         blender_material = create_material_from_proxy(render_material, material_name)
 
+        # assign material to objects by applicationId
         for applicationId in proxy.objects:
             assigned_objects[applicationId] = blender_material
 
