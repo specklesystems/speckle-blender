@@ -47,7 +47,7 @@ def get_versions_for_model(
                 format_relative_time(version.created_at),
             )
             for version in versions
-            if not version.referenced_object
+            if version.referenced_object is not None
         ]
 
     except Exception as e:
