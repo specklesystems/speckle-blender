@@ -10,18 +10,22 @@ from specklepy.objects.graph_traversal.default_traversal import (
 )
 
 from ..utils.get_ascendants import get_ascendants
-from ...converter.to_native import convert_to_native, render_material_proxy_to_native
+from ...converter.utils import find_object_by_id
+from ...converter.to_native import (
+    convert_to_native,
+    render_material_proxy_to_native,
+    instance_definition_proxy_to_native,
+    find_instance_definitions,
+)
 
 
 def load_operation(context: Context) -> None:
     """
     load objects from Speckle and maintain hierarchy.
     """
-
     wm = context.window_manager
 
     # get account
-    # to discuss: this looks redundant, we need to cache it somehow
     account = next(
         (
             acc
@@ -35,6 +39,8 @@ def load_operation(context: Context) -> None:
         print("No Speckle account found")
         return
 
+    print(f"Using account: {account.userInfo.email}")
+
     # receive the data
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
@@ -46,8 +52,30 @@ def load_operation(context: Context) -> None:
 
     version_data = operations.receive(obj_id, transport)
 
+    # Create material mapping first
     material_mapping = render_material_proxy_to_native(version_data)
-    print(f"Created material mapping for {len(material_mapping)} objects")
+
+    definition_collections, definition_objects = instance_definition_proxy_to_native(
+        version_data, material_mapping
+    )
+
+    definitions_root_collection = None
+    if definition_collections:
+        definitions_root_collection = bpy.data.collections.new("InstanceDefinitions")
+
+        for collection in definition_collections.values():
+            definitions_root_collection.children.link(collection)
+
+    definition_object_ids = set()
+    for definition in find_instance_definitions(version_data).values():
+        definition_object_ids.update(definition.objects)
+        for obj_id in definition.objects:
+            found_obj = find_object_by_id(version_data, obj_id)
+            if found_obj:
+                if hasattr(found_obj, "id"):
+                    definition_object_ids.add(found_obj.id)
+                if hasattr(found_obj, "applicationId"):
+                    definition_object_ids.add(found_obj.applicationId)
 
     traversal_function = create_default_traversal_function()
 
@@ -57,8 +85,8 @@ def load_operation(context: Context) -> None:
 
     context.window_manager.progress_begin(0, 100)
 
-    # dictionary to track converted objects by Speckle ID
-    converted_objects = {}
+    converted_objects = definition_objects.copy()
+
     created_collections = {}
     created_collections[root_collection_name] = root_collection
 
@@ -70,7 +98,11 @@ def load_operation(context: Context) -> None:
     for traversal_item in traversal_function.traverse(version_data):
         speckle_obj = traversal_item.current
 
-        if not hasattr(speckle_obj, "id"):
+        # Skip objects that are part of instance definitions
+        if speckle_obj.id in definition_object_ids or (
+            hasattr(speckle_obj, "applicationId")
+            and speckle_obj.applicationId in definition_object_ids
+        ):
             continue
 
         all_objects[speckle_obj.id] = speckle_obj
@@ -101,19 +133,13 @@ def load_operation(context: Context) -> None:
                 "full_path": [collection_name],
             }
 
-            # build full path hierarchy
             if parent_id in collection_hierarchy:
                 collection_hierarchy[speckle_obj.id]["full_path"] = (
                     collection_hierarchy[parent_id]["full_path"] + [collection_name]
                 )
 
         else:
-            if hasattr(speckle_obj, "id"):
-                parent_id = None
-                for parent in parent_ascendants:
-                    if isinstance(parent, SCollection) and hasattr(parent, "id"):
-                        parent_id = parent.id
-                        break
+            pass
 
     def get_collection_depth(coll_id):
         parent_id = collection_hierarchy[coll_id]["parent_id"]
@@ -153,10 +179,9 @@ def load_operation(context: Context) -> None:
             if parent_info["blender_collection"]:
                 parent_collection = parent_info["blender_collection"]
 
-        # create or find the collection
         if collection_key in created_collections:
+            print(f"Collection already exists: {coll_name}")
             blender_collection = created_collections[collection_key]
-
         else:
             blender_collection = bpy.data.collections.new(coll_name)
             parent_collection.children.link(blender_collection)
@@ -172,18 +197,21 @@ def load_operation(context: Context) -> None:
         if isinstance(speckle_obj, SCollection):
             continue
 
-        if hasattr(speckle_obj, "id") and speckle_obj.id in converted_objects:
+        if not hasattr(speckle_obj, "id"):
+            print("Skipping object without ID")
+            continue
+
+        # Skip objects that are part of instance definitions
+        if speckle_obj.id in definition_object_ids or (
+            hasattr(speckle_obj, "applicationId")
+            and speckle_obj.applicationId in definition_object_ids
+        ):
+            continue
+
+        if speckle_obj.id in converted_objects:
             continue
 
         try:
-            blender_obj = convert_to_native(speckle_obj, material_mapping)
-            if blender_obj is None:
-                print(f"No converter found for: {speckle_obj.speckle_type}")
-                continue
-
-            if hasattr(speckle_obj, "id"):
-                converted_objects[speckle_obj.id] = blender_obj
-
             target_collection = root_collection
             ascendants = list(get_ascendants(traversal_item))
 
@@ -196,17 +224,32 @@ def load_operation(context: Context) -> None:
                             target_collection = coll_info["blender_collection"]
                             break
 
-            try:
-                already_linked = False
-                for coll in bpy.data.collections:
-                    if blender_obj.name in coll.objects:
-                        already_linked = True
+            blender_obj = convert_to_native(
+                speckle_obj,
+                material_mapping,
+                definition_collections=definition_collections,
+                root_collection=target_collection,
+            )
 
-                if not already_linked:
-                    target_collection.objects.link(blender_obj)
+            if blender_obj is None:
+                continue
 
-            except RuntimeError as e:
-                print(f"Error linking object to collection: {e}")
+            converted_objects[speckle_obj.id] = blender_obj
+            if hasattr(speckle_obj, "applicationId"):
+                converted_objects[speckle_obj.applicationId] = blender_obj
+
+            if not isinstance(blender_obj, bpy.types.Collection):
+                try:
+                    already_linked = False
+                    for coll in bpy.data.collections:
+                        if blender_obj.name in coll.objects:
+                            already_linked = True
+
+                    if not already_linked:
+                        target_collection.objects.link(blender_obj)
+
+                except RuntimeError as e:
+                    print(f"Error linking object to collection: {e}")
 
         except Exception as e:
             print(f"Error converting {speckle_obj.speckle_type}: {str(e)}")
@@ -224,4 +267,4 @@ def load_operation(context: Context) -> None:
         if area.type == "OUTLINER":
             area.tag_redraw()
 
-    print(f"Load process completed. Imported {len(converted_objects)} objects.")
+    print(f"\nLoad process completed. Imported {len(converted_objects)} objects.")
