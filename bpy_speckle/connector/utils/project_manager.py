@@ -3,11 +3,10 @@ from specklepy.api.credentials import get_local_accounts
 from specklepy.core.api.inputs.user_inputs import UserProjectsFilter
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
-from .misc import format_relative_time, format_role
-
+from .misc import format_relative_time, format_role, strip_non_ascii
 
 def get_projects_for_account(
-    account_id: str, search: Optional[str] = None
+    account_id: str, workspace_id: str = None, search: Optional[str] = None
 ) -> List[Tuple[str, str, str, str]]:
     """
     fetches projects for a given account from the Speckle server
@@ -24,13 +23,15 @@ def get_projects_for_account(
         client = SpeckleClient(host=account.serverInfo.url)
         client.authenticate_with_account(account)
 
-        filter = UserProjectsFilter(search=search) if search else None
+        personal_only = workspace_id == "personal"
+        workspace_id = None if personal_only else workspace_id
+        filter = UserProjectsFilter(search=search, workspaceId=workspace_id, personalOnly=personal_only)
 
         projects = client.active_user.get_projects(limit=10, filter=filter).items
 
         return [
             (
-                project.name,
+                strip_non_ascii(project.name),
                 format_role(project.role),
                 format_relative_time(project.updated_at),
                 project.id,

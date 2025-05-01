@@ -11,13 +11,15 @@ from specklepy.objects.geometry import (
     Polycurve,
     Point,
 )
+from specklepy.objects.proxies import InstanceProxy
 from specklepy.objects.models.units import (
     get_units_from_string,
     get_scale_factor_to_meters,
 )
 import bpy
 from bpy.types import Object
-from ..converter.utils import create_material_from_proxy
+import mathutils
+from ..converter.utils import create_material_from_proxy, find_object_by_id
 
 # Display value property aliases to check for
 DISPLAY_VALUE_PROPERTY_ALIASES = [
@@ -88,6 +90,8 @@ def generate_unique_name(speckle_object: Base) -> Tuple[str, str]:
 def convert_to_native(
     speckle_object: Base,
     material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
+    definition_collections: Optional[Dict[str, bpy.types.Collection]] = None,
+    root_collection: Optional[bpy.types.Collection] = None,
 ) -> Optional[Object]:
     """
     converts a speckle object to blender object with material support
@@ -103,7 +107,16 @@ def convert_to_native(
         material_mapping = {}
 
     # Try direct conversion based on object type
-    if isinstance(speckle_object, Line):
+    if isinstance(speckle_object, InstanceProxy):
+        if definition_collections:
+            for def_id, coll in definition_collections.items():
+                if def_id == speckle_object.definitionId:
+                    converted_object = instance_proxy_to_native(
+                        speckle_object, coll, root_collection, scale
+                    )
+        else:
+            print("No InstanceDefinitionProxy is found.")
+    elif isinstance(speckle_object, Line):
         converted_object = line_to_native(
             speckle_object, object_name, data_block_name, scale
         )
@@ -390,10 +403,15 @@ def mesh_to_native(
 
     mesh_obj = bpy.data.objects.new(object_name, mesh)
 
-    if len(speckle_mesh.colors) > 0:
+    # Add this hasattr check before accessing colors
+    if hasattr(speckle_mesh, "colors") and len(speckle_mesh.colors) > 0:
         add_vertex_colors(mesh, speckle_mesh.colors)
 
-    if len(speckle_mesh.textureCoordinates) > 0:
+    # Add this hasattr check before accessing textureCoordinates
+    if (
+        hasattr(speckle_mesh, "textureCoordinates")
+        and len(speckle_mesh.textureCoordinates) > 0
+    ):
         add_texture_coordinates(mesh, speckle_mesh.textureCoordinates)
 
     if material_mapping and hasattr(speckle_mesh, "applicationId"):
@@ -1122,3 +1140,255 @@ def point_to_native(
     )
 
     return point_obj
+
+
+def find_instance_definitions(root_object: Base) -> Dict[str, Base]:
+    """
+    finds all instance definitions in the root object
+    """
+    definitions = {}
+
+    definitions_attr_names = [
+        "instanceDefinitionProxies",
+        "@instanceDefinitionProxies",
+        "instanceDefinitions",
+        "@instanceDefinitions",
+    ]
+
+    for attr_name in definitions_attr_names:
+        if hasattr(root_object, attr_name):
+            attr_value = getattr(root_object, attr_name)
+            if isinstance(attr_value, list):
+                for definition in attr_value:
+                    if hasattr(definition, "applicationId"):
+                        definitions[definition.applicationId] = definition
+
+    if not definitions:
+        print("No instanceDefinitionProxy founded!")
+
+    return definitions
+
+
+def sort_instance_components(definitions, instances):
+    """
+    sort instance components by max depth and type (definitions first)
+    """
+    components = []
+
+    # Add definitions with their max_depth
+    for def_id, definition in definitions.items():
+        max_depth = getattr(definition, "maxDepth", 0)
+        components.append((max_depth, 0, def_id, definition))
+
+    for instance in instances:
+        if hasattr(instance, "definitionId") and instance.definitionId in definitions:
+            definition = definitions[instance.definitionId]
+            max_depth = getattr(definition, "maxDepth", 0)
+            components.append((max_depth, 1, instance.id, instance))
+
+    components.sort(key=lambda x: (-x[0], x[1]))
+    return components
+
+
+def instance_definition_proxy_to_native(
+    root_object: Base,
+    material_mapping: Dict[str, Any],
+    processed_definitions: Dict[str, Any] = None,
+) -> Tuple[Dict[str, bpy.types.Collection], Dict[str, Any]]:
+    """
+    converts instance definition proxies to Blender collections recursively
+    """
+    processed_definitions = processed_definitions or {}
+    definition_collections = {}
+    converted_objects = {}
+    definitions = find_instance_definitions(root_object)
+
+    if not definitions:
+        print("No definitions found!")
+        return definition_collections, converted_objects
+
+    existing_definitions = bpy.data.collections.get("InstanceDefinitions")
+    if existing_definitions:
+        for coll in existing_definitions.children:
+            for obj in coll.objects:
+                bpy.data.objects.remove(obj, do_unlink=True)
+            bpy.data.collections.remove(coll, do_unlink=True)
+        bpy.data.collections.remove(existing_definitions, do_unlink=True)
+
+    sorted_components = sort_instance_components(definitions, [])
+
+    for _, _, def_id, definition in sorted_components:
+        collection_name = getattr(definition, "name", f"Definition_{def_id[:8]}")
+
+        if def_id in processed_definitions:
+            definition_collections[def_id] = processed_definitions[def_id]
+            continue
+
+        definition_collection = bpy.data.collections.new(collection_name)
+        definition_collections[def_id] = definition_collection
+
+        # Store metadata
+        definition_collection["speckle_id"] = def_id
+        definition_collection["speckle_type"] = getattr(
+            definition, "speckle_type", "InstanceDefinitionProxy"
+        )
+        if hasattr(definition, "maxDepth"):
+            definition_collection["max_depth"] = definition.maxDepth
+
+        # Process objects, including nested instances
+        if hasattr(definition, "objects") and isinstance(definition.objects, list):
+            for obj_id in definition.objects:
+                found_obj = find_object_by_id(root_object, obj_id)
+
+                if found_obj:
+                    try:
+                        # Handle nested instance proxies
+                        if (
+                            isinstance(found_obj, InstanceProxy)
+                            and found_obj.definitionId in definitions
+                        ):
+                            nested_def = definitions[found_obj.definitionId]
+                            max_depth = getattr(nested_def, "maxDepth", 0)
+                            if max_depth > 0:  # Only process if max_depth allows
+                                blender_obj = instance_proxy_to_native(
+                                    found_obj,
+                                    definition_collections[found_obj.definitionId],
+                                    definition_collection,
+                                    scale=1.0,
+                                )
+                                if blender_obj:
+                                    converted_objects[obj_id] = blender_obj
+                        else:
+                            blender_obj = convert_to_native(found_obj, material_mapping)
+                            if blender_obj:
+                                definition_collection.objects.link(blender_obj)
+                                converted_objects[obj_id] = blender_obj
+                                if hasattr(found_obj, "id"):
+                                    converted_objects[found_obj.id] = blender_obj
+                                if hasattr(found_obj, "applicationId"):
+                                    converted_objects[found_obj.applicationId] = (
+                                        blender_obj
+                                    )
+                    except Exception as e:
+                        print(f"Error converting object: {str(e)}")
+                else:
+                    print(f"Failed to find object with ID: {obj_id}")
+
+        processed_definitions[def_id] = definition_collection
+
+    return definition_collections, converted_objects
+
+
+def proxy_scale(speckle_object: Base, fallback: float = 1.0) -> float:
+    """
+    determines the correct scale factor based on object units and Blender settings
+    (will change it in the future)
+    """
+    unit_settings = bpy.context.scene.unit_settings
+
+    if unit_settings.system != "METRIC":
+        original_system = unit_settings.system
+        unit_settings.system = "METRIC"
+        unit_settings.system = original_system
+
+    blender_scale = unit_settings.scale_length
+
+    unit_scale = 1.0
+
+    if hasattr(speckle_object, "units"):
+        if speckle_object.units == "cm":
+            unit_scale = 0.01
+        elif speckle_object.units == "mm":
+            unit_scale = 0.001
+        elif speckle_object.units == "m":
+            unit_scale = 1.0
+
+    final_scale = unit_scale / blender_scale
+
+    return final_scale
+
+
+def instance_proxy_to_native(
+    speckle_instance: InstanceProxy,
+    definition_collection: bpy.types.Collection,
+    root_collection: bpy.types.Collection,
+    scale: float = 1.0,
+) -> Optional[bpy.types.Object]:
+    """
+    converts a Speckle InstanceProxy to Blender collection instance
+    """
+    if not definition_collection:
+        print(f"Definition collection not found for instance {speckle_instance.id}")
+        return None
+
+    unit_scale = proxy_scale(speckle_instance)
+
+    # convert transformation matrix
+    matrix = mathutils.Matrix(
+        [
+            [
+                speckle_instance.transform[0],
+                speckle_instance.transform[1],
+                speckle_instance.transform[2],
+                speckle_instance.transform[3],
+            ],
+            [
+                speckle_instance.transform[4],
+                speckle_instance.transform[5],
+                speckle_instance.transform[6],
+                speckle_instance.transform[7],
+            ],
+            [
+                speckle_instance.transform[8],
+                speckle_instance.transform[9],
+                speckle_instance.transform[10],
+                speckle_instance.transform[11],
+            ],
+            [
+                speckle_instance.transform[12],
+                speckle_instance.transform[13],
+                speckle_instance.transform[14],
+                speckle_instance.transform[15],
+            ],
+        ]
+    )
+
+    location, rotation, scale_vector = matrix.decompose()
+
+    location = location * unit_scale
+
+    bpy.ops.object.collection_instance_add(
+        collection=definition_collection.name,
+        align="WORLD",
+        location=(0, 0, 0),
+        rotation=(0, 0, 0),
+        scale=(1, 1, 1),
+    )
+
+    instance_obj = bpy.context.active_object
+
+    instance_obj.empty_display_size = 0
+
+    instance_name = f"Instance_{speckle_instance.id[:8]}"
+    instance_obj.name = instance_name
+
+    if instance_obj.name not in root_collection.objects:
+        for coll in instance_obj.users_collection:
+            coll.objects.unlink(instance_obj)
+        root_collection.objects.link(instance_obj)
+
+    instance_obj["speckle_id"] = speckle_instance.id
+    instance_obj["speckle_type"] = speckle_instance.speckle_type
+    instance_obj["definition_id"] = speckle_instance.definitionId
+    if hasattr(speckle_instance, "maxDepth"):
+        instance_obj["max_depth"] = speckle_instance.maxDepth
+
+    final_matrix = (
+        mathutils.Matrix.Translation(location)
+        @ rotation.to_matrix().to_4x4()
+        @ mathutils.Matrix.Diagonal(scale_vector).to_4x4()
+    )
+
+    instance_obj.matrix_world = final_matrix
+
+    return instance_obj

@@ -26,14 +26,14 @@ jobs:
 
       - id: set-version
         name: Set version to output
-        run:
-          | # Processing the ref manually atm.. likely we'll want to use Adam's fancy logic at some point instead
+        run: |
           TAG=${{ github.ref_name }}
           if [[ "${{ github.ref }}" != refs/tags/* ]]; then
-            TAG="3.0.99.${{ github.run_number }}"
+            TAG="v3.0.99.${{ github.run_number }}"
           fi
-          SEMVER=$(echo "$TAG" | sed -E 's/\/[a-zA-Z-]+//')
-          FILE_VERSION=$(echo "$TAG" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z]+\.([0-9]+))?/\1.\2.\3.\5/' | sed 's/\.$/.0/')
+          SEMVER="${TAG#v}"
+          FILE_VERSION=$(echo "$TAG" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          FILE_VERSION="$FILE_VERSION.${{ github.run_number }}"
 
           echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
           echo "fileVersion=$FILE_VERSION" >> "$GITHUB_OUTPUT"
@@ -69,16 +69,21 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     env:
-      IS_TAG_BUILD: ${{ github.ref_type == 'tag' }}
-      IS_RELEASE_BRANCH: ${{ startsWith(github.ref_name, 'installer-test/') || github.ref_name == 'main'}}
+      IS_PUBLIC_RELEASE: ${{ github.ref_type == 'tag' }}
     steps:
       - name: 🔫 Trigger Build Installer(s)
-        uses: ALEEF02/workflow-dispatch@v3.0.0
+        uses: the-actions-org/workflow-dispatch@v4.0.0
         with:
-          workflow: Build Blender Installer
+          workflow: Build Installers
           repo: specklesystems/connector-installers
           token: ${{ secrets.CONNECTORS_GH_TOKEN }}
-          inputs: '{ "run_id": "${{ github.run_id }}", "semver": "${{ needs.build.outputs.semver }}", "file_version": "${{ needs.build.outputs.fileVersion }}","public_release": ${{ env.IS_TAG_BUILD }}, "store_artifacts": ${{ env.IS_RELEASE_BRANCH }} }'
+          inputs: '{
+            "run_id": "${{ github.run_id }}",
+            "semver": "${{ needs.build.outputs.semver }}",
+            "file_version": "${{ needs.build.outputs.fileVersion }}",
+            "repo": "${{ github.repository }}",
+            "is_public_release": ${{ env.IS_PUBLIC_RELEASE }}
+            }'
           ref: main
           wait-for-completion: true
           wait-for-completion-interval: 10s
