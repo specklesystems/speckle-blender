@@ -38,7 +38,9 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
     workspaces = client.active_user.get_workspaces().items
-    workspaces_list = [(ws.id, strip_non_ascii(ws.name)) for ws in workspaces]
+    workspaces_list = [
+        (ws.id, strip_non_ascii(ws.name)) for ws in workspaces if ws.creation_state == None or ws.creation_state.completed
+    ]
     if client.active_user.can_create_personal_projects().authorized:
         workspaces_list.append(("personal", "Personal Projects (Legacy)"))
     
