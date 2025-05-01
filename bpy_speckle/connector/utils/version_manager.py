@@ -43,10 +43,11 @@ def get_versions_for_model(
         return [
             (
                 version.id,
-                strip_non_ascii(version.message) or "No message",
+                version.message if version.message is not None else "No message",
                 format_relative_time(version.created_at),
             )
-            for version in versions if not version.referenced_object
+            for version in versions
+            if version.referenced_object is not None
         ]
 
     except Exception as e:
@@ -90,7 +91,7 @@ def get_latest_version(
         latest = versions[0]
         return (
             latest.id,
-            strip_non_ascii(latest.message) or "No message",
+            latest.message if latest.message is not None else "No message",
             format_relative_time(latest.created_at),
         )
 
