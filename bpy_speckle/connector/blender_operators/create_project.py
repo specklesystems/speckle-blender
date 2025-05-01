@@ -4,6 +4,7 @@ from specklepy.api.client import SpeckleClient
 from specklepy.api.credentials import get_local_accounts
 from specklepy.core.api.credentials import Account
 from specklepy.core.api.inputs import ProjectCreateInput
+from specklepy.core.api.inputs.project_inputs import WorkspaceProjectCreateInput
 from specklepy.core.api.enums import ProjectVisibility
 from typing import List, Tuple, Optional
 
@@ -21,7 +22,7 @@ class SPECKLE_OT_create_project(bpy.types.Operator):
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
         project_id, project_name = create_project(
-            wm.selected_account_id, self.project_name
+            wm.selected_account_id, self.project_name, None if wm.selected_workspace_id == "personal" else wm.selected_workspace_id 
         )
         wm.selected_project_id = project_id
         wm.selected_project_name = project_name
@@ -44,7 +45,7 @@ def register() -> None:
 def unregister() -> None:
     bpy.utils.unregister_class(SPECKLE_OT_create_project)
 
-def create_project(account_id: str, project_name: str) -> Tuple[str, str]:
+def create_project(account_id: str, project_name: str, workspace_id:Optional[str]) -> Tuple[str, str]:
     accounts: List[Account] = get_local_accounts()
     account: Optional[Account] = next(
             (acc for acc in accounts if acc.id == account_id), None
@@ -52,6 +53,8 @@ def create_project(account_id: str, project_name: str) -> Tuple[str, str]:
 
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
-
-    project = client.project.create(input=ProjectCreateInput(name=project_name, description="", visibility = ProjectVisibility("PUBLIC")))
+    if workspace_id:
+        project = client.project.create_in_workspace(input=WorkspaceProjectCreateInput(name=project_name, description="", visibility=ProjectVisibility("PUBLIC"), workspaceId=workspace_id))
+    else:
+        project = client.project.create(input=ProjectCreateInput(name=project_name, description="", visibility = ProjectVisibility("PUBLIC")))
     return [project.id, project.name]

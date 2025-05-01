@@ -123,3 +123,16 @@ def reorder_tuple(tuple_list, target_id):
     # If the target_id wasn't found
     print(f"Tuple with ID {target_id} not found in the list")
     return tuple_list
+
+def can_create_project_in_workspace(account_id: str, workspace_id: str) -> bool:
+    """
+    Check if the user can create a project in the specified workspace.
+    """
+    account = get_account_from_id(account_id)
+    client = SpeckleClient(host=account.serverInfo.url)
+    client.authenticate_with_account(account)
+
+    if workspace_id == "personal":
+        return client.active_user.can_create_personal_projects().authorized
+    else:
+        return client.workspace.get(workspace_id).permissions.can_create_project.authorized

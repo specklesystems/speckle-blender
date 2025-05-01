@@ -1,7 +1,7 @@
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from typing import List, Tuple
-from ..utils.account_manager import get_account_enum_items, speckle_account, get_workspaces, speckle_workspace, get_account_from_id
+from ..utils.account_manager import get_account_enum_items, speckle_account, get_workspaces, speckle_workspace, can_create_project_in_workspace
 from ..utils.project_manager import get_projects_for_account
 
 def get_accounts_callback(self, context):
@@ -119,6 +119,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
         wm.selected_account_id = self.accounts
         wm.selected_workspace_id = self.workspaces
+        wm.can_create_project_in_workspace = can_create_project_in_workspace(self.accounts, self.workspaces)
 
         wm.speckle_projects.clear()
 
@@ -199,6 +200,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             workspace.name = name
         selected_workspace_id = self.workspaces
         wm.selected_workspace_id = selected_workspace_id
+        wm.can_create_project_in_workspace = can_create_project_in_workspace(selected_account_id, selected_workspace_id)
 
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str]] = get_projects_for_account(
@@ -228,15 +230,18 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         
         # Workspace selection
         row = layout.row()
-        if wm.selected_workspace_id != "NO_WORKSPACES":
-            row.prop(self, "workspaces", text="")
+        row.prop(self, "workspaces", text="")
 
+        row = layout.row()
         # Search field
         row.prop(self, "search_query", icon="VIEWZOOM", text="")
         # Create project button
-        row.operator("speckle.create_project", icon='ADD', text="")
+        split = row.split()
+        split.operator("speckle.create_project", icon='ADD', text="")
+        split.enabled = wm.can_create_project_in_workspace
         # Add project by URL button 
-        row.operator("speckle.add_project_by_url", icon='LINKED', text="")
+        split = row.split()
+        split.operator("speckle.add_project_by_url", icon='LINKED', text="")
 
         layout.template_list(
             "SPECKLE_UL_projects_list",
