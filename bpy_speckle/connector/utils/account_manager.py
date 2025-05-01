@@ -37,15 +37,21 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
-    workspaces = client.active_user.get_workspaces().items
-    workspaces_list = [
-        (ws.id, strip_non_ascii(ws.name)) for ws in workspaces if ws.creation_state == None or ws.creation_state.completed
-    ]
+    workspaces_enabled = client.server.get().workspaces.workspaces_enabled
+
+    if workspaces_enabled:
+        workspaces = client.active_user.get_workspaces().items
+        workspace_list = [(ws.id, strip_non_ascii(ws.name)) for ws in workspaces if ws.creation_state == None or ws.creation_state.completed]
+        personal_projects_text = "Personal Projects (Legacy)" 
+    else:
+        workspace_list = []
+        personal_projects_text = "Personal Projects"
+    # Append Personal Projects do workspace dropdown
     if client.active_user.can_create_personal_projects().authorized:
-        workspaces_list.append(("personal", "Personal Projects (Legacy)"))
+        workspace_list.append(("personal", personal_projects_text))
     
     print("Workspaces added")
-    return reorder_tuple(workspaces_list, get_default_workspace_id(account_id))
+    return reorder_tuple(workspace_list, get_default_workspace_id(account_id)) if workspaces_enabled else workspace_list
 
 
 def get_default_account_id() -> Optional[str]:
@@ -73,6 +79,9 @@ def get_default_workspace_id(account_id: str) -> Optional[str]:
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
     return client.active_user.get_active_workspace().id
+
+def get_account_from_id(account_id: str) -> Optional[Account]:
+    return next((acc for acc in get_local_accounts() if acc.id == account_id), None)
 
 def reorder_tuple(tuple_list, target_id):
     for i, (id, value) in enumerate(tuple_list):

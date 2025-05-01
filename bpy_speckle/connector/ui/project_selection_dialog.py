@@ -1,7 +1,7 @@
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from typing import List, Tuple
-from ..utils.account_manager import get_account_enum_items, speckle_account, get_workspaces, speckle_workspace
+from ..utils.account_manager import get_account_enum_items, speckle_account, get_workspaces, speckle_workspace, get_account_from_id
 from ..utils.project_manager import get_projects_for_account
 
 def get_accounts_callback(self, context):
