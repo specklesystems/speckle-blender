@@ -1,13 +1,37 @@
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from typing import List, Tuple
-from ..utils.account_manager import get_account_enum_items
+from ..utils.account_manager import get_account_enum_items, speckle_account, get_workspaces, speckle_workspace, get_account_from_id
 from ..utils.project_manager import get_projects_for_account
 
 def get_accounts_callback(self, context):
     """Callback to dynamically fetch account enum items.
     """
-    return get_account_enum_items()
+    wm = context.window_manager
+    return [
+        (
+            account.id,
+            f"{account.user_name} - {account.user_email} - {account.server_url}",
+            ""
+        )
+        for account in wm.speckle_accounts
+    ]
+
+def get_workspaces_callback(self, context):
+    """
+    Callback to dynamically fetch workspace enum items.
+    """
+    wm = context.window_manager
+    return [
+        (
+            workspace.id,
+            workspace.name,
+            "",
+            "WORKSPACE",
+            i
+        )
+        for i, workspace in enumerate(wm.speckle_workspaces)
+    ]
 
 class speckle_project(bpy.types.PropertyGroup):
     """
@@ -58,20 +82,23 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
 
-    def update_projects_list(self, context: Context) -> None:
-        """
-        updates the list of projects based on the selected account and search query
-        """
+    def update_workspaces_and_projects_list(self, context: Context) -> None:
         wm = context.window_manager
-
         wm.selected_account_id = self.accounts
+        wm.speckle_workspaces.clear()
+        workspaces = get_workspaces(self.accounts)
+        for id, name in workspaces:
+            workspace: speckle_workspace = wm.speckle_workspaces.add()
+            workspace.id = id
+            workspace.name = name
+        print("Updated Workspaces List!")
 
         wm.speckle_projects.clear()
 
         # get projects for the selected account, using search if provided
         search = self.search_query if self.search_query.strip() else None
         projects: List[Tuple[str, str, str, str]] = get_projects_for_account(
-            self.accounts, search=search
+            self.accounts, search=search, workspace_id=self.workspaces
         )
 
         for name, role, updated, id in projects:
@@ -80,7 +107,34 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             project.role = role
             project.updated = updated
             project.id = id
+        print("Updated Projects List!")
 
+        return None
+
+    def update_projects_list(self, context: Context) -> None:
+        """
+        updates the list of projects based on the selected account and search query
+        """
+        wm = context.window_manager
+
+        wm.selected_account_id = self.accounts
+        wm.selected_workspace_id = self.workspaces
+
+        wm.speckle_projects.clear()
+
+        # get projects for the selected account, using search if provided
+        search = self.search_query if self.search_query.strip() else None
+        projects: List[Tuple[str, str, str, str]] = get_projects_for_account(
+            self.accounts, search=search, workspace_id=self.workspaces
+        )
+
+        for name, role, updated, id in projects:
+            project: speckle_project = wm.speckle_projects.add()
+            project.name = name
+            project.role = role
+            project.updated = updated
+            project.id = id
+        print("Updated Projects List!")
         return None
 
     search_query: bpy.props.StringProperty(  # type: ignore
@@ -94,6 +148,13 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         name="Account",
         description="Selected account to filter projects by",
         items=get_accounts_callback,
+        update=update_workspaces_and_projects_list,
+    )
+
+    workspaces: bpy.props.EnumProperty(  # type: ignore
+        name="Workspace",
+        description="Selected workspace to filter projects by",
+        items=get_workspaces_callback,
         update=update_projects_list
     )
     
@@ -115,14 +176,33 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     def invoke(self, context: Context, event: Event) -> set[str]:
         wm = context.window_manager
 
+        # Clear existing accounts and projects
+        wm.speckle_accounts.clear()
         wm.speckle_projects.clear()
+        wm.speckle_workspaces.clear()
+
+        # Fetch accounts
+        for id, user_name, server_url, user_email in get_account_enum_items():
+            account: speckle_account = wm.speckle_accounts.add()
+            account.id = id
+            account.user_name = user_name
+            account.server_url = server_url
+            account.user_email = user_email
 
         selected_account_id = self.accounts
         wm.selected_account_id = selected_account_id
 
+        # Fetch workspaces from server
+        for id, name in get_workspaces(selected_account_id):
+            workspace: speckle_workspace = wm.speckle_workspaces.add()
+            workspace.id = id
+            workspace.name = name
+        selected_workspace_id = self.workspaces
+        wm.selected_workspace_id = selected_workspace_id
+
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str]] = get_projects_for_account(
-            selected_account_id
+            selected_account_id, workspace_id=selected_workspace_id
         )
 
         for name, role, updated, id in projects:
@@ -146,6 +226,11 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         add_account_button_icon = 'WORLD' if wm.selected_account_id == "NO_ACCOUNTS" else 'ADD'
         row.operator("speckle.add_account", icon=add_account_button_icon, text=add_account_button_text)
         
+        # Workspace selection
+        row = layout.row()
+        if wm.selected_workspace_id != "NO_WORKSPACES":
+            row.prop(self, "workspaces", text="")
+
         # Search field
         row = layout.row(align=True)
         row.prop(self, "search_query", icon="VIEWZOOM", text="")

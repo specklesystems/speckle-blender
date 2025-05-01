@@ -3,7 +3,7 @@ from specklepy.api.credentials import get_local_accounts, Account
 from specklepy.core.api.inputs.project_inputs import ProjectModelsFilter
 from specklepy.core.api.models.current import Model
 from typing import List, Tuple, Optional
-from .misc import format_relative_time
+from .misc import format_relative_time, strip_non_ascii
 
 
 def get_models_for_project(
@@ -43,7 +43,7 @@ def get_models_for_project(
         ).items
 
         return [
-            (model.name, model.id, format_relative_time(model.updated_at))
+            (strip_non_ascii(model.name), model.id, format_relative_time(model.updated_at))
             for model in models
         ]
 
