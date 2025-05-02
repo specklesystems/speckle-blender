@@ -453,20 +453,30 @@ def mesh_to_native_mesh(
         )
 
     # Extract faces from the Speckle mesh format
-    faces = []
+    faces: List[List[int]] = []
+    vertex_normals : List[List[float]] = []
+
     i = 0
     while i < len(speckle_mesh.faces):
         vertex_count = speckle_mesh.faces[i]
-        face = []
+        face: List[int] = []
         for j in range(1, vertex_count + 1):
             vertex_index = speckle_mesh.faces[i + j]
             face.append(vertex_index)
+
+            ii = vertex_index * 3
+            vertex_normals.append([speckle_mesh.vertexNormals[ii], speckle_mesh.vertexNormals[ii + 1], speckle_mesh.vertexNormals[ii + 2]])
+            
         faces.append(face)
         i += vertex_count + 1
 
     # Create the mesh from vertices and faces
     blender_mesh.from_pydata(vertices, [], faces)
     blender_mesh.update()
+
+    # Set normals
+    if len(vertex_normals) > 0:
+        blender_mesh.normals_split_custom_set(vertex_normals)
 
     return blender_mesh
 
