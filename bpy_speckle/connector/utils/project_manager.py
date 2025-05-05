@@ -37,16 +37,30 @@ def get_projects_for_account(
 
         projects = client.active_user.get_projects(limit=10, filter=filter).items
 
+        # check if user is workspace admin
+        is_workspace_admin = False
+        if workspace_id and workspace_id != "personal":
+            try:
+                workspace = client.workspace.get(workspace_id)
+                if workspace and workspace.role:
+                    is_workspace_admin = "workspace:admin" in workspace.role
+            except Exception as e:
+                print(f"Cannot access to workspace: {e}")
+
         # determine if user can receive from project based on role
         result = []
         for project in projects:
             role = getattr(project, "role", "")
             can_receive = False
             if role:
-                can_receive = any(
-                    r in role
-                    for r in ["stream:owner", "stream:contributor", "stream:reviewer"]
-                )
+                if is_workspace_admin:
+                    can_receive = not (role and "stream:reviewer" in role)
+                else:
+                    can_receive = any(
+                        r in role for r in ["stream:owner", "stream:contributor"]
+                    )
+            else:
+                can_receive = True if is_workspace_admin else False
 
             result.append(
                 (
