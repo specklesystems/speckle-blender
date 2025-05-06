@@ -1,7 +1,10 @@
 import bpy
 from bpy.types import Context, Event, UILayout, WindowManager
-from specklepy.api.wrapper import StreamWrapper
-from typing import Tuple
+from ..utils.account_manager import (
+    get_model_details_by_wrapper,
+    check_project_permissions,
+    get_project_from_url,
+)
 
 
 class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
@@ -21,11 +24,14 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
         self.report({"INFO"}, f"Adding project from URL: {self.url}")
 
         wm = context.window_manager
-        try:
-            wrapper = StreamWrapper(self.url)
-        except Exception as e:
-            self.report({"ERROR"}, f"Failed to process URL: {str(e)}")
+
+        # Get project from URL
+        wrapper, client, project, error_message = get_project_from_url(self.url)
+
+        if error_message:
+            self.report({"ERROR"}, error_message)
             return {"CANCELLED"}
+
         # Get model details from the wrapper
         (
             account_id,
@@ -37,44 +43,13 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
             load_option,
         ) = get_model_details_by_wrapper(wrapper)
 
-        client = wrapper.get_client()
-        project = client.project.get(project_id)
-
-        if not project:
-            self.report({"ERROR"}, "Could not access project")
-            return {"CANCELLED"}
-
-        # check if user is workspace admin
-        is_workspace_admin = False
-        if hasattr(project, "workspace_id") and project.workspace_id:
-            try:
-                workspace = client.workspace.get(project.workspace_id)
-                if workspace and workspace.role:
-                    is_workspace_admin = "workspace:admin" in workspace.role
-            except Exception as e:
-                print(f"Cannot access to workspace: {e}")
-
-        # check permisson
-        role = getattr(project, "role", "")
-        can_receive = False
-
-        if role:
-            if is_workspace_admin:
-                can_receive = "stream:reviewer" not in role
-            else:
-                can_receive = any(
-                    r in role for r in ["stream:owner", "stream:contributor"]
-                )
-        else:
-            can_receive = is_workspace_admin
-
+        # Check permissions
+        can_receive, permission_error = check_project_permissions(client, project)
         if not can_receive:
-            self.report(
-                {"ERROR"},
-                "Your role on this project doesn't give you permission to load.",
-            )
+            self.report({"ERROR"}, permission_error)
             return {"CANCELLED"}
 
+        # Update the window manager with the selected project/model/version
         wm.selected_account_id = account_id
 
         if project_id:
@@ -87,6 +62,7 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
                     wm.selected_version_id = version_id
             wm.selected_version_id = version_id
             wm.selected_version_load_option = load_option
+
         context.window.screen = context.window.screen
         context.area.tag_redraw()
         return {"FINISHED"}
@@ -129,54 +105,3 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
         layout.prop(self, "url", text="")
-
-
-def register() -> None:
-    bpy.utils.register_class(SPECKLE_OT_add_project_by_url)
-
-
-def unregister() -> None:
-    bpy.utils.unregister_class(SPECKLE_OT_add_project_by_url)
-
-
-def get_model_details_by_wrapper(
-    wrapper: StreamWrapper,
-) -> Tuple[str, str, str, str, str, str, str]:
-    client = wrapper.get_client()
-    client.authenticate_with_account(wrapper.get_account())
-    (
-        account_id,
-        project_id,
-        project_name,
-        model_id,
-        model_name,
-        version_id,
-        load_option,
-    ) = "", "", "", "", "", "", ""
-    account_id = wrapper.get_account().id
-    if wrapper.stream_id:
-        project_id = wrapper.stream_id
-        project_name = client.project.get(project_id).name
-    if wrapper.model_id:
-        model_id = wrapper.model_id
-        model = client.model.get(model_id, project_id)
-        model_name = model.name
-        load_option = "LATEST" if not wrapper.commit_id else "SPECIFIC"
-        version_id = (
-            wrapper.commit_id
-            if wrapper.commit_id
-            else client.version.get_versions(
-                wrapper.model_id, wrapper.stream_id, limit=1
-            )
-            .items[0]
-            .id
-        )
-    return (
-        account_id,
-        project_id,
-        project_name,
-        model_id,
-        model_name,
-        version_id,
-        load_option,
-    )

@@ -4,6 +4,7 @@ from specklepy.core.api.inputs.user_inputs import UserProjectsFilter
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
 from .misc import format_relative_time, format_role, strip_non_ascii
+from .account_manager import check_project_permissions
 
 
 def get_projects_for_account(
@@ -25,47 +26,29 @@ def get_projects_for_account(
         client.authenticate_with_account(account)
 
         personal_only = workspace_id == "personal"
-        workspace_id = None if personal_only else workspace_id
+        workspace_id_query = None if personal_only else workspace_id
 
         # set include_implicit_access to True to get all projects
         filter = UserProjectsFilter(
             search=search,
-            workspaceId=workspace_id,
+            workspaceId=workspace_id_query,
             personalOnly=personal_only,
             include_implicit_access=True,
         )
 
         projects = client.active_user.get_projects(limit=10, filter=filter).items
 
-        # check if user is workspace admin
-        is_workspace_admin = False
-        if workspace_id and workspace_id != "personal":
-            try:
-                workspace = client.workspace.get(workspace_id)
-                if workspace and workspace.role:
-                    is_workspace_admin = "workspace:admin" in workspace.role
-            except Exception as e:
-                print(f"Cannot access to workspace: {e}")
-
         # determine if user can receive from project based on role
         result = []
         for project in projects:
-            role = getattr(project, "role", "")
-            can_receive = False
-            if role:
-                if is_workspace_admin:
-                    can_receive = not (role and "stream:reviewer" in role)
-                else:
-                    can_receive = any(
-                        r in role for r in ["stream:owner", "stream:contributor"]
-                    )
-            else:
-                can_receive = True if is_workspace_admin else False
+            can_receive, _ = check_project_permissions(client, project, workspace_id)
 
             result.append(
                 (
                     strip_non_ascii(project.name),
-                    format_role(role) if role else "",
+                    format_role(getattr(project, "role", ""))
+                    if hasattr(project, "role") and project.role
+                    else "",
                     format_relative_time(project.updated_at),
                     project.id,
                     can_receive,
