@@ -4,6 +4,7 @@ from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
 from specklepy.api.client import SpeckleClient
 from specklepy.api.wrapper import StreamWrapper
+from specklepy.logging.exceptions import WorkspacePermissionException
 
 from .misc import strip_non_ascii
 
@@ -199,42 +200,45 @@ def get_model_details_by_wrapper(
     )
 
 
-def check_project_permissions(client, project, workspace_id=None) -> Tuple[bool, str]:
-    """
-    check if the user has permission to receive from a project.
-    """
-    # check if user is workspace admin
-    is_workspace_admin = False
-    if workspace_id and workspace_id != "personal":
-        try:
-            workspace = client.workspace.get(workspace_id)
-            if workspace and workspace.role:
-                is_workspace_admin = "workspace:admin" in workspace.role
-        except Exception as e:
-            print(f"Cannot access workspace: {e}")
+def can_load(client, project) -> Tuple[bool, str]:
+    try:
+        permissions = client.project.get_permissions(project.id)
 
-    elif not workspace_id and hasattr(project, "workspace_id") and project.workspace_id:
-        try:
-            workspace = client.workspace.get(project.workspace_id)
-            if workspace and workspace.role:
-                is_workspace_admin = "workspace:admin" in workspace.role
-        except Exception as e:
-            print(f"Cannot access workspace: {e}")
-
-    # check permission
-    role = getattr(project, "role", "")
-    can_receive = False
-    error_message = ""
-
-    if role:
-        if is_workspace_admin:
-            can_receive = "stream:reviewer" not in role
+        if permissions.can_load:
+            try:
+                permissions.can_load.ensure_authorised()
+                return True, ""
+            except WorkspacePermissionException as e:
+                return False, f"Cannot load: {str(e)}"
         else:
-            can_receive = any(r in role for r in ["stream:owner", "stream:contributor"])
-    else:
-        can_receive = is_workspace_admin
+            return (
+                False,
+                "Your role on this project doesn't give you permission to load.",
+            )
 
-    if not can_receive:
-        error_message = "Your role on this project doesn't give you permission to load."
+    except Exception as e:
+        error_msg = f"Failed to check permissions: {str(e)}"
+        print(error_msg)
+        return False, error_msg
 
-    return can_receive, error_message
+
+def can_publish(client, project) -> Tuple[bool, str]:
+    try:
+        permissions = client.project.get_permissions(project.id)
+
+        if permissions.can_publish:
+            try:
+                permissions.can_publish.ensure_authorised()
+                return True, ""
+            except WorkspacePermissionException as e:
+                return False, f"Cannot publish: {str(e)}"
+        else:
+            return (
+                False,
+                "Your role on this project doesn't give you permission to publish.",
+            )
+
+    except Exception as e:
+        error_msg = f"Failed to check permissions: {str(e)}"
+        print(error_msg)
+        return False, error_msg
