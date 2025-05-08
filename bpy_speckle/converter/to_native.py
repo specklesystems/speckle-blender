@@ -437,48 +437,7 @@ def mesh_to_native_mesh(
     """
     converts a single Speckle mesh to a Blender mesh object
     """
-    if not speckle_mesh.vertices or not speckle_mesh.faces:
-        raise ValueError("Mesh has no vertices or faces")
-
-    blender_mesh = bpy.data.meshes.new(name)
-
-    vertices = []
-    for i in range(0, len(speckle_mesh.vertices), 3):
-        vertices.append(
-            (
-                float(speckle_mesh.vertices[i]) * scale,
-                float(speckle_mesh.vertices[i + 1]) * scale,
-                float(speckle_mesh.vertices[i + 2]) * scale,
-            )
-        )
-
-    # Extract faces from the Speckle mesh format
-    faces: List[List[int]] = []
-    vertex_normals : List[List[float]] = []
-
-    i = 0
-    while i < len(speckle_mesh.faces):
-        vertex_count = speckle_mesh.faces[i]
-        face: List[int] = []
-        for j in range(1, vertex_count + 1):
-            vertex_index = speckle_mesh.faces[i + j]
-            face.append(vertex_index)
-
-            ii = vertex_index * 3
-            vertex_normals.append([speckle_mesh.vertexNormals[ii], speckle_mesh.vertexNormals[ii + 1], speckle_mesh.vertexNormals[ii + 2]])
-            
-        faces.append(face)
-        i += vertex_count + 1
-
-    # Create the mesh from vertices and faces
-    blender_mesh.from_pydata(vertices, [], faces)
-    blender_mesh.update()
-
-    # Set normals
-    if len(vertex_normals) > 0:
-        blender_mesh.normals_split_custom_set(vertex_normals)
-
-    return blender_mesh
+    return meshes_to_native(speckle_mesh, [speckle_mesh], name, scale)
 
 
 def meshes_to_native(
@@ -491,28 +450,23 @@ def meshes_to_native(
     """
     combines multiple Speckle meshes into a single Blender mesh with material support
     """
-    # If there's only one mesh, use the simpler conversion function
-    if len(meshes) == 1:
-        blender_mesh = mesh_to_native_mesh(meshes[0], name, scale)
-
-        # Apply material if available for this mesh
-        if material_mapping and hasattr(meshes[0], "applicationId"):
-            app_id = meshes[0].applicationId
-            if app_id in material_mapping:
-                material = material_mapping[app_id]
-                blender_mesh.materials.append(material)
-
-        return blender_mesh
-
     blender_mesh = bpy.data.meshes.new(name)
 
-    mesh_face_ranges = []  # List of (start_face, end_face, mesh_index)
+    mesh_face_ranges: List[
+        Tuple[int, int, int]
+    ] = []  # List of (start_face, end_face, mesh_index)
     current_face = 0
 
-    mesh_materials = {}  # Maps mesh index to material
+    mesh_materials: Dict[int, bpy.types.Material] = {}  # Maps mesh index to material
 
-    all_vertices = []
-    all_faces = []
+    has_normals = any(
+        m.vertexNormals is not None and len(m.vertexNormals) > 0 for m in meshes
+    )
+
+    all_vertices: List[Tuple[float, float, float]] = []
+    all_faces: List[List[float]] = []
+    all_normals: Optional[List[List[float]]] = [] if has_normals else None
+
     vertex_offset = 0
 
     for mesh_idx, mesh in enumerate(meshes):
@@ -539,11 +493,29 @@ def meshes_to_native(
         face_count = 0
         while i < len(mesh.faces):
             vertex_count = mesh.faces[i]
-            face = []
+            face: List[float] = []
             for j in range(1, vertex_count + 1):
                 vertex_index = mesh.faces[i + j]
                 face.append(vertex_index + vertex_offset)
+
+                ii = vertex_index * 3
+
+                if all_normals is not None:
+                    if mesh.vertexNormals is not None:
+                        all_normals.append(
+                            [
+                                mesh.vertexNormals[ii],
+                                mesh.vertexNormals[ii + 1],
+                                mesh.vertexNormals[ii + 2],
+                            ]
+                        )
+                    else:
+                        all_normals.append(
+                            (0, 0, 0)
+                        )  # Zero vector is treated as auto normal
+
             all_faces.append(face)
+
             i += vertex_count + 1
             face_count += 1
             current_face += 1
@@ -556,6 +528,12 @@ def meshes_to_native(
 
     blender_mesh.from_pydata(all_vertices, [], all_faces)
     blender_mesh.update()
+
+    # Set normals
+    if all_normals is not None:
+        blender_mesh.normals_split_custom_set(all_normals)
+    else:
+        blender_mesh.shade_smooth()
 
     # If we have materials, add them to the mesh
     if mesh_materials:
