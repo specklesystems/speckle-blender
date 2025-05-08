@@ -4,7 +4,6 @@ from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
 from specklepy.api.client import SpeckleClient
 from specklepy.api.wrapper import StreamWrapper
-from specklepy.logging.exceptions import WorkspacePermissionException
 
 from .misc import strip_non_ascii
 
@@ -204,12 +203,8 @@ def can_load(client, project) -> Tuple[bool, str]:
     try:
         permissions = client.project.get_permissions(project.id)
 
-        if permissions.can_load:
-            try:
-                permissions.can_load.ensure_authorised()
-                return True, ""
-            except WorkspacePermissionException as e:
-                return False, f"Cannot load: {str(e)}"
+        if permissions.can_load.authorized:
+            return True, ""
         else:
             return (
                 False,
@@ -226,12 +221,8 @@ def can_publish(client, project) -> Tuple[bool, str]:
     try:
         permissions = client.project.get_permissions(project.id)
 
-        if permissions.can_publish:
-            try:
-                permissions.can_publish.ensure_authorised()
-                return True, ""
-            except WorkspacePermissionException as e:
-                return False, f"Cannot publish: {str(e)}"
+        if permissions.can_publish.authorized:
+            return True, ""
         else:
             return (
                 False,
