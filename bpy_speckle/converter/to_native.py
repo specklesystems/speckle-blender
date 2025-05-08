@@ -460,7 +460,7 @@ def meshes_to_native(
     mesh_materials: Dict[int, bpy.types.Material] = {}  # Maps mesh index to material
 
     has_normals = any(
-        m.vertexNormals is not None and len(m.vertexNormals) > 0 for m in meshes
+        hasattr(m, "vertexNormals") and len(m.vertexNormals) > 0 for m in meshes
     )
 
     all_vertices: List[Tuple[float, float, float]] = []
@@ -501,7 +501,7 @@ def meshes_to_native(
                 ii = vertex_index * 3
 
                 if all_normals is not None:
-                    if mesh.vertexNormals is not None:
+                    if hasattr(mesh, "vertexNormals") and len(mesh.vertexNormals) > 0:
                         all_normals.append(
                             [
                                 mesh.vertexNormals[ii],
