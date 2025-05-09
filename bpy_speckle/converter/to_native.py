@@ -662,7 +662,7 @@ def arc_to_native(
     speckle_arc: Arc, object_name: str, data_block_name: str, scale: float = 1.0
 ) -> bpy.types.Object:
     """
-    Converts a Speckle arc to a Blender NURBS curve.
+    converts a Speckle arc to a Blender NURBS curve.
     """
     import math
     import mathutils
@@ -674,7 +674,6 @@ def arc_to_native(
     if not plane:
         raise ValueError("Arc is missing plane")
 
-    # Get points in global coordinates
     start_point = mathutils.Vector(
         (
             float(speckle_arc.startPoint.x) * scale,
@@ -709,7 +708,6 @@ def arc_to_native(
 
     radius = (start_point - center).length
 
-    # Extract basis vectors from plane
     normal = mathutils.Vector(
         (
             float(plane.normal.x),
@@ -737,14 +735,13 @@ def arc_to_native(
     )
     y_dir.normalize()
 
-    # Convert global coordinates to local plane coordinates for angle calculation
+    # convert global coordinates to local plane coordinates for angle calculation
     def to_local_coords(point):
         v = point - center
         x = v.dot(x_dir)
         y = v.dot(y_dir)
         return x, y
 
-    # Calculate angles in the plane
     start_local_x, start_local_y = to_local_coords(start_point)
     mid_local_x, mid_local_y = to_local_coords(mid_point)
     end_local_x, end_local_y = to_local_coords(end_point)
@@ -753,19 +750,15 @@ def arc_to_native(
     mid_angle = math.atan2(mid_local_y, mid_local_x)
     end_angle = math.atan2(end_local_y, end_local_x)
 
-    # Calculate sweep angle ensuring we go through the midpoint
     sweep_angle = end_angle - start_angle
 
-    # Make sure we choose the correct direction through the midpoint
     if sweep_angle > math.pi:
         sweep_angle -= 2 * math.pi
     elif sweep_angle < -math.pi:
         sweep_angle += 2 * math.pi
 
-    # Check if midpoint is on the sweep path
     mid_angle_rel = (mid_angle - start_angle) % (2 * math.pi)
 
-    # If the midpoint isn't roughly halfway through the sweep, flip the sweep direction
     mid_expected = sweep_angle / 2.0
     if abs((mid_angle_rel - mid_expected + math.pi) % (2 * math.pi) - math.pi) > 0.1:
         if sweep_angle > 0:
@@ -773,18 +766,14 @@ def arc_to_native(
         else:
             sweep_angle += 2 * math.pi
 
-    # Create NURBS spline
     spline = curve.splines.new("NURBS")
     spline.use_cyclic_u = False
 
-    # Calculate number of points based on sweep angle
     Ndiv = max(int(abs(sweep_angle / 0.3)), 4)
     step = sweep_angle / float(Ndiv)
 
-    # Add points to the spline
-    spline.points.add(Ndiv)  # Add Ndiv points (plus the one that exists by default)
+    spline.points.add(Ndiv)  
 
-    # Populate points along the arc
     for i in range(Ndiv + 1):
         angle = start_angle + step * i
         local_x = math.cos(angle) * radius
@@ -794,12 +783,10 @@ def arc_to_native(
         point = center + x_dir * local_x + y_dir * local_y
         spline.points[i].co = (point.x, point.y, point.z, 1.0)  # 1.0 is the weight
 
-    # Set spline properties
     spline.use_endpoint_u = True
     spline.order_u = 3
     spline.resolution_u = 12
 
-    # Create the object
     curve_obj = bpy.data.objects.new(object_name, curve)
 
     return curve_obj
@@ -992,7 +979,11 @@ def curve_to_native(
         raise TypeError("Expected a Speckle Curve object.")
 
     # fallback for degree 2 curves: use displayValue if available
-    if getattr(speckle_curve, "degree", None) == 2 and hasattr(speckle_curve, "displayValue") and speckle_curve.displayValue:
+    if (
+        getattr(speckle_curve, "degree", None) == 2
+        and hasattr(speckle_curve, "displayValue")
+        and speckle_curve.displayValue
+    ):
         print("curve_to_native: degree 2 curve, falling back to displayValue")
         mesh, children = display_value_to_native(
             speckle_curve, object_name, data_block_name, scale
@@ -1020,10 +1011,12 @@ def curve_to_native(
 
     point_count = len(points) // 3
 
-    # Only subtract degree for closed curves if degree > 2 (e.g., cubic NURBS from Rhino)
-    if speckle_curve.closed and speckle_curve.degree > 2 and point_count > speckle_curve.degree:
+    if (
+        speckle_curve.closed
+        and speckle_curve.degree > 2
+        and point_count > speckle_curve.degree
+    ):
         point_count = point_count - speckle_curve.degree
-
 
     if point_count > 1:
         spline.points.add(point_count - 1)
@@ -1045,7 +1038,6 @@ def curve_to_native(
     spline.order_u = speckle_curve.degree + 1
     spline.resolution_u = 12
 
-
     curve_obj = bpy.data.objects.new(object_name, curve)
     return curve_obj
 
@@ -1061,7 +1053,10 @@ def polycurve_to_native(
     """
     if not hasattr(speckle_polycurve, "segments") or not speckle_polycurve.segments:
         # fallback to displayValue if no segments - not sure if it ever happens
-        if hasattr(speckle_polycurve, "displayValue") and speckle_polycurve.displayValue:
+        if (
+            hasattr(speckle_polycurve, "displayValue")
+            and speckle_polycurve.displayValue
+        ):
             mesh, children = display_value_to_native(
                 speckle_polycurve, object_name, data_block_name, scale
             )
@@ -1084,17 +1079,29 @@ def polycurve_to_native(
 
         # convert the segment using the appropriate function
         if isinstance(segment, Line):
-            temp_obj = line_to_native(segment, f"temp_line_{idx}", f"temp_line_data_{idx}", scale)
+            temp_obj = line_to_native(
+                segment, f"temp_line_{idx}", f"temp_line_data_{idx}", scale
+            )
         elif isinstance(segment, Polyline):
-            temp_obj = polyline_to_native(segment, f"temp_polyline_{idx}", f"temp_polyline_data_{idx}", scale)
+            temp_obj = polyline_to_native(
+                segment, f"temp_polyline_{idx}", f"temp_polyline_data_{idx}", scale
+            )
         elif isinstance(segment, Arc):
-            temp_obj = arc_to_native(segment, f"temp_arc_{idx}", f"temp_arc_data_{idx}", scale)
+            temp_obj = arc_to_native(
+                segment, f"temp_arc_{idx}", f"temp_arc_data_{idx}", scale
+            )
         elif isinstance(segment, Circle):
-            temp_obj = circle_to_native(segment, f"temp_circle_{idx}", f"temp_circle_data_{idx}", scale)
+            temp_obj = circle_to_native(
+                segment, f"temp_circle_{idx}", f"temp_circle_data_{idx}", scale
+            )
         elif isinstance(segment, Ellipse):
-            temp_obj = ellipse_to_native(segment, f"temp_ellipse_{idx}", f"temp_ellipse_data_{idx}", scale)
+            temp_obj = ellipse_to_native(
+                segment, f"temp_ellipse_{idx}", f"temp_ellipse_data_{idx}", scale
+            )
         elif isinstance(segment, Curve):
-            temp_obj = curve_to_native(segment, f"temp_curve_{idx}", f"temp_curve_data_{idx}", scale)
+            temp_obj = curve_to_native(
+                segment, f"temp_curve_{idx}", f"temp_curve_data_{idx}", scale
+            )
         else:
             bpy.data.curves.remove(temp_curve)
             raise ValueError(f"Unsupported curve segment type: {type(segment)}")
