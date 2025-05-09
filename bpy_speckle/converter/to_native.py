@@ -991,43 +991,62 @@ def curve_to_native(
     if not isinstance(speckle_curve, Curve):
         raise TypeError("Expected a Speckle Curve object.")
 
+    # fallback for degree 2 curves: use displayValue if available
+    if getattr(speckle_curve, "degree", None) == 2 and hasattr(speckle_curve, "displayValue") and speckle_curve.displayValue:
+        print("curve_to_native: degree 2 curve, falling back to displayValue")
+        mesh, children = display_value_to_native(
+            speckle_curve, object_name, data_block_name, scale
+        )
+        if mesh:
+            curve_obj = bpy.data.objects.new(object_name, mesh)
+            return curve_obj
+        elif children:
+            return children[0]
+        else:
+            return None
+
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
     curve.dimensions = "3D"
 
     spline = curve.splines.new("NURBS")
 
-    # calculate the number of control points
-    point_count = len(speckle_curve.points) // 3  # divide by 3 to get point count
+    points = speckle_curve.points
+    if isinstance(points, list) and len(points) == 1 and hasattr(points[0], "data"):
+        points = points[0].data
 
-    # Handle closed curves (which can have extra points in Rhino/Speckle)
-    if speckle_curve.closed and speckle_curve.degree > 0:
-        # Closed curves from rhino will have n + degree points. We ignore the extras
+    weights = getattr(speckle_curve, "weights", None)
+    if isinstance(weights, list) and len(weights) == 1 and hasattr(weights[0], "data"):
+        weights = weights[0].data
+
+    point_count = len(points) // 3
+
+    # Only subtract degree for closed curves if degree > 2 (e.g., cubic NURBS from Rhino)
+    if speckle_curve.closed and speckle_curve.degree > 2 and point_count > speckle_curve.degree:
         point_count = point_count - speckle_curve.degree
 
-    # resize spline to fit all control points
+
     if point_count > 1:
         spline.points.add(point_count - 1)
 
-    # Add points and weights
     for i in range(point_count):
-        x = float(speckle_curve.points[i * 3]) * scale
-        y = float(speckle_curve.points[i * 3 + 1]) * scale
-        z = float(speckle_curve.points[i * 3 + 2]) * scale
+        x = float(points[i * 3]) * scale
+        y = float(points[i * 3 + 1]) * scale
+        z = float(points[i * 3 + 2]) * scale
 
         w = 1.0
-        if hasattr(speckle_curve, "weights") and i < len(speckle_curve.weights):
-            w = float(speckle_curve.weights[i])
+        if weights and i < len(weights):
+            w = float(weights[i])
 
+        print(f"curve_to_native: point {i}: ({x}, {y}, {z}, {w})")
         spline.points[i].co = (x, y, z, w)
 
-    # Set curve properties
     spline.use_cyclic_u = speckle_curve.closed
     spline.use_endpoint_u = not speckle_curve.periodic
-    spline.order_u = speckle_curve.degree + 1  # blender order = degree + 1
+    spline.order_u = speckle_curve.degree + 1
     spline.resolution_u = 12
 
-    curve_obj = bpy.data.objects.new(object_name, curve)
 
+    curve_obj = bpy.data.objects.new(object_name, curve)
     return curve_obj
 
 
