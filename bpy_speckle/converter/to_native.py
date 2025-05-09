@@ -1297,7 +1297,6 @@ def instance_definition_proxy_to_native(
 def proxy_scale(speckle_object: Base, fallback: float = 1.0) -> float:
     """
     determines the correct scale factor based on object units and Blender settings
-    (will change it in the future)
     """
     unit_settings = bpy.context.scene.unit_settings
 
@@ -1310,13 +1309,15 @@ def proxy_scale(speckle_object: Base, fallback: float = 1.0) -> float:
 
     unit_scale = 1.0
 
-    if hasattr(speckle_object, "units"):
-        if speckle_object.units == "cm":
-            unit_scale = 0.01
-        elif speckle_object.units == "mm":
-            unit_scale = 0.001
-        elif speckle_object.units == "m":
-            unit_scale = 1.0
+    if hasattr(speckle_object, "units") and speckle_object.units:
+        try:
+            # get scale factor to convert from object units to meters
+            unit_scale = get_scale_factor_to_meters(
+                get_units_from_string(speckle_object.units)
+            )
+        except Exception as e:
+            print(f"[WARNING] Failed to determine unit scale: {str(e)}")
+            unit_scale = fallback
 
     final_scale = unit_scale / blender_scale
 
