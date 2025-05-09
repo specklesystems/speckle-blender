@@ -772,7 +772,7 @@ def arc_to_native(
     Ndiv = max(int(abs(sweep_angle / 0.3)), 4)
     step = sweep_angle / float(Ndiv)
 
-    spline.points.add(Ndiv)  
+    spline.points.add(Ndiv)
 
     for i in range(Ndiv + 1):
         angle = start_angle + step * i
@@ -1123,6 +1123,10 @@ def polycurve_to_native(
                 dst_spline.use_cyclic_u = src_spline.use_cyclic_u
                 if hasattr(src_spline, "order_u"):
                     dst_spline.order_u = src_spline.order_u
+                if hasattr(src_spline, "resolution_u"):
+                    dst_spline.resolution_u = 12
+                if hasattr(src_spline, "use_endpoint_u"):
+                    dst_spline.use_endpoint_u = True
             bpy.data.objects.remove(temp_obj)
         else:
             raise ValueError(f"Failed to convert segment of type {type(segment)}")
