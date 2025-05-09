@@ -670,7 +670,11 @@ def arc_to_native(
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
     curve.dimensions = "3D"
 
-    # get key points from the arc
+    plane = speckle_arc.plane
+    if not plane:
+        raise ValueError("Arc is missing plane")
+
+    # Get points in global coordinates
     start_point = mathutils.Vector(
         (
             float(speckle_arc.startPoint.x) * scale,
@@ -695,117 +699,107 @@ def arc_to_native(
         )
     )
 
-    # calculate center and radius from three points
-    # create vectors for calculation
-    chord1 = mid_point - start_point
-    chord2 = end_point - mid_point
-
-    # get perpendicular vectors in the plane of the arc
-    perp1 = (
-        mathutils.Vector((chord1.y, -chord1.x, 0))
-        if chord1.z == 0
-        else mathutils.Vector((-chord1.z, 0, chord1.x))
-    )
-    perp2 = (
-        mathutils.Vector((chord2.y, -chord2.x, 0))
-        if chord2.z == 0
-        else mathutils.Vector((-chord2.z, 0, chord2.x))
-    )
-
-    perp1.normalize()
-    perp2.normalize()
-
-    mid_chord1 = start_point + chord1 * 0.5
-    mid_chord2 = mid_point + chord2 * 0.5
-
-    # create 3D line equations from midpoints of chords and perpendicular directions
-    # find intersection (arc center) using linear algebra
-    try:
-        mat_a = mathutils.Matrix(((perp1.x, -perp2.x), (perp1.y, -perp2.y)))
-        mat_b = mathutils.Vector(
-            (mid_chord2.x - mid_chord1.x, mid_chord2.y - mid_chord1.y)
+    center = mathutils.Vector(
+        (
+            float(plane.origin.x) * scale,
+            float(plane.origin.y) * scale,
+            float(plane.origin.z) * scale,
         )
-
-        params = mat_a.inverted() @ mat_b
-
-        center = mid_chord1 + perp1 * params[0]
-    except:  # noqa: E722
-        # fallback if the matrix is singular (lines are parallel)
-        # use the plane origin as center
-        center = mathutils.Vector(
-            (
-                float(speckle_arc.plane.origin.x) * scale,
-                float(speckle_arc.plane.origin.y) * scale,
-                float(speckle_arc.plane.origin.z) * scale,
-            )
-        )
+    )
 
     radius = (start_point - center).length
 
-    vec_start = start_point - center
-    vec_mid = mid_point - center
-    vec_end = end_point - center
-
-    normal = vec_start.cross(vec_end)
+    # Extract basis vectors from plane
+    normal = mathutils.Vector(
+        (
+            float(plane.normal.x),
+            float(plane.normal.y),
+            float(plane.normal.z),
+        )
+    )
     normal.normalize()
 
-    vec_start.normalize()
-    vec_end.normalize()
+    x_dir = mathutils.Vector(
+        (
+            float(plane.xdir.x),
+            float(plane.xdir.y),
+            float(plane.xdir.z),
+        )
+    )
+    x_dir.normalize()
 
-    start_angle = math.atan2(vec_start.y, vec_start.x)
+    y_dir = mathutils.Vector(
+        (
+            float(plane.ydir.x),
+            float(plane.ydir.y),
+            float(plane.ydir.z),
+        )
+    )
+    y_dir.normalize()
 
-    # to determine direction and angle, check orientation of the three points
-    # direction from start to mid
-    start_to_mid_angle = math.atan2(vec_mid.y, vec_mid.x) - start_angle
-    if start_to_mid_angle < -math.pi:
-        start_to_mid_angle += 2 * math.pi
-    elif start_to_mid_angle > math.pi:
-        start_to_mid_angle -= 2 * math.pi
+    # Convert global coordinates to local plane coordinates for angle calculation
+    def to_local_coords(point):
+        v = point - center
+        x = v.dot(x_dir)
+        y = v.dot(y_dir)
+        return x, y
 
-    # direction from start to end
-    sweep_angle = math.atan2(vec_end.y, vec_end.x) - start_angle
-    if sweep_angle < -math.pi:
-        sweep_angle += 2 * math.pi
-    elif sweep_angle > math.pi:
+    # Calculate angles in the plane
+    start_local_x, start_local_y = to_local_coords(start_point)
+    mid_local_x, mid_local_y = to_local_coords(mid_point)
+    end_local_x, end_local_y = to_local_coords(end_point)
+
+    start_angle = math.atan2(start_local_y, start_local_x)
+    mid_angle = math.atan2(mid_local_y, mid_local_x)
+    end_angle = math.atan2(end_local_y, end_local_x)
+
+    # Calculate sweep angle ensuring we go through the midpoint
+    sweep_angle = end_angle - start_angle
+
+    # Make sure we choose the correct direction through the midpoint
+    if sweep_angle > math.pi:
         sweep_angle -= 2 * math.pi
+    elif sweep_angle < -math.pi:
+        sweep_angle += 2 * math.pi
 
-    # reverse the sweep
-    if (sweep_angle > 0 and start_to_mid_angle < 0) or (
-        sweep_angle < 0 and start_to_mid_angle > 0
-    ):
+    # Check if midpoint is on the sweep path
+    mid_angle_rel = (mid_angle - start_angle) % (2 * math.pi)
+
+    # If the midpoint isn't roughly halfway through the sweep, flip the sweep direction
+    mid_expected = sweep_angle / 2.0
+    if abs((mid_angle_rel - mid_expected + math.pi) % (2 * math.pi) - math.pi) > 0.1:
         if sweep_angle > 0:
-            sweep_angle = sweep_angle - 2 * math.pi
+            sweep_angle -= 2 * math.pi
         else:
-            sweep_angle = 2 * math.pi + sweep_angle
+            sweep_angle += 2 * math.pi
 
+    # Create NURBS spline
     spline = curve.splines.new("NURBS")
+    spline.use_cyclic_u = False
 
-    num_points = max(
-        8, int(abs(sweep_angle / (math.pi / 4)) * 4)
-    )  # at least 8 points, more for larger arcs
-    spline.points.add(num_points - 1)  # -1 because it already has one point
+    # Calculate number of points based on sweep angle
+    Ndiv = max(int(abs(sweep_angle / 0.3)), 4)
+    step = sweep_angle / float(Ndiv)
 
-    for i in range(num_points):
-        t = i / (num_points - 1)  # normalized parameter [0, 1]
-        angle = start_angle + sweep_angle * t
+    # Add points to the spline
+    spline.points.add(Ndiv)  # Add Ndiv points (plus the one that exists by default)
 
-        x = center.x + radius * math.cos(angle)
-        y = center.y + radius * math.sin(angle)
-        z = center.z
+    # Populate points along the arc
+    for i in range(Ndiv + 1):
+        angle = start_angle + step * i
+        local_x = math.cos(angle) * radius
+        local_y = math.sin(angle) * radius
 
-        if normal.z < 0.99:  # if arc is not in the XY plane
-            # create rotation matrix
-            rotation = mathutils.Matrix.Rotation(angle, 4, normal)
-            vec = mathutils.Vector((radius, 0, 0))
-            point = rotation @ vec + center
-            x, y, z = point.x, point.y, point.z
+        # Convert back to global coordinates
+        point = center + x_dir * local_x + y_dir * local_y
+        spline.points[i].co = (point.x, point.y, point.z, 1.0)  # 1.0 is the weight
 
-        spline.points[i].co = (x, y, z, 1.0)  # 1.0 is the weight
-
+    # Set spline properties
     spline.use_endpoint_u = True
     spline.order_u = 3
     spline.resolution_u = 12
 
+    # Create the object
     curve_obj = bpy.data.objects.new(object_name, curve)
 
     return curve_obj
@@ -990,11 +984,10 @@ def ellipse_to_native(
 
 def curve_to_native(
     speckle_curve: Curve, object_name: str, data_block_name: str, scale: float = 1.0
-) -> Optional[Object]:
+) -> bpy.types.Object:
     """
     converts a speckle NURBS curve to a blender curve object
     """
-
     if not isinstance(speckle_curve, Curve):
         raise TypeError("Expected a Speckle Curve object.")
 
@@ -1004,38 +997,34 @@ def curve_to_native(
     spline = curve.splines.new("NURBS")
 
     # calculate the number of control points
-    point_count = len(speckle_curve.points) // 3
+    point_count = len(speckle_curve.points) // 3  # divide by 3 to get point count
+
+    # Handle closed curves (which can have extra points in Rhino/Speckle)
+    if speckle_curve.closed and speckle_curve.degree > 0:
+        # Closed curves from rhino will have n + degree points. We ignore the extras
+        point_count = point_count - speckle_curve.degree
 
     # resize spline to fit all control points
     if point_count > 1:
         spline.points.add(point_count - 1)
 
+    # Add points and weights
     for i in range(point_count):
         x = float(speckle_curve.points[i * 3]) * scale
         y = float(speckle_curve.points[i * 3 + 1]) * scale
         z = float(speckle_curve.points[i * 3 + 2]) * scale
 
         w = 1.0
-        if hasattr(speckle_curve, "weights") and len(speckle_curve.weights) > i:
+        if hasattr(speckle_curve, "weights") and i < len(speckle_curve.weights):
             w = float(speckle_curve.weights[i])
 
         spline.points[i].co = (x, y, z, w)
 
-    spline.use_endpoint_u = True
+    # Set curve properties
+    spline.use_cyclic_u = speckle_curve.closed
+    spline.use_endpoint_u = not speckle_curve.periodic
     spline.order_u = speckle_curve.degree + 1  # blender order = degree + 1
-
-    if hasattr(speckle_curve, "rational"):
-        if speckle_curve.rational:
-            pass
-        else:
-            for i in range(point_count):
-                spline.points[i].co[3] = 1.0
-
-    if hasattr(speckle_curve, "closed") and speckle_curve.closed:
-        spline.use_cyclic_u = True
-
-    if hasattr(speckle_curve, "periodic") and speckle_curve.periodic:
-        spline.use_cyclic_u = True
+    spline.resolution_u = 12
 
     curve_obj = bpy.data.objects.new(object_name, curve)
 
