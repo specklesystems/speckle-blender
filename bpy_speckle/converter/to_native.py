@@ -63,7 +63,10 @@ def generate_unique_name(speckle_object: Base) -> Tuple[str, str]:
     # Since every data object has name, use it in naming
     # If not extract base name from speckle type itself
     if (
-        "DataObject" in speckle_object.speckle_type
+        (
+            "DataObject" in speckle_object.speckle_type
+            or "Data" in speckle_object.speckle_type
+        )
         and hasattr(speckle_object, "name")
         and speckle_object.name
     ):
