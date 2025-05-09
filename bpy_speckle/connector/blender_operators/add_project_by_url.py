@@ -2,8 +2,8 @@ import bpy
 from bpy.types import Context, Event, UILayout, WindowManager
 from ..utils.account_manager import (
     get_model_details_by_wrapper,
-    check_project_permissions,
     get_project_from_url,
+    can_load,
 )
 
 
@@ -44,8 +44,8 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
         ) = get_model_details_by_wrapper(wrapper)
 
         # Check permissions
-        can_receive, permission_error = check_project_permissions(client, project)
-        if not can_receive:
+        can_load_permission, permission_error = can_load(client, project)
+        if not can_load_permission:
             self.report({"ERROR"}, permission_error)
             return {"CANCELLED"}
 
