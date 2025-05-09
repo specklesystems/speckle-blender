@@ -1057,91 +1057,72 @@ def polycurve_to_native(
     scale: float = 1.0,
 ) -> Optional[Object]:
     """
-    converts a speckle polycurve to a blender curve object
+    converts a speckle polycurve to a Blender curve object.
     """
     if not hasattr(speckle_polycurve, "segments") or not speckle_polycurve.segments:
-        raise ValueError("Polycurve is missing segments")
+        # fallback to displayValue if no segments - not sure if it ever happens
+        if hasattr(speckle_polycurve, "displayValue") and speckle_polycurve.displayValue:
+            mesh, children = display_value_to_native(
+                speckle_polycurve, object_name, data_block_name, scale
+            )
+            if mesh:
+                curve_obj = bpy.data.objects.new(object_name, mesh)
+                return curve_obj
+            elif children:
+                return children[0]
+            else:
+                return None
+        raise ValueError("Polycurve is missing segments and has no displayValue")
 
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
     curve.dimensions = "3D"
 
-    for segment in speckle_polycurve.segments:
-        segment_type = type(segment)
-
-        temp_curve = bpy.data.curves.new("temp_curve", type="CURVE")
+    for idx, segment in enumerate(speckle_polycurve.segments):
+        temp_curve = bpy.data.curves.new(f"temp_curve_{idx}", type="CURVE")
         temp_curve.dimensions = "3D"
-
-        # Convert the segment based on its type
         temp_obj = None
-        try:
-            if isinstance(segment, Line):
-                temp_obj = line_to_native(segment, "temp_line", "temp_line_data", scale)
-            elif isinstance(segment, Polyline):
-                temp_obj = polyline_to_native(
-                    segment, "temp_polyline", "temp_polyline_data", scale
-                )
-            elif isinstance(segment, Arc):
-                temp_obj = arc_to_native(segment, "temp_arc", "temp_arc_data", scale)
-            elif isinstance(segment, Circle):
-                temp_obj = circle_to_native(
-                    segment, "temp_circle", "temp_circle_data", scale
-                )
-            elif isinstance(segment, Ellipse):
-                temp_obj = ellipse_to_native(
-                    segment, "temp_ellipse", "temp_ellipse_data", scale
-                )
-            elif isinstance(segment, Curve):
-                temp_obj = curve_to_native(
-                    segment, "temp_curve", "temp_curve_data", scale
-                )
-            else:
-                # If segment type is not supported, fail the entire conversion
-                bpy.data.curves.remove(temp_curve)
-                bpy.data.curves.remove(curve)
-                raise ValueError(f"Unsupported curve segment type: {segment_type}")
 
-            if temp_obj and temp_obj.data and hasattr(temp_obj.data, "splines"):
-                for src_spline in temp_obj.data.splines:
-                    dst_spline = curve.splines.new(src_spline.type)
-
-                    if src_spline.type == "BEZIER":
-                        if len(src_spline.bezier_points) > 1:
-                            dst_spline.bezier_points.add(
-                                len(src_spline.bezier_points) - 1
-                            )
-                        for i, bp in enumerate(src_spline.bezier_points):
-                            dst_spline.bezier_points[i].co = bp.co
-                            dst_spline.bezier_points[i].handle_left = bp.handle_left
-                            dst_spline.bezier_points[i].handle_right = bp.handle_right
-                    else:
-                        if len(src_spline.points) > 1:
-                            dst_spline.points.add(len(src_spline.points) - 1)
-                        for i, point in enumerate(src_spline.points):
-                            dst_spline.points[i].co = point.co
-
-                    dst_spline.use_cyclic_u = src_spline.use_cyclic_u
-                    if hasattr(src_spline, "order_u"):
-                        dst_spline.order_u = src_spline.order_u
-
-                bpy.data.objects.remove(temp_obj)
-            else:
-                raise ValueError(f"Failed to convert segment of type {segment_type}")
-
-        except Exception as e:
-            if temp_curve.users == 0:
-                bpy.data.curves.remove(temp_curve)
-            bpy.data.curves.remove(curve)
-
-            if temp_obj:
-                bpy.data.objects.remove(temp_obj)
-
-            raise ValueError("Failed to convert polycurve segment") from e
-
-        if temp_curve.users == 0:
+        # convert the segment using the appropriate function
+        if isinstance(segment, Line):
+            temp_obj = line_to_native(segment, f"temp_line_{idx}", f"temp_line_data_{idx}", scale)
+        elif isinstance(segment, Polyline):
+            temp_obj = polyline_to_native(segment, f"temp_polyline_{idx}", f"temp_polyline_data_{idx}", scale)
+        elif isinstance(segment, Arc):
+            temp_obj = arc_to_native(segment, f"temp_arc_{idx}", f"temp_arc_data_{idx}", scale)
+        elif isinstance(segment, Circle):
+            temp_obj = circle_to_native(segment, f"temp_circle_{idx}", f"temp_circle_data_{idx}", scale)
+        elif isinstance(segment, Ellipse):
+            temp_obj = ellipse_to_native(segment, f"temp_ellipse_{idx}", f"temp_ellipse_data_{idx}", scale)
+        elif isinstance(segment, Curve):
+            temp_obj = curve_to_native(segment, f"temp_curve_{idx}", f"temp_curve_data_{idx}", scale)
+        else:
             bpy.data.curves.remove(temp_curve)
+            raise ValueError(f"Unsupported curve segment type: {type(segment)}")
+
+        # copy splines from temp_obj to main curve
+        if temp_obj and temp_obj.data and hasattr(temp_obj.data, "splines"):
+            for src_spline in temp_obj.data.splines:
+                dst_spline = curve.splines.new(src_spline.type)
+                if src_spline.type == "BEZIER":
+                    dst_spline.bezier_points.add(len(src_spline.bezier_points) - 1)
+                    for i, bp in enumerate(src_spline.bezier_points):
+                        dst_spline.bezier_points[i].co = bp.co
+                        dst_spline.bezier_points[i].handle_left = bp.handle_left
+                        dst_spline.bezier_points[i].handle_right = bp.handle_right
+                else:
+                    dst_spline.points.add(len(src_spline.points) - 1)
+                    for i, point in enumerate(src_spline.points):
+                        dst_spline.points[i].co = point.co
+                dst_spline.use_cyclic_u = src_spline.use_cyclic_u
+                if hasattr(src_spline, "order_u"):
+                    dst_spline.order_u = src_spline.order_u
+            bpy.data.objects.remove(temp_obj)
+        else:
+            raise ValueError(f"Failed to convert segment of type {type(segment)}")
+
+        bpy.data.curves.remove(temp_curve)
 
     curve_obj = bpy.data.objects.new(object_name, curve)
-
     return curve_obj
 
 
