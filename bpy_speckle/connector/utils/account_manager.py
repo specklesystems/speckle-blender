@@ -49,7 +49,7 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     """
     account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
     if not account:
-        print("No accounts found!")
+        print("No accounts found > No workspaces!")
         return [("", "")]
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
