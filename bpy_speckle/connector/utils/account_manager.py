@@ -48,6 +48,9 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     retrieves the workspaces for a given account ID
     """
     account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
+    if not account:
+        print("No accounts found!")
+        return [("", "")]
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
     workspaces_enabled = client.server.get().workspaces.workspaces_enabled
