@@ -251,25 +251,27 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             text=add_account_button_text,
         )
 
-        # Workspace selection
-        row = layout.row()
-        if wm.selected_workspace_id != "NO_WORKSPACES":
-            row.prop(self, "workspaces", text="")
+        # if no accounts then don't show workspaces or projects list
+        if wm.selected_account_id != "NO_ACCOUNTS":
+            # Workspace selection
+            row = layout.row()
+            if wm.selected_workspace_id != "NO_WORKSPACES":
+                row.prop(self, "workspaces", text="")
 
-        # Search field
-        row = layout.row(align=True)
-        row.prop(self, "search_query", icon="VIEWZOOM", text="")
-        row.operator("speckle.add_project_by_url", icon="LINKED", text="")
+            # Search field
+            row = layout.row(align=True)
+            row.prop(self, "search_query", icon="VIEWZOOM", text="")
+            row.operator("speckle.add_project_by_url", icon="LINKED", text="")
 
-        layout.template_list(
-            "SPECKLE_UL_projects_list",
-            "",
-            context.window_manager,
-            "speckle_projects",
-            self,
-            "project_index",
-        )
-        layout.separator()
+            layout.template_list(
+                "SPECKLE_UL_projects_list",
+                "",
+                context.window_manager,
+                "speckle_projects",
+                self,
+                "project_index",
+            )
+            layout.separator()
 
 
 def register() -> None:
