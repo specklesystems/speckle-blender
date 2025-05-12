@@ -1,5 +1,6 @@
 from typing import Any, Iterable, List, Optional, Tuple, Dict
 from specklepy.objects import Base
+from specklepy.objects import DataObject
 from specklepy.objects.geometry import (
     Line,
     Polyline,
@@ -42,11 +43,10 @@ def get_scale_factor(speckle_object: Base, fallback: float = 1.0) -> float:
     """
     scale = fallback
 
-    if hasattr(speckle_object, "units") and speckle_object.units:
+    units = getattr(speckle_object, "units", None)
+    if units:
         # Get scale factor to convert from object units to meters
-        unit_scale = get_scale_factor_to_meters(
-            get_units_from_string(speckle_object.units)
-        )
+        unit_scale = get_scale_factor_to_meters(get_units_from_string(units))
 
         blender_unit_scale = bpy.context.scene.unit_settings.scale_length
 
@@ -62,24 +62,13 @@ def generate_unique_name(speckle_object: Base) -> Tuple[str, str]:
     # Check if speckle object is a data object
     # Since every data object has name, use it in naming
     # If not extract base name from speckle type itself
-    if (
-        (
-            "DataObject" in speckle_object.speckle_type
-            or "Data" in speckle_object.speckle_type
-        )
-        and hasattr(speckle_object, "name")
-        and speckle_object.name
-    ):
+    if isinstance(speckle_object, DataObject) and speckle_object.name:
         base_name = speckle_object.name
     else:
         parts = speckle_object.speckle_type.split(".")
         base_name = parts[-1]
 
-    speckle_id = ""
-    if hasattr(speckle_object, "id") and speckle_object.id:
-        speckle_id = speckle_object.id
-    else:
-        raise KeyError("No id has been found!")  # is that even possible?
+    speckle_id = getattr(speckle_object, "id")
 
     # Define object name - should be simple
     object_name = base_name
@@ -110,7 +99,8 @@ def convert_to_native(
         material_mapping = {}
 
     # first check for render material proxies in the root object
-    if hasattr(speckle_object, "renderMaterialProxies"):
+    render_material_proxies = getattr(speckle_object, "renderMaterialProxies", "None")
+    if render_material_proxies:
         render_materials = render_material_proxy_to_native(speckle_object)
         material_mapping.update(render_materials)
 
@@ -176,12 +166,11 @@ def convert_to_native(
         elif children:
             # If we only have non-mesh objects, return the first one as the main object
             converted_object = children[0]
-            
+
             # Ensure the converted object has the correct name (especially for DataObjects)
-            if ("DataObject" in speckle_object.speckle_type or "Data" in speckle_object.speckle_type):
+            if isinstance(speckle_object, DataObject):
                 converted_object.name = object_name
-                if hasattr(converted_object, "data") and converted_object.data:
-                    converted_object.data.name = data_block_name
+                data_block_name = converted_object.data.name
 
             # If there are multiple objects, parent remaining ones to the first
             for child in children[1:]:
@@ -190,8 +179,7 @@ def convert_to_native(
     if converted_object:
         # Store Speckle ID in custom property
         converted_object["speckle_id"] = speckle_object.id
-        if hasattr(speckle_object, "applicationId"):
-            converted_object["speckle_application_id"] = speckle_object.applicationId
+        converted_object["speckle_application_id"] = speckle_object.applicationId
 
     return converted_object
 
@@ -207,10 +195,7 @@ def display_value_to_native(
     fallback conversion mechanism using displayValue if present
     """
     # Before calling _members_to_native, check if the parent object has an applicationId
-    has_app_id = (
-        hasattr(speckle_object, "applicationId") and speckle_object.applicationId
-    )
-    parent_app_id = speckle_object.applicationId if has_app_id else None
+    parent_app_id = getattr(speckle_object, "applicationId", None)
 
     mesh, children = _members_to_native(
         speckle_object,
@@ -235,13 +220,14 @@ def display_value_to_native(
     # For each child object, check if it needs material from parent
     for child in children:
         if parent_app_id and material_mapping and parent_app_id in material_mapping:
+            child_data = getattr(child, "data")
             if (
-                hasattr(child, "data")
-                and hasattr(child.data, "materials")
-                and len(child.data.materials) == 0
+                child_data
+                and hasattr(child_data, "materials")
+                and len(child_data.materials) == 0
             ):
                 material = material_mapping[parent_app_id]
-                child.data.materials.append(material)
+                child_data.materials.append(material)
 
     return mesh, children
 
@@ -320,22 +306,19 @@ def _members_to_native(
             speckle_object, meshes, data_block_name, scale, material_mapping
         )
 
-    # Check if the original object is a DataObject or Data object
-    is_data_object = False
-    if hasattr(speckle_object, "speckle_type"):
-        is_data_object = ("DataObject" in speckle_object.speckle_type or "Data" in speckle_object.speckle_type)
+    # Check if the original object is a DataObject
+    is_data_object = isinstance(speckle_object, DataObject)
 
     for item in others:
         try:
             blender_object = convert_to_native(item, material_mapping)
-            
+
             if blender_object:
                 # If the parent is a DataObject, override the name of the converted child
                 if is_data_object:
                     blender_object.name = object_name
-                    if hasattr(blender_object, "data") and blender_object.data:
-                        blender_object.data.name = data_block_name
-                
+                    data_block_name = blender_object.data.name
+
                 children.append(blender_object)
         except Exception as ex:
             print(f"Failed to convert display value {item}: {ex}")
@@ -409,7 +392,7 @@ def polyline_to_native(
             1.0,
         )
 
-    if hasattr(speckle_polyline, "closed") and speckle_polyline.closed:
+    if speckle_polyline.is_closed:
         spline.use_cyclic_u = True
 
     curve_obj = bpy.data.objects.new(object_name, curve)
@@ -432,22 +415,20 @@ def mesh_to_native(
     mesh_obj = bpy.data.objects.new(object_name, mesh)
 
     # Add vertex colors if available
-    if hasattr(speckle_mesh, "colors") and len(speckle_mesh.colors) > 0:
-        add_vertex_colors(mesh, speckle_mesh.colors)
+    colors = getattr(speckle_mesh, "colors", None)
+    if colors and len(colors) > 0:
+        add_vertex_colors(mesh, colors)
 
     # Add texture coordinates if available
-    if (
-        hasattr(speckle_mesh, "textureCoordinates")
-        and len(speckle_mesh.textureCoordinates) > 0
-    ):
-        add_texture_coordinates(mesh, speckle_mesh.textureCoordinates)
+    texture_coords = getattr(speckle_mesh, "textureCoordinates", None)
+    if texture_coords and len(texture_coords) > 0:
+        add_texture_coordinates(mesh, texture_coords)
 
     # Apply material if available in mapping
-    if material_mapping and hasattr(speckle_mesh, "applicationId"):
-        app_id = speckle_mesh.applicationId
-        if app_id in material_mapping:
-            material = material_mapping[app_id]
-            mesh.materials.append(material)
+    app_id = getattr(speckle_mesh, "applicationId", None)
+    if material_mapping and app_id and app_id in material_mapping:
+        material = material_mapping[app_id]
+        mesh.materials.append(material)
 
     return mesh_obj
 
@@ -507,11 +488,10 @@ def meshes_to_native(
         blender_mesh = mesh_to_native_mesh(meshes[0], name, scale)
 
         # Apply material if available for this mesh
-        if material_mapping and hasattr(meshes[0], "applicationId"):
-            app_id = meshes[0].applicationId
-            if app_id in material_mapping:
-                material = material_mapping[app_id]
-                blender_mesh.materials.append(material)
+        app_id = getattr(meshes[0], "applicationId", None)
+        if material_mapping and app_id and app_id in material_mapping:
+            material = material_mapping[app_id]
+            blender_mesh.materials.append(material)
 
         return blender_mesh
 
@@ -1037,25 +1017,29 @@ def curve_to_native(
         z = float(speckle_curve.points[i * 3 + 2]) * scale
 
         w = 1.0
-        if hasattr(speckle_curve, "weights") and len(speckle_curve.weights) > i:
-            w = float(speckle_curve.weights[i])
+        weights = getattr(speckle_curve, "weights", None)
+        if weights and len(weights) > i:
+            w = float(weights[i])
 
         spline.points[i].co = (x, y, z, w)
 
     spline.use_endpoint_u = True
     spline.order_u = speckle_curve.degree + 1  # blender order = degree + 1
 
-    if hasattr(speckle_curve, "rational"):
-        if speckle_curve.rational:
+    rational = getattr(speckle_curve, "rational", None)
+    if rational is not None:
+        if rational:
             pass
         else:
             for i in range(point_count):
                 spline.points[i].co[3] = 1.0
 
-    if hasattr(speckle_curve, "closed") and speckle_curve.closed:
+    closed = getattr(speckle_curve, "closed", False)
+    if closed:
         spline.use_cyclic_u = True
 
-    if hasattr(speckle_curve, "periodic") and speckle_curve.periodic:
+    periodic = getattr(speckle_curve, "periodic", False)
+    if periodic:
         spline.use_cyclic_u = True
 
     curve_obj = bpy.data.objects.new(object_name, curve)
@@ -1072,13 +1056,14 @@ def polycurve_to_native(
     """
     converts a speckle polycurve to a blender curve object
     """
-    if not hasattr(speckle_polycurve, "segments") or not speckle_polycurve.segments:
+    segments = getattr(speckle_polycurve, "segments", None)
+    if not segments:
         raise ValueError("Polycurve is missing segments")
 
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
     curve.dimensions = "3D"
 
-    for segment in speckle_polycurve.segments:
+    for segment in segments:
         segment_type = type(segment)
 
         temp_curve = bpy.data.curves.new("temp_curve", type="CURVE")
@@ -1113,8 +1098,10 @@ def polycurve_to_native(
                 bpy.data.curves.remove(curve)
                 raise ValueError(f"Unsupported curve segment type: {segment_type}")
 
-            if temp_obj and temp_obj.data and hasattr(temp_obj.data, "splines"):
-                for src_spline in temp_obj.data.splines:
+            temp_obj_data = getattr(temp_obj, "data", None)
+            splines = getattr(temp_obj_data, "splines", None)
+            if temp_obj and temp_obj_data and splines:
+                for src_spline in splines:
                     dst_spline = curve.splines.new(src_spline.type)
 
                     if src_spline.type == "BEZIER":
@@ -1133,8 +1120,9 @@ def polycurve_to_native(
                             dst_spline.points[i].co = point.co
 
                     dst_spline.use_cyclic_u = src_spline.use_cyclic_u
-                    if hasattr(src_spline, "order_u"):
-                        dst_spline.order_u = src_spline.order_u
+                    order_u = getattr(src_spline, "order_u", None)
+                    if order_u is not None:
+                        dst_spline.order_u = order_u
 
                 bpy.data.objects.remove(temp_obj)
             else:
@@ -1192,12 +1180,12 @@ def find_instance_definitions(root_object: Base) -> Dict[str, Base]:
     ]
 
     for attr_name in definitions_attr_names:
-        if hasattr(root_object, attr_name):
-            attr_value = getattr(root_object, attr_name)
-            if isinstance(attr_value, list):
-                for definition in attr_value:
-                    if hasattr(definition, "applicationId"):
-                        definitions[definition.applicationId] = definition
+        attr_value = getattr(root_object, attr_name, None)
+        if attr_value and isinstance(attr_value, list):
+            for definition in attr_value:
+                app_id = getattr(definition, "applicationId", None)
+                if app_id:
+                    definitions[app_id] = definition
 
     if not definitions:
         print("No instanceDefinitionProxy founded!")
@@ -1217,8 +1205,9 @@ def sort_instance_components(definitions, instances):
         components.append((max_depth, 0, def_id, definition))
 
     for instance in instances:
-        if hasattr(instance, "definitionId") and instance.definitionId in definitions:
-            definition = definitions[instance.definitionId]
+        definition_id = getattr(instance, "definitionId", None)
+        if definition_id and definition_id in definitions:
+            definition = definitions[definition_id]
             max_depth = getattr(definition, "maxDepth", 0)
             components.append((max_depth, 1, instance.id, instance))
 
@@ -1268,12 +1257,14 @@ def instance_definition_proxy_to_native(
         definition_collection["speckle_type"] = getattr(
             definition, "speckle_type", "InstanceDefinitionProxy"
         )
-        if hasattr(definition, "maxDepth"):
-            definition_collection["max_depth"] = definition.maxDepth
+        max_depth = getattr(definition, "maxDepth", None)
+        if max_depth is not None:
+            definition_collection["max_depth"] = max_depth
 
         # Process objects, including nested instances
-        if hasattr(definition, "objects") and isinstance(definition.objects, list):
-            for obj_id in definition.objects:
+        objects = getattr(definition, "objects", None)
+        if objects and isinstance(objects, list):
+            for obj_id in objects:
                 found_obj = find_object_by_id(root_object, obj_id)
 
                 if found_obj:
@@ -1299,12 +1290,12 @@ def instance_definition_proxy_to_native(
                             if blender_obj:
                                 definition_collection.objects.link(blender_obj)
                                 converted_objects[obj_id] = blender_obj
-                                if hasattr(found_obj, "id"):
-                                    converted_objects[found_obj.id] = blender_obj
-                                if hasattr(found_obj, "applicationId"):
-                                    converted_objects[found_obj.applicationId] = (
-                                        blender_obj
-                                    )
+                                obj_id_attr = getattr(found_obj, "id", None)
+                                if obj_id_attr:
+                                    converted_objects[obj_id_attr] = blender_obj
+                                app_id = getattr(found_obj, "applicationId", None)
+                                if app_id:
+                                    converted_objects[app_id] = blender_obj
                     except Exception as e:
                         print(f"Error converting object: {str(e)}")
                 else:
@@ -1416,8 +1407,9 @@ def instance_proxy_to_native(
     instance_obj["speckle_id"] = speckle_instance.id
     instance_obj["speckle_type"] = speckle_instance.speckle_type
     instance_obj["definition_id"] = speckle_instance.definitionId
-    if hasattr(speckle_instance, "maxDepth"):
-        instance_obj["max_depth"] = speckle_instance.maxDepth
+    max_depth = getattr(speckle_instance, "maxDepth", None)
+    if max_depth is not None:
+        instance_obj["max_depth"] = max_depth
 
     final_matrix = (
         mathutils.Matrix.Translation(location)
