@@ -176,6 +176,12 @@ def convert_to_native(
         elif children:
             # If we only have non-mesh objects, return the first one as the main object
             converted_object = children[0]
+            
+            # Ensure the converted object has the correct name (especially for DataObjects)
+            if ("DataObject" in speckle_object.speckle_type or "Data" in speckle_object.speckle_type):
+                converted_object.name = object_name
+                if hasattr(converted_object, "data") and converted_object.data:
+                    converted_object.data.name = data_block_name
 
             # If there are multiple objects, parent remaining ones to the first
             for child in children[1:]:
@@ -314,10 +320,22 @@ def _members_to_native(
             speckle_object, meshes, data_block_name, scale, material_mapping
         )
 
+    # Check if the original object is a DataObject or Data object
+    is_data_object = False
+    if hasattr(speckle_object, "speckle_type"):
+        is_data_object = ("DataObject" in speckle_object.speckle_type or "Data" in speckle_object.speckle_type)
+
     for item in others:
         try:
             blender_object = convert_to_native(item, material_mapping)
+            
             if blender_object:
+                # If the parent is a DataObject, override the name of the converted child
+                if is_data_object:
+                    blender_object.name = object_name
+                    if hasattr(blender_object, "data") and blender_object.data:
+                        blender_object.data.name = data_block_name
+                
                 children.append(blender_object)
         except Exception as ex:
             print(f"Failed to convert display value {item}: {ex}")
