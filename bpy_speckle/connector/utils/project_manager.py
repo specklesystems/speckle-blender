@@ -4,7 +4,7 @@ from specklepy.core.api.inputs.user_inputs import UserProjectsFilter
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
 from .misc import format_relative_time, format_role, strip_non_ascii
-from .account_manager import check_project_permissions
+from .account_manager import can_load
 
 
 def get_projects_for_account(
@@ -41,7 +41,7 @@ def get_projects_for_account(
         # determine if user can receive from project based on role
         result = []
         for project in projects:
-            can_receive, _ = check_project_permissions(client, project, workspace_id)
+            can_load_permission, _ = can_load(client, project)
 
             result.append(
                 (
@@ -51,7 +51,7 @@ def get_projects_for_account(
                     else "",
                     format_relative_time(project.updated_at),
                     project.id,
-                    can_receive,
+                    can_load_permission,
                 )
             )
 
