@@ -69,7 +69,7 @@ The Blender Connector is still a work in progress and, as such, data sent from t
 
 Upon first launch of the addon, the Speckle connector installs its SpecklePy dependencies in `%appdata%/Speckle/connector_installations` on Windows.
 
-This is done through our [`installer.py`](https://github.com/specklesystems/speckle-blender/blob/main/bpy_speckle/installer.py). Through uv, we install the correct version of each dependency for your blender python version, host OS, and system architecture.
+This is done through our [`installer.py`](https://github.com/specklesystems/speckle-blender/blob/main/bpy_speckle/installer.py). Through pip, we install the correct version of each dependency for your blender python version, host OS, and system architecture.
 As such, an internet connection is required for first launch of the connector.
 
 Other blender addons may require dependencies that conflict with specklepy. In these cases, one or both addons may fail to load.
