@@ -45,44 +45,30 @@ Give Speckle a try in no time by:
 
 The Speckle UI can be found in the 3d viewport toolbar (N), under the Speckle tab.
 
-Head to the [**📚 documentation**](https://speckle.guide/user/blender.html) for more information.
 
 ## Installation
 
-We officially support Blender 3.3 and newer, on Windows and Mac.
-
-Please follow our installation instructions on our [connector docs](https://speckle.guide/user/blender.html#installation)
+We officially support Blender 3.3 and newer, on Windows.
 
 ## Usage
 Once enabled in `Preferences -> Addons`,
 The Speckle connector UI can be found in the 3d viewport toolbar (N), under the `Speckle` tab.
 
-- Available user accounts are automatically detected and made available. To add user accounts use **Speckle Manager**.
-- Select the user from the dropdown list in the `Users` panel. This will populate the `Projects` list with available projects for the selected user account.
+- Available user accounts are automatically detected and made available.
+- Select the account from the dropdown list in the `Accounts` panel. This will populate the `Projects` list with available projects for the selected user account.
 - Select a model and version from the dropdown menus.
-- Click on `Receive` to download and convert the objects from the selected model version. The objects will be linked into a Blender Collection, named `<PROJECT_NAME> [ <MODEL_NAME> @ <VERSION_ID> ]`.
+- Click on `Load` to download and convert the objects from the selected model version. The objects will be linked into a Blender Collection.
 - Click on `Open Model in Web` to view the model in your web browser.
 
 ## Supported Elements
 
 The Blender Connector is still a work in progress and, as such, data sent from the Blender connector is a highly lossy exchange. Our connectors are ever evolving to facilitate more and more Speckle usecases. We welcome feedback, requests, edge cases, and contributions!
 
-The full matrix of supported Blender and Speckle types [can be found here](https://speckle.guide/user/support-tables.html#blender)
-
-
-## Additional Features
-
-- Speckle properties will be imported as custom properties on Blender objects. Nested dictionaries are expanded to individual properties by flattening their key hierarchy. I.e. `propA:{'propB': {'propC':10, 'propD':'foobar'}}` is flattened to `propA.propB.propC = 10` and `propA.propB.propD = "foobar"`.
-
-- If a `renderMaterial` property is found, **SpeckleBlender** will create a material named using the sub-property `renderMaterial.name`. If a material with that name already exists in Blender, **SpeckleBlender** will just assign that existing material to the object. This allows geometry to be updated without having to re-assign and re-create materials.
-
-- Receiving vertex colors is supported. The `colors` list from Speckle meshes is translated to a vertex color layer.
-
-- Receive/Send scripts. Allow injecting a custom python function to the receive/send process to automate any blender operations
 
 ## Dependency Installation and Compatibility with Other Blender Addons
 
-Upon first launch of the addon, the Speckle connector installs its SpecklePy dependencies in `%appdata%/Speckle/connector_installations` on Windows and `~/.config/Speckle/connector_installations` on Mac.
+Upon first launch of the addon, the Speckle connector installs its SpecklePy dependencies in `%appdata%/Speckle/connector_installations` on Windows.
+
 This is done through our [`installer.py`](https://github.com/specklesystems/speckle-blender/blob/main/bpy_speckle/installer.py). Through uv, we install the correct version of each dependency for your blender python version, host OS, and system architecture.
 As such, an internet connection is required for first launch of the connector.
 
