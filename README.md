@@ -47,8 +47,7 @@ The Speckle UI can be found in the 3d viewport toolbar (N), under the Speckle ta
 
 
 ## Installation
-
-We officially support Blender 3.3 and newer, on Windows.
+We officially support Blender 4.2 and newer, on Windows.
 
 ## Usage
 Once enabled in `Preferences -> Addons`,
