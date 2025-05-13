@@ -1,5 +1,6 @@
 from typing import Any, Iterable, List, Optional, Tuple, Dict
 from specklepy.objects import Base
+from specklepy.objects import DataObject
 from specklepy.objects.geometry import (
     Line,
     Polyline,
@@ -62,21 +63,13 @@ def generate_unique_name(speckle_object: Base) -> Tuple[str, str]:
     # Check if speckle object is a data object
     # Since every data object has name, use it in naming
     # If not extract base name from speckle type itself
-    if (
-        "DataObject" in speckle_object.speckle_type
-        and hasattr(speckle_object, "name")
-        and speckle_object.name
-    ):
+    if isinstance(speckle_object, DataObject) and speckle_object.name:
         base_name = speckle_object.name
     else:
         parts = speckle_object.speckle_type.split(".")
         base_name = parts[-1]
 
-    speckle_id = ""
-    if hasattr(speckle_object, "id") and speckle_object.id:
-        speckle_id = speckle_object.id
-    else:
-        raise KeyError("No id has been found!")  # is that even possible?
+    speckle_id = speckle_object.id
 
     # Define object name - should be simple
     object_name = base_name
@@ -173,6 +166,11 @@ def convert_to_native(
         elif children:
             # If we only have non-mesh objects, return the first one as the main object
             converted_object = children[0]
+
+            # Ensure the converted object has the correct name (especially for DataObjects)
+            if isinstance(speckle_object, DataObject):
+                converted_object.name = object_name
+                data_block_name = converted_object.data.name
 
             # If there are multiple objects, parent remaining ones to the first
             for child in children[1:]:
@@ -311,10 +309,17 @@ def _members_to_native(
             speckle_object, meshes, data_block_name, scale, material_mapping
         )
 
+    # Check if the original object is a DataObject
+    is_data_object = isinstance(speckle_object, DataObject)
+
     for item in others:
         try:
             blender_object = convert_to_native(item, material_mapping)
             if blender_object:
+                # If the parent is a DataObject, override the name of the converted child
+                if is_data_object:
+                    blender_object.name = object_name
+                    data_block_name = blender_object.data.name
                 children.append(blender_object)
         except Exception as ex:
             print(f"Failed to convert display value {item}: {ex}")
