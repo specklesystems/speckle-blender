@@ -13,13 +13,13 @@ from bpy_speckle.properties import *
 from bpy_speckle.ui import *
 
 bl_info = {
-    "name": "SpeckleBlender 2.0",
+    "name": "SpeckleBlender 2.0 (Legacy)",
     "author": "Speckle Systems",
     "version": (0, 2, 0),
     "blender": (2, 92, 0),
     "location": "3d viewport toolbar (N), under the Speckle tab.",
-    "description": "The Speckle Connector using specklepy 2.0!",
-    "warning": "This add-on is WIP and should be used with caution",
+    "description": "(Legacy) Speckle Connector using specklepy 2.0!",
+    "warning": "This is a legacy add-on. Download the new connector from https://app.speckle.systems/connectors",
     "wiki_url": "https://github.com/specklesystems/speckle-blender",
     "category": "Scene",
 }
