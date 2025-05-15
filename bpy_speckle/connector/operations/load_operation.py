@@ -263,6 +263,15 @@ def load_operation(context: Context) -> None:
 
     context.window_manager.progress_end()
 
+    # Set origins to geometry
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in converted_objects.values():
+        if isinstance(obj, bpy.types.Object) and not isinstance(obj, bpy.types.Collection) and obj.type not in {'EMPTY'} and "speckle_id" in obj:
+            obj.select_set(True)
+    
+    if bpy.context.selected_objects:
+        bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
+
     for area in context.screen.areas:
         if area.type == "OUTLINER":
             area.tag_redraw()
