@@ -59,11 +59,13 @@ def create_material_from_proxy(
             1.0,
         )
 
+
     if hasattr(render_material, "opacity"):
         opacity = float(render_material.opacity)
         if opacity < 1.0:
             material.blend_method = "BLEND"
             bsdf.inputs["Alpha"].default_value = opacity
+    
 
     if hasattr(render_material, "metalness"):
         metalness = float(render_material.metalness)
@@ -86,6 +88,10 @@ def create_material_from_proxy(
                 1.0,
             )
             bsdf.inputs["Emission Strength"].default_value = 1.0
+    
+    # set viewport display color
+    if hasattr(render_material, "diffuse") and hasattr(render_material, "opacity"):
+        material.diffuse_color = (diffuse_rgba[0], diffuse_rgba[1], diffuse_rgba[2], opacity)
 
     return material
 
