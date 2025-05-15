@@ -90,7 +90,8 @@ def create_material_from_proxy(
             bsdf.inputs["Emission Strength"].default_value = 1.0
     
     # set viewport display color
-    material.diffuse_color = (diffuse_rgba[0], diffuse_rgba[1], diffuse_rgba[2], opacity)
+    if hasattr(render_material, "diffuse") and hasattr(render_material, "opacity"):
+        material.diffuse_color = (diffuse_rgba[0], diffuse_rgba[1], diffuse_rgba[2], opacity)
 
     return material
 
