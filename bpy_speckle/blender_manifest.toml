@@ -11,7 +11,7 @@ maintainer = "AEC SYSTEMS LTD"
 type = "add-on"
 
 # Optional link to documentation, support, source files, etc
-website = "https://speckle.guide/user/blender.html"
+website = "https://app.speckle.systems/connectors"
 
 # Optional list defined by Blender and server, see:
 # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
