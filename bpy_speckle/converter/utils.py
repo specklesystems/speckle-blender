@@ -58,6 +58,8 @@ def create_material_from_proxy(
             diffuse_rgba[2],
             1.0,
         )
+        # set viewport display color
+        material.diffuse_color = (diffuse_rgba[0], diffuse_rgba[1], diffuse_rgba[2], 1.0)
 
     if hasattr(render_material, "opacity"):
         opacity = float(render_material.opacity)
