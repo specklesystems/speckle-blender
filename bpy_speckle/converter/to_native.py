@@ -1134,19 +1134,23 @@ def point_to_native(
     speckle_point: Point, object_name: str, data_block_name: str, scale: float = 1.0
 ) -> bpy.types.Object:
     """
-    converts a speckle point to a blender empty object of type 'PLAIN_AXES'
+    converts a speckle point to a blender mesh with a single vertex
     """
-    point_obj = bpy.data.objects.new(object_name, None)
-
-    point_obj.empty_display_type = "PLAIN_AXES"
-    point_obj.empty_display_size = 0.1  # default size
-
-    point_obj.location = (
-        float(speckle_point.x) * scale,
-        float(speckle_point.y) * scale,
-        float(speckle_point.z) * scale,
-    )
-
+    # Create a new mesh
+    mesh = bpy.data.meshes.new(data_block_name)
+    
+    # Create a single vertex at the point location
+    vertex = [(float(speckle_point.x) * scale,
+              float(speckle_point.y) * scale,
+              float(speckle_point.z) * scale)]
+    
+    # Create the mesh from the vertex
+    mesh.from_pydata(vertex, [], [])
+    mesh.update()
+    
+    # Create a new object with the mesh
+    point_obj = bpy.data.objects.new(object_name, mesh)
+    
     return point_obj
 
 
