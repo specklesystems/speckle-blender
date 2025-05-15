@@ -537,7 +537,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "specklepy", specifier = "==3.0.0a14" }]
+requires-dist = [{ name = "specklepy", specifier = "==3.0.0a15" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -547,7 +547,7 @@ dev = [
 
 [[package]]
 name = "specklepy"
-version = "3.0.0a14"
+version = "3.0.0a15"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "appdirs" },
@@ -559,9 +559,9 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "ujson" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/30/c0/98d73ad2d4a5dcf3a4ab9c3ff9c236fa727f5250599de190069ef6c2a8e2/specklepy-3.0.0a14.tar.gz", hash = "sha256:61431c9f57ae68c29964b8d902fab2f7f907a4acefa8f502df40c3b11c396880", size = 199593 }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/00/ef793063b92c4e998bae227cf3a94c640181ac63f385a5be2b15ff806f0d/specklepy-3.0.0a15.tar.gz", hash = "sha256:60bfce016d58e31f7f4b5b8bb61cc8528dc0404b1246fac96bc961ee46cb0816", size = 199633 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/f0/75d751e2ed20aff3b495b588bb7e58eecb0fde2cc5a0f1cf936241e1bd77/specklepy-3.0.0a14-py3-none-any.whl", hash = "sha256:a7dfd06231a1faeb92f2f05ec2caf1de7cacec042638548c1810254b8cbf2652", size = 100901 },
+    { url = "https://files.pythonhosted.org/packages/88/f5/a8acbfa11b9d8a02baf291fd36ad67d495f90c862b510133f88e7cc59861/specklepy-3.0.0a15-py3-none-any.whl", hash = "sha256:129816063ef692e8566e95e8201b3dabfb8835a67aa91d05bd6d2b10ed8449fa", size = 100948 },
 ]
 
 [[package]]
