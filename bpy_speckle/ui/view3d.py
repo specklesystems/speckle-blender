@@ -101,6 +101,13 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
         speckle = get_speckle(context)
 
         layout = self.layout
+        # Draw a box with the text "Warning: This is a legacy add-on. Download the new connector from https://app.speckle.systems/connectors"
+        box = layout.box()
+        box.label(text="Warning: This is a legacy add-on.", icon="ERROR")
+        box.label(text="Download the new connector from")
+        box.label(text="https://app.speckle.systems/connectors")
+        layout.separator()
+
         col = layout.column()
 
         if len(speckle.users) < 1:
