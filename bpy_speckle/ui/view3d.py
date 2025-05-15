@@ -93,7 +93,7 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
 
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
-    bl_category = "Speckle"
+    bl_category = "Speckle (Legacy)"
     bl_context = "objectmode"
     bl_label = "User Account"
 
@@ -121,7 +121,7 @@ class VIEW3D_PT_SpeckleStreams(bpy.types.Panel):
 
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
-    bl_category = "Speckle"
+    bl_category = "Speckle (Legacy)"
     bl_context = "objectmode"
     bl_label = "Projects"
 
@@ -149,7 +149,7 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
 
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
-    bl_category = "Speckle"
+    bl_category = "Speckle (Legacy)"
     bl_context = "objectmode"
     bl_label = "Active Project"
 
@@ -245,7 +245,7 @@ class VIEW3D_PT_SpeckleHelp(bpy.types.Panel):
 
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
-    bl_category = "Speckle"
+    bl_category = "Speckle (Legacy)"
     bl_context = "objectmode"
     bl_label = "Help"
 

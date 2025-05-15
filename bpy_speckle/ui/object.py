@@ -12,7 +12,7 @@ class OBJECT_PT_speckle(bpy.types.Panel):
     # bl_idname = 'OBJECT_PT_speckle'
     bl_region_type = "WINDOW"
     bl_context = "object"
-    bl_label = "Speckle"
+    bl_label = "Speckle (Legacy)"
 
     def draw_header(self, context):
         self.layout.prop(context.object.speckle, "enabled", text="")
