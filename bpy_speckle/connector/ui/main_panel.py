@@ -57,6 +57,14 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             text=model_button_text,
             icon=model_button_icon,
         )
+        if wm.ui_mode == "PUBLISH":
+            #TODO: implement Publish flow
+
+            # Publish button
+            row = layout.row()
+            row.enabled = project_selected and model_selected
+            row.operator("speckle.publish", text="Publish Model", icon="EXPORT")
+            pass
 
         if wm.ui_mode == "LOAD":
             # select Version button
