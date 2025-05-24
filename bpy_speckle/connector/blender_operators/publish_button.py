@@ -14,5 +14,6 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         return self.execute(context)
 
     def execute(self, context: Context) -> Set[str]:
-        bpy.ops.speckle.project_selection_dialog("INVOKE_DEFAULT")
+        #TODO: implement publish flow
+        self.report({"INFO"}, "Publish button clicked")
         return {"FINISHED"}
