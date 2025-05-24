@@ -58,29 +58,30 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             icon=model_button_icon,
         )
 
-        # select Version button
-        row = layout.row()
-        version_id = getattr(wm, "selected_version_id", "")
-        load_option = getattr(wm, "selected_version_load_option", "")
-        if load_option == "LATEST":
-            version_button_text = "Latest"
-        elif load_option == "SPECIFIC":
-            version_button_text = version_id
-        else:
-            version_button_text = "Select Version"
+        if wm.ui_mode == "LOAD":
+            # select Version button
+            row = layout.row()
+            version_id = getattr(wm, "selected_version_id", "")
+            load_option = getattr(wm, "selected_version_load_option", "")
+            if load_option == "LATEST":
+                version_button_text = "Latest"
+            elif load_option == "SPECIFIC":
+                version_button_text = version_id
+            else:
+                version_button_text = "Select Version"
 
-        version_button_icon = "CHECKMARK" if version_selected else "PLUS"
-        row.enabled = project_selected and model_selected
-        row.operator(
-            "speckle.version_selection_dialog",
-            text=version_button_text,
-            icon=version_button_icon,
-        )
+            version_button_icon = "CHECKMARK" if version_selected else "PLUS"
+            row.enabled = project_selected and model_selected
+            row.operator(
+                "speckle.version_selection_dialog",
+                text=version_button_text,
+                icon=version_button_icon,
+            )
 
-        # load button
-        row = layout.row()
-        row.enabled = project_selected and model_selected and version_selected
-        row.operator("speckle.load", text="Load Model", icon="IMPORT")
+            # load button
+            row = layout.row()
+            row.enabled = project_selected and model_selected and version_selected
+            row.operator("speckle.load", text="Load Model", icon="IMPORT")
 
         layout.separator()
 
