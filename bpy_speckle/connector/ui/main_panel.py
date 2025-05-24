@@ -31,6 +31,10 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
         model_selected = bool(getattr(wm, "selected_model_name", None))
         version_selected = bool(getattr(wm, "selected_version_id", None))
 
+        # UI Mode Switch
+        row = layout.row()
+        row.prop(wm, "ui_mode", expand=True)
+
         # select Project button
         row = layout.row()
         project_name = getattr(wm, "selected_project_name", "")
