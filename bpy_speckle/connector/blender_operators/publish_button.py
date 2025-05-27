@@ -150,6 +150,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         unit_system = unit_settings.system.lower()
         # Default to meters if unit system not recognized
         units = "m" if unit_system not in ["metric", "imperial"] else unit_system
+        ## m for metric and f for imperial
         # Apply the Blender scene's unit scale
         scale_factor = unit_settings.scale_length
         

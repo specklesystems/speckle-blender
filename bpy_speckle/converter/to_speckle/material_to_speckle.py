@@ -92,53 +92,6 @@ def blender_material_to_speckle(material: Material) -> RenderMaterial:
                 if roughness_input:
                     roughness = float(roughness_input.default_value) if not roughness_input.is_linked else 0.0
                 opacity = 0.5  # Glass is typically semi-transparent
-                
-            elif main_shader.type == 'BSDF_TRANSLUCENT':
-                # Translucent BSDF
-                color_input = main_shader.inputs.get("Color")
-                if color_input:
-                    if color_input.is_linked:
-                        rgba = _get_color_from_connected_node(color_input.links[0].from_node)
-                    else:
-                        rgba = list(color_input.default_value)
-                    diffuse = to_argb_int(rgba)
-                opacity = 0.7  # Translucent is semi-transparent
-                
-            elif main_shader.type == 'BSDF_GLOSSY':
-                # Glossy BSDF
-                color_input = main_shader.inputs.get("Color")
-                if color_input:
-                    if color_input.is_linked:
-                        rgba = _get_color_from_connected_node(color_input.links[0].from_node)
-                    else:
-                        rgba = list(color_input.default_value)
-                    diffuse = to_argb_int(rgba)
-                roughness_input = main_shader.inputs.get("Roughness")
-                if roughness_input:
-                    roughness = float(roughness_input.default_value) if not roughness_input.is_linked else 0.0
-                metalness = 1.0  # Glossy behaves like metal
-                
-            elif main_shader.type == 'BSDF_TRANSPARENT':
-                # Transparent BSDF
-                color_input = main_shader.inputs.get("Color")
-                if color_input:
-                    if color_input.is_linked:
-                        rgba = _get_color_from_connected_node(color_input.links[0].from_node)
-                    else:
-                        rgba = list(color_input.default_value)
-                    diffuse = to_argb_int(rgba)
-                opacity = 0.1  # Very transparent
-                
-            elif main_shader.type == 'BSDF_HAIR':
-                # Hair BSDF
-                color_input = main_shader.inputs.get("Color")
-                if color_input:
-                    if color_input.is_linked:
-                        rgba = _get_color_from_connected_node(color_input.links[0].from_node)
-                    else:
-                        rgba = list(color_input.default_value)
-                    diffuse = to_argb_int(rgba)
-                roughness = 0.3  # Hair has some roughness
     
     else:
         # Fallback to legacy material properties
@@ -161,6 +114,9 @@ def blender_material_to_speckle(material: Material) -> RenderMaterial:
         metalness=metalness,
         roughness=roughness
     )
+    
+    # Debug: Print all material values
+    print(f"Final RenderMaterial '{material.name}': diffuse={diffuse}, emissive={emissive}")
     
     return render_material
 
@@ -197,23 +153,33 @@ def _extract_principled_properties(principled_node):
     if roughness_input and not roughness_input.is_linked:
         roughness = float(roughness_input.default_value)
     
-    # Emission
-    emission_color_input = principled_node.inputs.get("Emission Color")
+    # Emission - try different possible input names
+    emission_color_input = (
+        principled_node.inputs.get("Emission Color") or 
+        principled_node.inputs.get("Emission")
+    )
+    
     emission_strength_input = principled_node.inputs.get("Emission Strength")
-    if emission_color_input and emission_strength_input:
+    
+    if emission_color_input:
+        # Get emission color
         if emission_color_input.is_linked:
             emission_rgba = _get_color_from_connected_node(emission_color_input.links[0].from_node)
         else:
             emission_rgba = list(emission_color_input.default_value)
         
-        emission_strength = float(emission_strength_input.default_value) if not emission_strength_input.is_linked else 0.0
+        # Get emission strength
+        emission_strength = 1.0  # Default strength
+        if emission_strength_input and not emission_strength_input.is_linked:
+            emission_strength = float(emission_strength_input.default_value)
         
-        # Apply emission strength to color
-        if emission_strength > 0:
-            emission_rgba = [c * emission_strength for c in emission_rgba[:3]] + [emission_rgba[3]]
+        # Apply emission strength to color and check if it's actually emissive
+        if emission_strength > 0 and any(c > 0.01 for c in emission_rgba[:3]):  # Check if color is not black
+            # Apply strength to RGB channels
+            final_emission_rgba = [c * emission_strength for c in emission_rgba[:3]] + [emission_rgba[3]]
             # Clamp values to [0, 1]
-            emission_rgba = [min(1.0, max(0.0, c)) for c in emission_rgba]
-            emissive = to_argb_int(emission_rgba)
+            final_emission_rgba = [min(1.0, max(0.0, c)) for c in final_emission_rgba]
+            emissive = to_argb_int(final_emission_rgba)
     
     return diffuse, opacity, metalness, roughness, emissive
 
