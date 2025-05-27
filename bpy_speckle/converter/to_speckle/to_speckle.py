@@ -1,6 +1,6 @@
 from bpy.types import Object
 from typing import Optional
-from specklepy.objects.base import Base
+from specklepy.objects.data_objects import BlenderObject
 from .curve_to_speckle import curve_to_speckle
 from .mesh_to_speckle import mesh_to_speckle
 
@@ -9,29 +9,41 @@ def convert_to_speckle(
     blender_object: Object,
     scale_factor: float = 1.0,
     units: str = "m",
-) -> Optional[Base]:
-    """
-    Convert a Blender object to a Speckle object.
-    
-    Args:
-        blender_object: The Blender object to convert
-        scale_factor: Scale factor to convert to desired units
-        units: The desired units (e.g. 'm', 'ft')
-        
-    Returns:
-        A Speckle Base object, or None if conversion failed
-    """
-    speckle_object = None
+) -> Optional[BlenderObject]:
+    converted_geometry = None
+    properties = {}
 
     if blender_object.type == "CURVE":
-        speckle_object = curve_to_speckle(blender_object, scale_factor)
+        converted_geometry = curve_to_speckle(blender_object, scale_factor)
     elif blender_object.type == "MESH":
-        speckle_object = mesh_to_speckle(blender_object, blender_object.data, scale_factor, units)
+        converted_geometry = mesh_to_speckle(
+            blender_object, blender_object.data, scale_factor, units
+        )
 
-    # apply common properties
-    if speckle_object:
-        speckle_object.units = units
-        speckle_object.name = blender_object.name
-        speckle_object.applicationId = blender_object.name
+    if not converted_geometry:
+        return None
 
-    return speckle_object
+    display_value = []
+    if (
+        hasattr(converted_geometry, "@displayValue")
+        and converted_geometry["@displayValue"]
+    ):
+        display_value = converted_geometry["@displayValue"]
+    elif hasattr(converted_geometry, "@elements") and converted_geometry["@elements"]:
+        display_value = converted_geometry["@elements"]
+    else:
+        display_value = [converted_geometry]
+
+    if not isinstance(display_value, list):
+        display_value = [display_value]
+
+    properties["displayValue"] = converted_geometry
+
+    return BlenderObject(
+        name=blender_object.name,
+        type=blender_object.type,
+        displayValue=display_value,
+        applicationId=blender_object.name,
+        properties=properties,
+        units=units,
+    )

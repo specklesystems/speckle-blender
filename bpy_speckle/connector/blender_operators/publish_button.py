@@ -11,6 +11,7 @@ from specklepy.core.api.inputs.version_inputs import CreateVersionInput
 from specklepy.api.credentials import get_local_accounts
 
 from ...converter.to_speckle import convert_to_speckle
+from ...converter.to_speckle.material_to_speckle import add_render_material_proxies_to_base
 
 
 class SPECKLE_OT_publish(bpy.types.Operator):
@@ -70,6 +71,9 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             # Create a server transport
             transport = ServerTransport(stream_id=project_id, client=client)
             
+            # Get objects to convert (keep reference to original Blender objects)
+            objects_to_convert = context.selected_objects or [context.active_object]
+            
             # Convert selected objects to Speckle
             speckle_objects = self.convert_selected_objects(context)
             
@@ -80,12 +84,14 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             # Create a Base object to hold all objects
             base = Base()
             base.units = context.scene.unit_settings.system.lower()
-            base["@created_with"] = "Blender"
             
             # Add objects to the base
             for i, obj in enumerate(speckle_objects):
                 if obj is not None:
                     base[f"obj_{i}"] = obj
+            
+            # Add render material proxies to the base
+            add_render_material_proxies_to_base(base, objects_to_convert)
             
             # Send the base object to Speckle
             obj_id = operations.send(base, [transport])
@@ -123,7 +129,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
                 model_card.is_publish = True
                 model_card.version_id = version_id
             
-            self.report({"INFO"}, f"Successfully published {len(speckle_objects)} objects to Speckle")
+            self.report({"INFO"}, f"Successfully published {len(speckle_objects)} objects to Speckle with materials")
             return {"FINISHED"}
             
         except Exception as e:
