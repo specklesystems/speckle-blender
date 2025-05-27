@@ -4,6 +4,7 @@ from bpy.types import Event
 from typing import Set, List, Optional
 
 from specklepy.objects import Base
+from specklepy.objects.models.collections.collection import Collection
 from specklepy.api import operations
 from specklepy.api.client import SpeckleClient
 from specklepy.transports.server import ServerTransport
@@ -81,28 +82,33 @@ class SPECKLE_OT_publish(bpy.types.Operator):
                 self.report({"ERROR"}, "No objects could be converted to Speckle format")
                 return {"CANCELLED"}
             
-            # Create a Base object to hold all objects
-            base = Base()
-            base.units = context.scene.unit_settings.system.lower()
+            # Get the Blender file name with extension
+            file_name = bpy.path.basename(bpy.data.filepath)
+            collection_name = file_name if file_name else "Untitled.blend"
             
-            # Add objects to the base
-            for i, obj in enumerate(speckle_objects):
+            # Create a collection to hold all objects
+            collection = Collection(name=collection_name)
+            collection.units = context.scene.unit_settings.system.lower()
+            collection["version"] = 3
+            
+            # Add objects to the collection's elements
+            for obj in speckle_objects:
                 if obj is not None:
-                    base[f"obj_{i}"] = obj
+                    collection.elements.append(obj)
             
             # Add render material proxies to the base
-            add_render_material_proxies_to_base(base, objects_to_convert)
+            add_render_material_proxies_to_base(collection, objects_to_convert)
             
-            # Send the base object to Speckle
-            obj_id = operations.send(base, [transport])
+            # Send the collection to Speckle
+            obj_id = operations.send(collection, [transport])
             
             # Create a version input
             version_input = CreateVersionInput(
                 objectId=obj_id,
                 modelId=model_id,
                 projectId=project_id,
-                message="Published from Blender",
-                sourceApplication="Blender"
+                message="",
+                sourceApplication="blender"
             )
             
             # Create the version
