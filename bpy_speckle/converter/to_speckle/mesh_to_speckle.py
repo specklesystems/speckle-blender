@@ -12,7 +12,6 @@ from mathutils import Vector as MVector
 
 from specklepy.objects.base import Base
 from specklepy.objects.geometry.mesh import Mesh
-from .utils import to_speckle_name
 
 
 def mesh_to_speckle(
@@ -33,11 +32,12 @@ def mesh_to_speckle(
     Returns:
         A Speckle Base object with the mesh as display value
     """
-    # Create a base object to hold the mesh
-    b = Base()
-    b["name"] = to_speckle_name(blender_object)
-    b["@displayValue"] = mesh_to_speckle_meshes(blender_object, data, units_scale, units)
-    return b
+    meshes = mesh_to_speckle_meshes(blender_object, data, units_scale, units)
+    
+    for mesh in meshes:
+        mesh.applicationId = blender_object.name
+    
+    return meshes
 
 
 def mesh_to_speckle_meshes(
