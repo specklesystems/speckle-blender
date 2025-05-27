@@ -10,6 +10,7 @@ from specklepy.api.client import SpeckleClient
 from specklepy.transports.server import ServerTransport
 from specklepy.core.api.inputs.version_inputs import CreateVersionInput
 from specklepy.api.credentials import get_local_accounts
+from specklepy.objects.models.units import Units
 
 from ...converter.to_speckle import convert_to_speckle
 from ...converter.to_speckle.material_to_speckle import add_render_material_proxies_to_base
@@ -27,17 +28,14 @@ class SPECKLE_OT_publish(bpy.types.Operator):
     def execute(self, context: Context) -> Set[str]:
         wm = context.window_manager
         
-        # Check if there's a selection in the scene
         if not context.selected_objects and not context.active_object:
             self.report({"ERROR"}, "No objects selected to publish")
             return {"CANCELLED"}
         
-        # Get selected account, project and model from window manager
         account_id = getattr(wm, "selected_account_id", "")
         project_id = getattr(wm, "selected_project_id", "")
         model_id = getattr(wm, "selected_model_id", "")
         
-        # Check that we have the required information
         if not account_id:
             self.report({"ERROR"}, "No account selected")
             return {"CANCELLED"}
@@ -51,7 +49,6 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             return {"CANCELLED"}
             
         try:
-            # Get account using the same approach as load_operation
             account = next(
                 (
                     acc
@@ -65,44 +62,37 @@ class SPECKLE_OT_publish(bpy.types.Operator):
                 self.report({"ERROR"}, "No Speckle account found")
                 return {"CANCELLED"}
             
-            # Initialize the Speckle client - same approach as load_operation
             client = SpeckleClient(host=account.serverInfo.url)
             client.authenticate_with_account(account)
             
-            # Create a server transport
             transport = ServerTransport(stream_id=project_id, client=client)
             
-            # Get objects to convert (keep reference to original Blender objects)
+            # get objects to convert
             objects_to_convert = context.selected_objects or [context.active_object]
             
-            # Convert selected objects to Speckle
             speckle_objects = self.convert_selected_objects(context)
             
             if not speckle_objects:
                 self.report({"ERROR"}, "No objects could be converted to Speckle format")
                 return {"CANCELLED"}
             
-            # Get the Blender file name with extension
+            # get the Blender file name to set the name
             file_name = bpy.path.basename(bpy.data.filepath)
             collection_name = file_name if file_name else "Untitled.blend"
             
-            # Create a collection to hold all objects
+            # create a collection to hold all objects
             collection = Collection(name=collection_name)
-            collection.units = context.scene.unit_settings.system.lower()
+            collection.units = Units.m.value
             collection["version"] = 3
             
-            # Add objects to the collection's elements
             for obj in speckle_objects:
                 if obj is not None:
                     collection.elements.append(obj)
             
-            # Add render material proxies to the base
             add_render_material_proxies_to_base(collection, objects_to_convert)
             
-            # Send the collection to Speckle
             obj_id = operations.send(collection, [transport])
             
-            # Create a version input
             version_input = CreateVersionInput(
                 objectId=obj_id,
                 modelId=model_id,
@@ -111,10 +101,8 @@ class SPECKLE_OT_publish(bpy.types.Operator):
                 sourceApplication="blender"
             )
             
-            # Create the version
             version_id = client.version.create(version_input)  # noqa: F841
             
-            # Clear selected model details from Window Manager
             wm.selected_account_id = ""
             wm.selected_project_id = ""
             wm.selected_project_name = ""
@@ -123,7 +111,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             wm.selected_version_load_option = ""
             wm.selected_version_id = ""
             
-            # Update model card if needed
+            # update model card if needed
             if hasattr(context.scene, "speckle_state") and hasattr(context.scene.speckle_state, "model_cards"):
                 model_card = context.scene.speckle_state.model_cards.add()
                 model_card.account_id = account_id
@@ -145,22 +133,39 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             return {"CANCELLED"}
     
     def convert_selected_objects(self, context: Context) -> List[Optional[Base]]:
-        """
-        Convert selected objects to Speckle objects
-        """
-        # Get unit scale for conversion
+
         scene = context.scene
         unit_settings = scene.unit_settings
         
-        # Determine scale factor based on unit system
-        unit_system = unit_settings.system.lower()
-        # Default to meters if unit system not recognized
-        units = "m" if unit_system not in ["metric", "imperial"] else unit_system
-        ## m for metric and f for imperial
-        # Apply the Blender scene's unit scale
+        # get units from Blender's unit system
+        if unit_settings.system == 'METRIC':
+            if unit_settings.length_unit == 'METERS':
+                units = Units.m
+            elif unit_settings.length_unit == 'CENTIMETERS':
+                units = Units.cm
+            elif unit_settings.length_unit == 'MILLIMETERS':
+                units = Units.mm
+            elif unit_settings.length_unit == 'KILOMETERS':
+                units = Units.km
+            else:
+                units = Units.m
+        elif unit_settings.system == 'IMPERIAL':
+            if unit_settings.length_unit == 'FEET':
+                units = Units.feet
+            elif unit_settings.length_unit == 'INCHES':
+                units = Units.inches
+            elif unit_settings.length_unit == 'YARDS':
+                units = Units.yards
+            elif unit_settings.length_unit == 'MILES':
+                units = Units.miles
+            else:
+                units = Units.feet  # default to feet
+        else:
+            units = Units.m  # default to meters
+            
         scale_factor = unit_settings.scale_length
         
-        # Convert each selected object
+        # convert each selected object
         speckle_objects = []
         objects_to_convert = context.selected_objects or [context.active_object]
         for obj in objects_to_convert:
@@ -168,9 +173,10 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             if not obj or obj.type not in ['MESH', 'CURVE', 'EMPTY']:
                 continue
                 
-            # Convert the object
-            speckle_obj = convert_to_speckle(obj, scale_factor, units)
+            # convert the object
+            speckle_obj = convert_to_speckle(obj, scale_factor, units.value)
             if speckle_obj:
                 speckle_objects.append(speckle_obj)
         
         return speckle_objects
+    
