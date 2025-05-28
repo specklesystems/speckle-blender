@@ -73,9 +73,8 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             row.operator("speckle.publish", text="Publish Model", icon="EXPORT")
             pass
 
-        
         if wm.ui_mode == "LOAD":
-        # select Version button
+            # select Version button
             row = layout.row()
             version_id = getattr(wm, "selected_version_id", "")
             load_option = getattr(wm, "selected_version_load_option", "")

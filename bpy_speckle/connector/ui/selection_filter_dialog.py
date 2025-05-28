@@ -21,7 +21,15 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         default="SELECTION",
     )  # type: ignore
 
+
     def execute(self, context: Context) -> set:
+        # model_card = context.scene.speckle_state.model_cards.add()
+        # model_card.project_name = self.project_name
+        # model_card.model_name = self.model_name
+        # model_card.model_id = self.model_id
+        # model_card.project_id = self.project_id
+        # model_card.is_publish = True
+
         # selected_objects: list[Object] = context.selected_objects
         # total_selected: int = len(selected_objects)
         # object_types: dict[str, int] = {}
@@ -34,17 +42,15 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         # summary: str = f"{total_selected} objects - "
         # for obj_type, count in object_types.items():
         #     summary += f"{obj_type}: {count}, "
-        
-        # TODO: implement selection filtering
+
+        # model_card.selection_summary = summary.strip()
+        #TODO: implement selection filter dialog
         wm = context.window_manager
         wm.speckle_objects.clear()
         user_selection = context.selected_objects
         for sel in user_selection:
             obj = wm.speckle_objects.add()
             obj.name = sel.name
-            
-        self.report({"INFO"}, "Selection filter dialog closed")
-        context.area.tag_redraw()
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: bpy.types.Event) -> set:
@@ -109,4 +115,4 @@ class speckle_object(bpy.types.PropertyGroup):
     PropertyGroup for storing model information
     """
 
-    name: bpy.props.StringProperty()  # type: ignore
+    name: bpy.props.StringProperty()  #type: ignore

@@ -81,6 +81,7 @@ def invoke_window_manager_properties():
         )
     WindowManager.selected_version_id = bpy.props.StringProperty()
     WindowManager.selected_version_load_option = bpy.props.StringProperty()
+    # Send / Publish buttons
     WindowManager.ui_mode = bpy.props.EnumProperty(  # type: ignore
         name="UI Mode",
         description="Publish or Load a model",
@@ -94,6 +95,7 @@ def invoke_window_manager_properties():
     WindowManager.speckle_objects = bpy.props.CollectionProperty(
         type=speckle_object
     )
+
 
 def save_model_cards(scene):
     model_cards_data = [card.to_dict() for card in scene.speckle_state.model_cards]
