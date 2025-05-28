@@ -1,7 +1,7 @@
 from specklepy.api.client import SpeckleClient
 from specklepy.api.credentials import get_local_accounts, Account
 from typing import List, Tuple, Optional
-from .misc import format_relative_time
+from .misc import format_relative_time, strip_non_ascii
 from specklepy.core.api.inputs.model_inputs import ModelVersionsFilter
 from specklepy.core.api.models.current import Version
 
@@ -38,15 +38,16 @@ def get_versions_for_model(
         # Get versions
         versions: List[Version] = client.version.get_versions(
             project_id=project_id, model_id=model_id, limit=10, filter=filter
-        ).items
+        )
 
         return [
             (
                 version.id,
-                version.message or "No message",
+                version.message if version.message is not None else "No message",
                 format_relative_time(version.created_at),
             )
             for version in versions
+            if version.referenced_object is not None
         ]
 
     except Exception as e:
@@ -90,7 +91,7 @@ def get_latest_version(
         latest = versions[0]
         return (
             latest.id,
-            latest.message or "No message",
+            latest.message if latest.message is not None else "No message",
             format_relative_time(latest.created_at),
         )
 

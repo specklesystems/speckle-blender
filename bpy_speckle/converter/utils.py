@@ -1,5 +1,10 @@
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 import bpy
+import mathutils
+from specklepy.objects import Base
+from specklepy.objects.graph_traversal.default_traversal import (
+    create_default_traversal_function,
+)
 
 
 def to_rgba(argb_int: int) -> Tuple[float, float, float, float]:
@@ -54,11 +59,13 @@ def create_material_from_proxy(
             1.0,
         )
 
+
     if hasattr(render_material, "opacity"):
         opacity = float(render_material.opacity)
         if opacity < 1.0:
             material.blend_method = "BLEND"
             bsdf.inputs["Alpha"].default_value = opacity
+    
 
     if hasattr(render_material, "metalness"):
         metalness = float(render_material.metalness)
@@ -81,5 +88,98 @@ def create_material_from_proxy(
                 1.0,
             )
             bsdf.inputs["Emission Strength"].default_value = 1.0
+    
+    # set viewport display color
+    if hasattr(render_material, "diffuse") and hasattr(render_material, "opacity"):
+        material.diffuse_color = (diffuse_rgba[0], diffuse_rgba[1], diffuse_rgba[2], opacity)
 
     return material
+
+
+def transform_matrix(transform: List[float]) -> mathutils.Matrix:
+    """
+    converts a speckle transform array to a 4x4 matrix (blender needs it)
+    """
+
+    if len(transform) != 16:
+        raise ValueError(f"Expected transform with 16 values, got {len(transform)}")
+
+    return mathutils.Matrix(
+        (
+            (transform[0], transform[4], transform[8], transform[12]),
+            (transform[1], transform[5], transform[9], transform[13]),
+            (transform[2], transform[6], transform[10], transform[14]),
+            (transform[3], transform[7], transform[11], transform[15]),
+        )
+    )
+
+
+def find_object_by_id(root_object: Base, target_id: str) -> Optional[Base]:
+    """
+    finds an object using traversal, checking both id and applicationId
+    """
+    if hasattr(root_object, "__closure") and root_object.__closure:
+        if target_id in root_object.__closure:
+            if hasattr(root_object, "elements"):
+                for element in root_object.elements:
+                    if hasattr(element, "id") and element.id == target_id:
+                        return element
+                    if (
+                        hasattr(element, "referencedId")
+                        and element.referencedId == target_id
+                    ):
+                        return find_object_by_id(root_object, element.referencedId)
+
+            if hasattr(root_object, "@elements"):
+                for element in root_object["@elements"]:
+                    if hasattr(element, "id") and element.id == target_id:
+                        return element
+                    if (
+                        hasattr(element, "referencedId")
+                        and element.referencedId == target_id
+                    ):
+                        return find_object_by_id(root_object, element.referencedId)
+
+    traversal_function = create_default_traversal_function()
+
+    for traversal_item in traversal_function.traverse(root_object):
+        obj = traversal_item.current
+
+        if not hasattr(obj, "id"):
+            continue
+
+        if obj.id == target_id:
+            return obj
+
+        if hasattr(obj, "applicationId"):
+            app_id = obj.applicationId
+            if app_id == target_id:
+                return obj
+
+    def deep_search(search_obj):
+        if hasattr(search_obj, "id") and search_obj.id == target_id:
+            return search_obj
+
+        elements_attrs = ["elements", "@elements"]
+        for attr in elements_attrs:
+            if hasattr(search_obj, attr):
+                elements = getattr(search_obj, attr)
+                if elements and isinstance(elements, list):
+                    for element in elements:
+                        if hasattr(element, "id") and element.id == target_id:
+                            return element
+                        if (
+                            hasattr(element, "referencedId")
+                            and element.referencedId == target_id
+                        ):
+                            ref_obj = find_object_by_id(
+                                root_object, element.referencedId
+                            )
+                            if ref_obj:
+                                return ref_obj
+                        result = deep_search(element)
+                        if result:
+                            return result
+        return None
+
+    return deep_search(root_object)
