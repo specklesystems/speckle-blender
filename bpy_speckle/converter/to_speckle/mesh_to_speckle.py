@@ -1,7 +1,3 @@
-"""
-Functions for converting Blender mesh objects to Speckle mesh objects.
-"""
-
 from typing import Dict, List, cast
 
 import bpy
@@ -15,129 +11,117 @@ from specklepy.objects.geometry.mesh import Mesh
 
 
 def mesh_to_speckle(
-    blender_object: Object, 
-    data: bpy.types.Mesh, 
-    units_scale: float, 
-    units: str
+    blender_object: Object, data: bpy.types.Mesh, units_scale: float, units: str
 ) -> Base:
     """
-    Convert a Blender mesh object to a Speckle Base object with display value.
-    
-    Args:
-        blender_object: The Blender object to convert
-        data: The Blender mesh data
-        units_scale: Scale factor to convert to desired units
-        units: The desired units (e.g. 'm', 'ft')
-        
-    Returns:
-        A Speckle Base object with the mesh as display value
+    convert a Blender mesh object
     """
     meshes = mesh_to_speckle_meshes(blender_object, data, units_scale, units)
-    
+
     for mesh in meshes:
         mesh.applicationId = blender_object.name
-    
+
     return meshes
 
 
 def mesh_to_speckle_meshes(
-    blender_object: Object, 
-    data: bpy.types.Mesh, 
-    units_scale: float, 
-    units: str
+    blender_object: Object, data: bpy.types.Mesh, units_scale: float, units: str
 ) -> List[Mesh]:
     """
-    Convert a Blender mesh to a list of Speckle meshes (one per material).
-    
-    Args:
-        blender_object: The Blender object containing the mesh
-        data: The Blender mesh data
-        units_scale: Scale factor to convert to desired units
-        units: The desired units (e.g. 'm', 'ft')
-        
-    Returns:
-        A list of Speckle Mesh objects
+    convert a Blender mesh to a list of Speckle meshes
+    each face corner (loop) gets its own vertex
     """
-    # Validate input
     assert isinstance(data, BMesh), "Data must be a Blender mesh"
     assert units_scale > 0, "Units scale must be positive"
-    
-    # Categorize polygons by material index
+
     submesh_data: Dict[int, List[MeshPolygon]] = {}
     for p in data.polygons:
         if p.material_index not in submesh_data:
             submesh_data[p.material_index] = []
         submesh_data[p.material_index].append(p)
 
-    # Transform vertices
     transform = cast(MMatrix, blender_object.matrix_world)
-    scaled_vertices = [tuple(transform @ x.co * units_scale) for x in data.vertices]
+    normal_transform = transform.to_3x3().inverted().transposed()
 
-    # Create Speckle meshes for each material
     submeshes = []
-    index_counter = 0
-    
-    for material_index in submesh_data:
-        index_mapping: Dict[int, int] = {}
 
+    for material_index in submesh_data:
         mesh_area = 0
         m_verts: List[float] = []
         m_faces: List[int] = []
         m_texcoords: List[float] = []
-        
+        m_normals: List[float] = []
+
+        vertex_counter = 0
+
         for face in submesh_data[material_index]:
-            # Get vertices indices for this face
-            u_indices = face.vertices
-            m_faces.append(len(u_indices))
-
-            # Calculate face area
             mesh_area += face.area
-            
-            # Map vertices and UVs
-            for u_index in u_indices:
-                if u_index not in index_mapping:
-                    # Create mapping between index in blender mesh and new index in speckle submesh
-                    index_mapping[u_index] = len(m_verts) // 3
-                    vert = scaled_vertices[u_index]
-                    m_verts.append(vert[0])
-                    m_verts.append(vert[1])
-                    m_verts.append(vert[2])
 
-                # Add UV coordinates if available
+            loop_indices = face.loop_indices
+            m_faces.append(len(loop_indices))
+
+            for loop_index in loop_indices:
+                loop = data.loops[loop_index]
+
+                vertex = data.vertices[loop.vertex_index]
+                transformed_vertex = transform @ vertex.co * units_scale
+
+                m_verts.extend(
+                    [transformed_vertex.x, transformed_vertex.y, transformed_vertex.z]
+                )
+
+                # get and transform the loop normal
+                # try to get split normal, fallback to face normal if not available
+                try:
+                    if hasattr(loop, "normal") and len(loop.normal) > 0:
+                        # Use split normal from loop
+                        loop_normal = normal_transform @ loop.normal
+                    else:
+                        # Fallback to face normal
+                        loop_normal = normal_transform @ face.normal
+                except:  # noqa: E722
+                    # Final fallback: use face normal
+                    loop_normal = normal_transform @ face.normal
+
+                loop_normal.normalize()
+                m_normals.extend([loop_normal.x, loop_normal.y, loop_normal.z])
+
+                # add UV coordinates if available
                 if data.uv_layers.active:
-                    vt = data.uv_layers.active.data[index_counter]
-                    uv = cast(MVector, vt.uv)
+                    uv_data = data.uv_layers.active.data[loop_index]
+                    uv = cast(MVector, uv_data.uv)
                     m_texcoords.extend([uv.x, uv.y])
 
-                m_faces.append(index_mapping[u_index])
-                index_counter += 1
+                m_faces.append(vertex_counter)
+                vertex_counter += 1
 
-        # Create the Speckle mesh
         speckle_mesh = Mesh(
             vertices=m_verts,
             faces=m_faces,
             colors=[],
             textureCoordinates=m_texcoords,
+            vertexNormals=m_normals,
             units=units,
         )
-        
-        # Calculate and set mesh properties
+
         if len(m_verts) > 0:
             speckle_mesh.area = mesh_area
-            
-            # Check if mesh is closed to calculate volume
+
             if is_closed_mesh(m_faces):
                 volume = speckle_mesh.calculate_volume()
                 speckle_mesh.volume = volume
-        
+
         submeshes.append(speckle_mesh)
 
     return submeshes
 
 
 def is_closed_mesh(faces: List[int]) -> bool:
+    """
+    check if a mesh is closed by verifying that each edge is shared by exactly 2 faces.
+    """
     edge_counts = {}
-    
+
     i = 0
     while i < len(faces):
         vertex_count = faces[i]
@@ -146,7 +130,7 @@ def is_closed_mesh(faces: List[int]) -> bool:
             v2 = faces[i + 1 + ((j + 1) % vertex_count)]
             edge = tuple(sorted([v1, v2]))
             edge_counts[edge] = edge_counts.get(edge, 0) + 1
-            
+
         i += vertex_count + 1
-        
+
     return all(count == 2 for count in edge_counts.values())
