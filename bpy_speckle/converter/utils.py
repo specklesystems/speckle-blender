@@ -5,6 +5,7 @@ from specklepy.objects import Base
 from specklepy.objects.graph_traversal.default_traversal import (
     create_default_traversal_function,
 )
+from specklepy.core.api.client import SpeckleClient
 
 
 def to_rgba(argb_int: int) -> Tuple[float, float, float, float]:
@@ -59,13 +60,11 @@ def create_material_from_proxy(
             1.0,
         )
 
-
     if hasattr(render_material, "opacity"):
         opacity = float(render_material.opacity)
         if opacity < 1.0:
             material.blend_method = "BLEND"
             bsdf.inputs["Alpha"].default_value = opacity
-    
 
     if hasattr(render_material, "metalness"):
         metalness = float(render_material.metalness)
@@ -88,10 +87,15 @@ def create_material_from_proxy(
                 1.0,
             )
             bsdf.inputs["Emission Strength"].default_value = 1.0
-    
+
     # set viewport display color
     if hasattr(render_material, "diffuse") and hasattr(render_material, "opacity"):
-        material.diffuse_color = (diffuse_rgba[0], diffuse_rgba[1], diffuse_rgba[2], opacity)
+        material.diffuse_color = (
+            diffuse_rgba[0],
+            diffuse_rgba[1],
+            diffuse_rgba[2],
+            opacity,
+        )
 
     return material
 
@@ -183,3 +187,21 @@ def find_object_by_id(root_object: Base, target_id: str) -> Optional[Base]:
         return None
 
     return deep_search(root_object)
+
+
+def get_project_workspace_id(client: SpeckleClient, project_id: str) -> Optional[str]:
+    workspace_id = None
+    server_version = client.project.server_version or client.server.version()
+
+    # Local yarn builds of server will report a server version if "dev"
+    # We'll assume that local builds are up-to-date with the latest features
+    if server_version[0] == "dev":
+        maj = 999
+        min = 999
+    else:
+        maj = server_version[0]
+        min = server_version[1]
+
+    if maj > 2 or (maj == 2 and min > 20):
+        workspace_id = client.project.get(project_id).workspaceId
+    return workspace_id

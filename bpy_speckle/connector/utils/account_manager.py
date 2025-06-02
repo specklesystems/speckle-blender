@@ -1,9 +1,9 @@
 import bpy
-from specklepy.api.credentials import get_local_accounts
+from specklepy.core.api.credentials import get_local_accounts
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
-from specklepy.api.client import SpeckleClient
-from specklepy.api.wrapper import StreamWrapper
+from specklepy.core.api.client import SpeckleClient
+from specklepy.core.api.wrapper import StreamWrapper
 
 from .misc import strip_non_ascii
 

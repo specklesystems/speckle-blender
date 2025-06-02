@@ -5,17 +5,18 @@ from typing import Set, List, Optional
 
 from specklepy.objects import Base
 from specklepy.objects.models.collections.collection import Collection
-from specklepy.api import operations
-from specklepy.api.client import SpeckleClient
+from specklepy.core.api import operations
+from specklepy.core.api.client import SpeckleClient
 from specklepy.transports.server import ServerTransport
 from specklepy.core.api.inputs.version_inputs import CreateVersionInput
-from specklepy.api.credentials import get_local_accounts
+from specklepy.core.api.credentials import get_local_accounts
 from specklepy.objects.models.units import Units
 
 from ...converter.to_speckle import convert_to_speckle
 from ...converter.to_speckle.material_to_speckle import (
     add_render_material_proxies_to_base,
 )
+from specklepy.logging import metrics
 
 
 class SPECKLE_OT_publish(bpy.types.Operator):
@@ -67,7 +68,6 @@ class SPECKLE_OT_publish(bpy.types.Operator):
 
             # get objects to convert
             objects_to_convert = context.selected_objects or [context.active_object]
-
             speckle_objects = self.convert_selected_objects(context)
 
             if not speckle_objects:
@@ -103,6 +103,17 @@ class SPECKLE_OT_publish(bpy.types.Operator):
 
             version = client.version.create(version_input)
             version_id = version.id
+
+            metrics.set_host_app("blender")
+
+            metrics.track(
+                metrics.SEND,
+                account,
+                {
+                    "ui": "dui3",
+                    "hostAppVersion": "3.0.0",  # TODO: get dynamic version
+                },
+            )
 
             # Update model card if needed
             if hasattr(context.scene, "speckle_state") and hasattr(
