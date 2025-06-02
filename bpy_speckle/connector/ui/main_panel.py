@@ -17,7 +17,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
-        layout.label(text="Speckle Connector BETA", icon_value=get_icon("speckle_logo"))
+        layout.label(text="Speckle Connector", icon_value=get_icon("speckle_logo"))
 
         # check to see if there are any speckle models in the file
         if not context.scene.speckle_state.model_cards:

@@ -4,14 +4,14 @@ schema_version = "1.0.0"
 # Change the values according to your extension
 id = "speckle_blender_addon"
 version = "3.0.0"
-name = "Speckle for Blender BETA"
-tagline = "Speckle connector for Blender"
-maintainer = "AEC SYSTEMS LTD"
+name = "Speckle Connector"
+tagline = "Load models from other AEC apps into Blender with Speckle."
+maintainer = "Speckle"
 # Supported types: "add-on", "theme"
 type = "add-on"
 
 # Optional link to documentation, support, source files, etc
-website = "https://speckle.guide/user/blender.html"
+website = "https://app.speckle.systems/connectors"
 
 # Optional list defined by Blender and server, see:
 # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
