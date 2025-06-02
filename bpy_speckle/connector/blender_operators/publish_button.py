@@ -16,6 +16,7 @@ from ...converter.to_speckle import convert_to_speckle
 from ...converter.to_speckle.material_to_speckle import (
     add_render_material_proxies_to_base,
 )
+from ...converter.utils import get_project_workspace_id
 from specklepy.logging import metrics
 
 
@@ -112,6 +113,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
                 {
                     "ui": "dui3",
                     "hostAppVersion": "3.0.0",  # TODO: get dynamic version
+                    "workspace_id": get_project_workspace_id(client, project_id),
                 },
             )
 

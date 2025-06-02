@@ -11,7 +11,7 @@ from specklepy.objects.graph_traversal.default_traversal import (
 from specklepy.core.api import host_applications
 
 from ..utils.get_ascendants import get_ascendants
-from ...converter.utils import find_object_by_id
+from ...converter.utils import find_object_by_id, get_project_workspace_id
 from ...converter.to_native import (
     convert_to_native,
     render_material_proxy_to_native,
@@ -66,6 +66,7 @@ def load_operation(context: Context) -> None:
                 version.source_application
             ).slug,
             "isMultiplayer": version.author_user.id != account.userInfo.id,
+            "workspace_id": get_project_workspace_id(client, wm.selected_project_id),
         },
     )
 

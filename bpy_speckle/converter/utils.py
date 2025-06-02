@@ -203,5 +203,5 @@ def get_project_workspace_id(client: SpeckleClient, project_id: str) -> Optional
         min = server_version[1]
 
     if maj > 2 or (maj == 2 and min > 20):
-        workspace_id = client.project.get(project_id).workspaceId
+        workspace_id = client.project.get(project_id).workspace_id
     return workspace_id
