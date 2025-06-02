@@ -93,7 +93,7 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
 
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
-    bl_category = "Speckle"
+    bl_category = "Speckle (Legacy)"
     bl_context = "objectmode"
     bl_label = "User Account"
 
@@ -101,6 +101,13 @@ class VIEW3D_PT_SpeckleUser(bpy.types.Panel):
         speckle = get_speckle(context)
 
         layout = self.layout
+        # Draw a box with the text "Warning: This is a legacy add-on. Download the new connector from https://app.speckle.systems/connectors"
+        box = layout.box()
+        box.label(text="Warning: This is a legacy add-on.", icon="ERROR")
+        box.label(text="Download the new connector from")
+        box.label(text="https://app.speckle.systems/connectors")
+        layout.separator()
+
         col = layout.column()
 
         if len(speckle.users) < 1:
@@ -121,7 +128,7 @@ class VIEW3D_PT_SpeckleStreams(bpy.types.Panel):
 
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
-    bl_category = "Speckle"
+    bl_category = "Speckle (Legacy)"
     bl_context = "objectmode"
     bl_label = "Projects"
 
@@ -149,7 +156,7 @@ class VIEW3D_PT_SpeckleActiveStream(bpy.types.Panel):
 
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
-    bl_category = "Speckle"
+    bl_category = "Speckle (Legacy)"
     bl_context = "objectmode"
     bl_label = "Active Project"
 
@@ -245,7 +252,7 @@ class VIEW3D_PT_SpeckleHelp(bpy.types.Panel):
 
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
-    bl_category = "Speckle"
+    bl_category = "Speckle (Legacy)"
     bl_context = "objectmode"
     bl_label = "Help"
 
