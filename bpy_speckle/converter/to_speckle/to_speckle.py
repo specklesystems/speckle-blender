@@ -3,7 +3,7 @@ from typing import Optional
 from specklepy.objects.data_objects import BlenderObject
 from .curve_to_speckle import curve_to_speckle
 from .mesh_to_speckle import mesh_to_speckle_meshes
-from .utils import set_object_id, set_submesh_id
+from .utils import get_object_id, get_curve_element_id
 
 
 def convert_to_speckle(
@@ -18,7 +18,12 @@ def convert_to_speckle(
         curve_result = curve_to_speckle(blender_object, scale_factor)
         if curve_result and hasattr(curve_result, "@elements"):
             display_value = curve_result["@elements"]
+            for i, element in enumerate(display_value):
+                if hasattr(element, "applicationId"):
+                    element.applicationId = get_curve_element_id(blender_object, i)
         elif curve_result:
+            if hasattr(curve_result, "applicationId"):
+                curve_result.applicationId = get_curve_element_id(blender_object, 0)
             display_value = [curve_result]
 
     elif blender_object.type == "MESH":
@@ -26,9 +31,6 @@ def convert_to_speckle(
             blender_object, blender_object.data, scale_factor, units
         )
         if meshes:
-            # Assign unique applicationIds to each submesh using the centralized system
-            for i, mesh in enumerate(meshes):
-                mesh.applicationId = set_submesh_id(blender_object, i)
             display_value = meshes
 
     if not display_value:
@@ -41,7 +43,7 @@ def convert_to_speckle(
         name=blender_object.name,
         type=blender_object.type,
         displayValue=display_value,
-        applicationId=set_object_id(blender_object),
+        applicationId=get_object_id(blender_object),
         properties=properties,
         units=units,
     )
