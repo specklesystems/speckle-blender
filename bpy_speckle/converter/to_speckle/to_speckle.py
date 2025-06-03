@@ -3,6 +3,7 @@ from typing import Optional
 from specklepy.objects.data_objects import BlenderObject
 from .curve_to_speckle import curve_to_speckle
 from .mesh_to_speckle import mesh_to_speckle_meshes
+from .utils import set_object_id, set_submesh_id
 
 
 def convert_to_speckle(
@@ -25,9 +26,9 @@ def convert_to_speckle(
             blender_object, blender_object.data, scale_factor, units
         )
         if meshes:
-            for mesh in meshes:
-                if hasattr(mesh, "applicationId"):
-                    mesh.applicationId = None
+            # Assign unique applicationIds to each submesh using the centralized system
+            for i, mesh in enumerate(meshes):
+                mesh.applicationId = set_submesh_id(blender_object, i)
             display_value = meshes
 
     if not display_value:
@@ -40,7 +41,7 @@ def convert_to_speckle(
         name=blender_object.name,
         type=blender_object.type,
         displayValue=display_value,
-        applicationId=blender_object.name,
+        applicationId=set_object_id(blender_object),
         properties=properties,
         units=units,
     )

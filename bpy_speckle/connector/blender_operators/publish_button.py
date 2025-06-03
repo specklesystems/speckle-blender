@@ -18,6 +18,7 @@ from ...converter.to_speckle.material_to_speckle import (
 )
 from ...converter.utils import get_project_workspace_id
 from specklepy.logging import metrics
+from ....bpy_speckle import bl_info
 
 
 class SPECKLE_OT_publish(bpy.types.Operator):
@@ -112,7 +113,8 @@ class SPECKLE_OT_publish(bpy.types.Operator):
                 account,
                 {
                     "ui": "dui3",
-                    "hostAppVersion": "3.0.0",  # TODO: get dynamic version
+                    "hostAppVersion": ",".join(map(str, bl_info["blender"])),
+                    "core_version": ",".join(map(str, bl_info["version"])),
                     "workspace_id": get_project_workspace_id(client, project_id),
                 },
             )

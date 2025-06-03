@@ -19,6 +19,7 @@ from ...converter.to_native import (
     find_instance_definitions,
 )
 from specklepy.logging import metrics
+from ....bpy_speckle import bl_info
 
 
 def load_operation(context: Context) -> None:
@@ -61,7 +62,8 @@ def load_operation(context: Context) -> None:
         account,
         {
             "ui": "dui3",
-            "hostAppVersion": "3.0.0",  # TODO: get dynamic version
+            "hostAppVersion": ",".join(map(str, bl_info["blender"])),
+            "core_version": ",".join(map(str, bl_info["version"])),
             "sourceHostApp": host_applications.get_host_app_from_string(
                 version.source_application
             ).slug,

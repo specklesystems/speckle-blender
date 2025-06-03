@@ -8,6 +8,7 @@ from mathutils import Vector as MVector
 
 from specklepy.objects.base import Base
 from specklepy.objects.geometry.mesh import Mesh
+from .utils import set_submesh_id
 
 
 def mesh_to_speckle(
@@ -18,8 +19,9 @@ def mesh_to_speckle(
     """
     meshes = mesh_to_speckle_meshes(blender_object, data, units_scale, units)
 
-    for mesh in meshes:
-        mesh.applicationId = blender_object.name
+    # create unique applicationIds for each submesh
+    for i, mesh in enumerate(meshes):
+        mesh.applicationId = set_submesh_id(blender_object, i)
 
     return meshes
 
@@ -45,7 +47,7 @@ def mesh_to_speckle_meshes(
 
     submeshes = []
 
-    for material_index in submesh_data:
+    for material_index in sorted(submesh_data.keys()):
         mesh_area = 0
         m_verts: List[float] = []
         m_faces: List[int] = []
@@ -106,10 +108,6 @@ def mesh_to_speckle_meshes(
 
         if len(m_verts) > 0:
             speckle_mesh.area = mesh_area
-
-            if is_closed_mesh(m_faces):
-                volume = speckle_mesh.calculate_volume()
-                speckle_mesh.volume = volume
 
         submeshes.append(speckle_mesh)
 

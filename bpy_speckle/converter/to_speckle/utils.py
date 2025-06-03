@@ -1,6 +1,7 @@
 import bpy
+from bpy.types import ID, Object
 import math
-from typing import Tuple
+from typing import Tuple, Optional
 
 OBJECT_NAME_SPECKLE_SEPARATOR = " -- "
 SPECKLE_ID_LENGTH = 32
@@ -16,6 +17,8 @@ def to_speckle_name(blender_object: bpy.types.ID) -> str:
         return blender_object.name.rsplit(OBJECT_NAME_SPECKLE_SEPARATOR, 1)[0]
     else:
         return blender_object.name
+
+
 """
 Python implementation of Blender's NURBS curve generation for to Speckle conversion
 from: https://blender.stackexchange.com/a/34276
@@ -205,3 +208,20 @@ def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[
         u += ustep
 
     return coord_array
+
+
+def set_unique_id(native_object: ID, suffix: Optional[str] = None) -> str:
+    base_id = f"{type(native_object).__name__}:{native_object.name_full}"
+
+    if suffix:
+        return f"{base_id}_{suffix}"
+
+    return base_id
+
+
+def set_submesh_id(blender_object: Object, material_index: int) -> str:
+    return set_unique_id(blender_object, f"mat{material_index}")
+
+
+def set_object_id(blender_object: Object) -> str:
+    return set_unique_id(blender_object)
