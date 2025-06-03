@@ -105,10 +105,6 @@ def mesh_to_speckle_meshes(
         if len(m_verts) > 0:
             speckle_mesh.area = mesh_area
 
-            if is_closed_mesh(m_faces):
-                volume = speckle_mesh.calculate_volume()
-                speckle_mesh.volume = volume
-
         speckle_mesh.applicationId = get_submesh_id(blender_object, material_index)
 
         submeshes.append(speckle_mesh)
