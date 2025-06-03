@@ -210,18 +210,33 @@ def nurb_make_curve(nu: bpy.types.Spline, resolu: int, stride: int = 3) -> list[
     return coord_array
 
 
-def set_unique_id(native_object: ID, suffix: Optional[str] = None) -> str:
+def get_unique_id(native_object: ID, suffix: Optional[str] = None) -> str:
     base_id = f"{type(native_object).__name__}:{native_object.name_full}"
 
     if suffix:
-        return f"{base_id}_{suffix}"
+        return f"{base_id}:{suffix}"
 
     return base_id
 
 
-def set_submesh_id(blender_object: Object, material_index: int) -> str:
-    return set_unique_id(blender_object, f"mat{material_index}")
+def get_submesh_id(blender_object: Object, material_index: int) -> str:
+    mesh_data = blender_object.data
+    if not mesh_data:
+        return f"Mesh:{blender_object.name_full}_mat{material_index}"
+
+    return f"Mesh:{mesh_data.name_full}_mat{material_index}"
 
 
-def set_object_id(blender_object: Object) -> str:
-    return set_unique_id(blender_object)
+def get_curve_element_id(blender_object: Object, curve_index: int = 0) -> str:
+    curve_data = blender_object.data
+    if not curve_data:
+        return f"Curve:{blender_object.name_full}_curve{curve_index}"
+
+    if curve_index == 0:
+        return f"Curve:{curve_data.name_full}"
+
+    return f"Curve:{curve_data.name_full}_curve{curve_index}"
+
+
+def get_object_id(blender_object: Object) -> str:
+    return get_unique_id(blender_object)

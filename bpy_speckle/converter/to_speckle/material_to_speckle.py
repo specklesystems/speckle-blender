@@ -6,7 +6,7 @@ from specklepy.objects.other import RenderMaterial
 from specklepy.objects.proxies import RenderMaterialProxy
 from ..utils import to_argb_int
 
-from .utils import set_submesh_id, set_unique_id
+from .utils import get_submesh_id, get_unique_id
 
 
 def blender_material_to_speckle(material: Material) -> RenderMaterial:
@@ -213,7 +213,7 @@ def collect_material_assignments(objects: List[Object]) -> Dict[str, Set[str]]:
                     material_name = material_slot.name
 
                     # set unique ID for submeshes
-                    application_id = set_submesh_id(obj, material_index)
+                    application_id = get_submesh_id(obj, material_index)
 
                     if material_name not in material_assignments:
                         material_assignments[material_name] = set()
@@ -240,7 +240,7 @@ def create_render_material_proxies(objects: List[Object]) -> List[RenderMaterial
 
         proxy = RenderMaterialProxy(objects=list(object_ids), value=speckle_material)
 
-        proxy.applicationId = set_unique_id(blender_material)
+        proxy.applicationId = get_unique_id(blender_material)
 
         proxies.append(proxy)
 
