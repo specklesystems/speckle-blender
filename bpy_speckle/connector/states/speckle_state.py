@@ -11,7 +11,6 @@ class SpeckleState(PropertyGroup):
     manages the state of the Speckle addon in Blender
     """
 
-    ui_mode: StringProperty(name="UI Mode", default="NONE")  # type: ignore
     model_cards: CollectionProperty(type=speckle_model_card)  # type: ignore
 
     def get_model_card_by_id(self, model_card_id: str) -> Optional[speckle_model_card]:

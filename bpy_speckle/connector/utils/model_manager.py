@@ -1,5 +1,5 @@
-from specklepy.api.client import SpeckleClient
-from specklepy.api.credentials import get_local_accounts, Account
+from specklepy.core.api.client import SpeckleClient
+from specklepy.core.api.credentials import get_local_accounts, Account
 from specklepy.core.api.inputs.project_inputs import ProjectModelsFilter
 from specklepy.core.api.models.current import Model
 from typing import List, Tuple, Optional
@@ -43,7 +43,11 @@ def get_models_for_project(
         ).items
 
         return [
-            (strip_non_ascii(model.name), model.id, format_relative_time(model.updated_at))
+            (
+                strip_non_ascii(model.name),
+                model.id,
+                format_relative_time(model.updated_at),
+            )
             for model in models
         ]
 

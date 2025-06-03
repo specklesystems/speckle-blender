@@ -1,22 +1,25 @@
 import bpy
 from bpy.types import Context
-from specklepy.api.credentials import get_local_accounts
+from specklepy.core.api.credentials import get_local_accounts
 from specklepy.transports.server import ServerTransport
-from specklepy.api import operations
-from specklepy.api.client import SpeckleClient
+from specklepy.core.api import operations
+from specklepy.core.api.client import SpeckleClient
 from specklepy.objects.models.collections.collection import Collection as SCollection
 from specklepy.objects.graph_traversal.default_traversal import (
     create_default_traversal_function,
 )
+from specklepy.core.api import host_applications
 
 from ..utils.get_ascendants import get_ascendants
-from ...converter.utils import find_object_by_id
+from ...converter.utils import find_object_by_id, get_project_workspace_id
 from ...converter.to_native import (
     convert_to_native,
     render_material_proxy_to_native,
     instance_definition_proxy_to_native,
     find_instance_definitions,
 )
+from specklepy.logging import metrics
+from ....bpy_speckle import bl_info
 
 
 def load_operation(context: Context) -> None:
@@ -51,6 +54,23 @@ def load_operation(context: Context) -> None:
     obj_id = version.referenced_object
 
     version_data = operations.receive(obj_id, transport)
+
+    metrics.set_host_app("blender")
+
+    metrics.track(
+        metrics.RECEIVE,
+        account,
+        {
+            "ui": "dui3",
+            "hostAppVersion": ",".join(map(str, bl_info["blender"])),
+            "core_version": ",".join(map(str, bl_info["version"])),
+            "sourceHostApp": host_applications.get_host_app_from_string(
+                version.source_application
+            ).slug,
+            "isMultiplayer": version.author_user.id != account.userInfo.id,
+            "workspace_id": get_project_workspace_id(client, wm.selected_project_id),
+        },
+    )
 
     # Create material mapping first
     material_mapping = render_material_proxy_to_native(version_data)

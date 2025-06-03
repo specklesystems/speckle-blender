@@ -30,6 +30,11 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
         project_selected = bool(getattr(wm, "selected_project_name", None))
         model_selected = bool(getattr(wm, "selected_model_name", None))
         version_selected = bool(getattr(wm, "selected_version_id", None))
+        selection_made = bool(getattr(wm, "speckle_objects", None))
+
+        # UI Mode Switch
+        row = layout.row()
+        row.prop(wm, "ui_mode", expand=True)
 
         # select Project button
         row = layout.row()
@@ -53,30 +58,45 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             text=model_button_text,
             icon=model_button_icon,
         )
+        if wm.ui_mode == "PUBLISH":
+            #TODO: implement Publish flow
+            # Selection filter
+            row = layout.row()
+            row.enabled = project_selected and model_selected
+            selection_button_text = f"{len(wm.speckle_objects)} Objects" if wm.speckle_objects else "Select Objects"
+            row.operator("speckle.selection_filter_dialog", text=selection_button_text, icon="PLUS")
+            
 
-        # select Version button
-        row = layout.row()
-        version_id = getattr(wm, "selected_version_id", "")
-        load_option = getattr(wm, "selected_version_load_option", "")
-        if load_option == "LATEST":
-            version_button_text = "Latest"
-        elif load_option == "SPECIFIC":
-            version_button_text = version_id
-        else:
-            version_button_text = "Select Version"
+            # Publish button
+            row = layout.row()
+            row.enabled = project_selected and model_selected and selection_made
+            row.operator("speckle.publish", text="Publish Model", icon="EXPORT")
+            pass
 
-        version_button_icon = "CHECKMARK" if version_selected else "PLUS"
-        row.enabled = project_selected and model_selected
-        row.operator(
-            "speckle.version_selection_dialog",
-            text=version_button_text,
-            icon=version_button_icon,
-        )
+        if wm.ui_mode == "LOAD":
+            # select Version button
+            row = layout.row()
+            version_id = getattr(wm, "selected_version_id", "")
+            load_option = getattr(wm, "selected_version_load_option", "")
+            if load_option == "LATEST":
+                version_button_text = "Latest"
+            elif load_option == "SPECIFIC":
+                version_button_text = version_id
+            else:
+                version_button_text = "Select Version"
 
-        # load button
-        row = layout.row()
-        row.enabled = project_selected and model_selected and version_selected
-        row.operator("speckle.load", text="Load Model", icon="IMPORT")
+            version_button_icon = "CHECKMARK" if version_selected else "PLUS"
+            row.enabled = project_selected and model_selected
+            row.operator(
+                "speckle.version_selection_dialog",
+                text=version_button_text,
+                icon=version_button_icon,
+            )
+
+            # load button
+            row = layout.row()
+            row.enabled = project_selected and model_selected and version_selected
+            row.operator("speckle.load", text="Load Model", icon="IMPORT")
 
         layout.separator()
 
