@@ -19,7 +19,7 @@ from ...converter.to_native import (
     find_instance_definitions,
 )
 from specklepy.logging import metrics
-from ....bpy_speckle import bl_info
+from ... import bl_info
 
 
 def load_operation(context: Context) -> None:
