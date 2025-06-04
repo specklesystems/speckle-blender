@@ -18,7 +18,7 @@ from ...converter.to_speckle.material_to_speckle import (
 )
 from ...converter.utils import get_project_workspace_id
 from specklepy.logging import metrics
-from ....bpy_speckle import bl_info
+from ... import bl_info
 
 
 class SPECKLE_OT_publish(bpy.types.Operator):
