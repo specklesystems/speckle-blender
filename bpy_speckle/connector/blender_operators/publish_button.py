@@ -18,8 +18,12 @@ class SPECKLE_OT_publish(bpy.types.Operator):
     def execute(self, context: Context) -> Set[str]:
         wm = context.window_manager
 
-        if not context.selected_objects and not context.active_object:
-            self.report({"ERROR"}, "No objects selected to publish")
+        # check if we have stored objects from selection dialog
+        if not wm.speckle_objects:
+            self.report(
+                {"ERROR"},
+                "No objects selected to publish. Please use 'Select Objects' first.",
+            )
             return {"CANCELLED"}
 
         account_id = getattr(wm, "selected_account_id", "")
@@ -38,7 +42,19 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             self.report({"ERROR"}, "No model selected")
             return {"CANCELLED"}
 
-        objects_to_convert = context.selected_objects or [context.active_object]
+        objects_to_convert = []
+        for speckle_obj in wm.speckle_objects:
+            blender_obj = bpy.data.objects.get(speckle_obj.name)
+            if blender_obj:
+                objects_to_convert.append(blender_obj)
+            else:
+                self.report(
+                    {"WARNING"}, f"Object '{speckle_obj.name}' not found, skipping"
+                )
+
+        if not objects_to_convert:
+            self.report({"ERROR"}, "None of the selected objects could be found")
+            return {"CANCELLED"}
 
         success, message, version_id = publish_operation(context, objects_to_convert)
 
