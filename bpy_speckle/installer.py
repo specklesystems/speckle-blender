@@ -168,6 +168,7 @@ def install_requirements(host_application: str) -> None:
             "--prefer-binary",
             "--ignore-installed",
             "--no-compile",
+            "--no-deps",
             "-t",
             str(path),
             "-r",
