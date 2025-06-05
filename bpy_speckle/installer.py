@@ -1,6 +1,7 @@
 """
 Provides uniform and consistent path helpers for `specklepy`
 """
+
 import os
 import sys
 from pathlib import Path
@@ -55,9 +56,7 @@ def user_application_data_path() -> Path:
         if sys.platform.startswith("win"):
             app_data_path = os.getenv("APPDATA")
             if not app_data_path:
-                raise Exception(
-                    "Cannot get appdata path from environment."
-                )
+                raise Exception("Cannot get appdata path from environment.")
             return Path(app_data_path)
         else:
             # try getting the standard XDG_DATA_HOME value
@@ -68,9 +67,7 @@ def user_application_data_path() -> Path:
             else:
                 return _ensure_folder_exists(Path.home(), ".config")
     except Exception as ex:
-        raise Exception(
-            "Failed to initialize user application data path.", ex
-        )
+        raise Exception("Failed to initialize user application data path.", ex)
 
 
 def user_speckle_folder_path() -> Path:
@@ -90,19 +87,16 @@ def user_speckle_connector_installation_path(host_application: str) -> Path:
     )
 
 
-
-
-
-
 print("Starting module dependency installation")
 print(sys.executable)
 
 PYTHON_PATH = sys.executable
 
 
-
 def connector_installation_path(host_application: str) -> Path:
-    connector_installation_path = user_speckle_connector_installation_path(host_application)
+    connector_installation_path = user_speckle_connector_installation_path(
+        host_application
+    )
     connector_installation_path.mkdir(exist_ok=True, parents=True)
 
     # set user modules path at beginning of paths for earlier hit
@@ -111,7 +105,6 @@ def connector_installation_path(host_application: str) -> Path:
 
     print(f"Using connector installation path {connector_installation_path}")
     return connector_installation_path
-
 
 
 def is_pip_available() -> bool:
@@ -132,7 +125,9 @@ def ensure_pip() -> None:
     if completed_process.returncode == 0:
         print("Successfully installed pip")
     else:
-        raise Exception(f"Failed to install pip, got {completed_process.returncode} return code")
+        raise Exception(
+            f"Failed to install pip, got {completed_process.returncode} return code"
+        )
 
 
 def is_uv_available() -> bool:
@@ -146,11 +141,14 @@ def is_uv_available() -> bool:
 def ensure_uv() -> None:
     print("Installing uv... ")
     from subprocess import run
+
     completed_process = run([PYTHON_PATH, "-m", "pip", "install", "uv"])
     if completed_process.returncode == 0:
         print("Successfully installed uv")
     else:
-        raise Exception(f"Failed to install uv, got {completed_process.returncode} return code")
+        raise Exception(
+            f"Failed to install uv, got {completed_process.returncode} return code"
+        )
 
 
 def get_requirements_path() -> Path:
@@ -169,12 +167,12 @@ def install_requirements(host_application: str) -> None:
 
     def debugger_is_active() -> bool:
         """Return if the debugger is currently active"""
-        return hasattr(sys, 'gettrace') and sys.gettrace() is not None
-    
+        return hasattr(sys, "gettrace") and sys.gettrace() is not None
+
     requirements_path = get_requirements_path()
 
     is_debug = debugger_is_active()
-    
+
     if not is_debug and not requirements_path.exists():
         print("Skipped installing dependencies")
         return
@@ -201,7 +199,7 @@ def install_requirements(host_application: str) -> None:
         m = f"Failed to install dependencies through uv, got {completed_process.returncode} return code"
         print(m)
         raise Exception(m)
-    
+
     print("Successfully installed dependencies")
 
     if not is_debug:
@@ -211,7 +209,7 @@ def install_requirements(host_application: str) -> None:
 def install_dependencies(host_application: str) -> None:
     if not is_pip_available():
         ensure_pip()
-    
+
     if not is_uv_available():
         ensure_uv()
 
@@ -223,7 +221,7 @@ def _import_dependencies() -> None:
     # the code above doesn't work for now, it fails on importing graphql-core
     # despite that, the connector seams to be working as expected
     # But it would be nice to make this solution work
-    # it would ensure that all dependencies are fully loaded  
+    # it would ensure that all dependencies are fully loaded
     # requirements = get_requirements_path().read_text()
     # reqs = [
     #     req.split(" ; ")[0].split("==")[0].split("[")[0].replace("-", "_")
@@ -234,6 +232,7 @@ def _import_dependencies() -> None:
     #     print(req)
     #     import_module("specklepy")
 
+
 def ensure_dependencies(host_application: str) -> None:
     try:
         install_dependencies(host_application)
@@ -241,6 +240,6 @@ def ensure_dependencies(host_application: str) -> None:
         _import_dependencies()
         print("Successfully found dependencies")
     except ImportError:
-        raise Exception(f"Cannot automatically ensure Speckle dependencies. Please try restarting the host application {host_application}!")
-
-
+        raise Exception(
+            f"Cannot automatically ensure Speckle dependencies. Please try restarting the host application {host_application}!"
+        )
