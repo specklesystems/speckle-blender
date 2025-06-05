@@ -19,7 +19,7 @@ def _path() -> Optional[Path]:
     return None
 
 
-_application_name = "Speckle (Legacy)"
+_application_name = "Speckle"
 
 
 def override_application_name(application_name: str) -> None:
