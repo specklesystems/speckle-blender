@@ -173,15 +173,32 @@ def analyze_collection_structure(objects: List) -> Dict:
     collections_set = set()
     objects_collections = {}
 
+    direct_collections = set()
     for obj in objects:
         obj_collections = []
-
         for collection in bpy.data.collections:
             if obj.name in collection.objects:
-                collections_set.add(collection)
+                direct_collections.add(collection)
                 obj_collections.append(collection)
-
         objects_collections[obj] = obj_collections
+
+    # find all ancestor collections
+    def find_all_ancestors(collection):
+        """recursively find all ancestor collections"""
+        ancestors = set()
+
+        for potential_parent in bpy.data.collections:
+            if collection.name in potential_parent.children:
+                ancestors.add(potential_parent)
+                # Recursively find ancestors of the parent
+                ancestors.update(find_all_ancestors(potential_parent))
+
+        return ancestors
+
+    for collection in direct_collections:
+        collections_set.add(collection)
+        ancestors = find_all_ancestors(collection)
+        collections_set.update(ancestors)
 
     collections_list = list(collections_set)
     collections_list.sort(key=lambda c: get_collection_depth(c))
