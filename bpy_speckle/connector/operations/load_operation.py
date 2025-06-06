@@ -62,8 +62,8 @@ def load_operation(context: Context) -> None:
         account,
         {
             "ui": "dui3",
-            "hostAppVersion": ",".join(map(str, bl_info["blender"])),
-            "core_version": ",".join(map(str, bl_info["version"])),
+            "hostAppVersion": ".".join(map(str, bl_info["blender"])),
+            "core_version": ".".join(map(str, bl_info["version"])),
             "sourceHostApp": host_applications.get_host_app_from_string(
                 version.source_application
             ).slug,
