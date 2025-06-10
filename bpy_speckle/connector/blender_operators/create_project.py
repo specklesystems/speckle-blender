@@ -44,8 +44,6 @@ class SPECKLE_OT_create_project(bpy.types.Operator):
         wm = context.window_manager
         layout: UILayout = self.layout
         layout.prop(self, "project_name")
-        # text that shows project name + workspace name
-        layout.label(text=f"{self.project_name} in {wm.selected_workspace_name}")
 
 
 def register() -> None:
