@@ -56,28 +56,33 @@ def unregister() -> None:
 def create_project(
     account_id: str, project_name: str, workspace_id: Optional[str]
 ) -> Tuple[str, str]:
-    accounts: List[Account] = get_local_accounts()
-    account: Optional[Account] = next(
-        (acc for acc in accounts if acc.id == account_id), None
-    )
+    try:
+        accounts: List[Account] = get_local_accounts()
+        account: Optional[Account] = next(
+            (acc for acc in accounts if acc.id == account_id), None
+        )
 
-    client = SpeckleClient(host=account.serverInfo.url)
-    client.authenticate_with_account(account)
-    if workspace_id:
-        project = client.project.create_in_workspace(
-            input=WorkspaceProjectCreateInput(
-                name=project_name,
-                description="",
-                visibility=ProjectVisibility("PUBLIC"),
-                workspaceId=workspace_id,
+        client = SpeckleClient(host=account.serverInfo.url)
+        client.authenticate_with_account(account)
+        if workspace_id:
+            project = client.project.create_in_workspace(
+                input=WorkspaceProjectCreateInput(
+                    name=project_name,
+                    description="",
+                    visibility=ProjectVisibility("PUBLIC"),
+                    workspaceId=workspace_id,
+                )
             )
-        )
-    else:
-        project = client.project.create(
-            input=ProjectCreateInput(
-                name=project_name,
-                description="",
-                visibility=ProjectVisibility("PUBLIC"),
+        else:
+            project = client.project.create(
+                input=ProjectCreateInput(
+                    name=project_name,
+                    description="",
+                    visibility=ProjectVisibility("PUBLIC"),
+                )
             )
-        )
-    return [project.id, project.name]
+
+        return (project.id, project.name)
+    except Exception as e:
+        print(f"Failed to create project: {str(e)}")
+        raise

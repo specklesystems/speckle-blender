@@ -243,12 +243,20 @@ def can_create_project_in_workspace(account_id: str, workspace_id: str) -> bool:
     Check if the user can create a project in the specified workspace.
     """
     account = get_account_from_id(account_id)
+    if not account:
+        print(f"No account found for ID: {account_id}")
+        return False
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
+
+    # wrap the workspace request in try/except and return False on any exception to keep the UI responsive.
 
     if workspace_id == "personal":
         return client.active_user.can_create_personal_projects().authorized
     else:
-        return client.workspace.get(
-            workspace_id
-        ).permissions.can_create_project.authorized
+        try:
+            workspace = client.workspace.get(workspace_id)
+            return workspace.permissions.can_create_project.authorized
+        except Exception as e:
+            print(f"Failed to get workspace: {str(e)}")
+            return False
