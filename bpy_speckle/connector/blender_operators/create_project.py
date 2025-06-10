@@ -41,7 +41,6 @@ class SPECKLE_OT_create_project(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context: Context) -> None:
-        wm = context.window_manager
         layout: UILayout = self.layout
         layout.prop(self, "project_name")
 
