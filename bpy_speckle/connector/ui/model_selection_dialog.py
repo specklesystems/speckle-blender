@@ -113,10 +113,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         row = layout.row(align=True)
         row.prop(self, "search_query", icon="VIEWZOOM", text="")  # search bar
         if wm.ui_mode != "LOAD":
-            split = row.split()
-            split.operator(
-                "speckle.create_model", icon="ADD", text=""
-            )  # create model button
+            row.operator("speckle.create_model", icon="ADD", text="")
 
         layout.template_list(
             "SPECKLE_UL_models_list",

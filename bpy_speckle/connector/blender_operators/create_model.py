@@ -1,8 +1,7 @@
 import bpy
 from bpy.types import Context, Event, UILayout
 from specklepy.api.client import SpeckleClient
-from specklepy.api.credentials import get_local_accounts
-from specklepy.core.api.credentials import Account
+from specklepy.api.credentials import get_local_accounts, Account
 from specklepy.core.api.inputs import CreateModelInput
 from typing import List, Tuple, Optional
 
@@ -16,6 +15,11 @@ class SPECKLE_OT_create_model(bpy.types.Operator):
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
+
+        if not self.model_name.strip():
+            self.report({"ERROR"}, "Model name cannot be empty")
+            return {"CANCELLED"}
+
         model_id, model_name = create_model(
             wm.selected_account_id, wm.selected_project_id, self.model_name
         )
@@ -49,9 +53,13 @@ def create_model(account_id: str, project_id: str, model_name: str) -> Tuple[str
         (acc for acc in accounts if acc.id == account_id), None
     )
 
+    if not account:
+        raise ValueError(f"Account with ID {account_id} not found")
+
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
     model = client.model.create(
         input=CreateModelInput(name=model_name, description="", project_id=project_id)
     )
-    return [model.id, model.name]
+    # Function is annotated to return Tuple[str, str] but currently returns a list.
+    return (model.id, model.name)
