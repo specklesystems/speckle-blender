@@ -51,6 +51,7 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         for sel in user_selection:
             obj = wm.speckle_objects.add()
             obj.name = sel.name
+        context.area.tag_redraw()
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: bpy.types.Event) -> set:

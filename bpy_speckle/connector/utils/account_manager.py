@@ -51,6 +51,7 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     if not account:
         print("No accounts found > No workspaces!")
         return [("", "")]
+    
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
     workspaces_enabled = client.server.get().workspaces.workspaces_enabled
@@ -66,16 +67,17 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     else:
         workspace_list = []
         personal_projects_text = "Personal Projects"
-    # Append Personal Projects do workspace dropdown
-    if client.active_user.can_create_personal_projects().authorized:
-        workspace_list.append(("personal", personal_projects_text))
+    
+    workspace_list.append(("personal", personal_projects_text))\
 
     print("Workspaces added")
-    return (
-        reorder_tuple(workspace_list, get_default_workspace_id(account_id))
-        if workspaces_enabled
-        else workspace_list
-    )
+    
+    if workspaces_enabled:
+        active_workspace = client.active_user.get_active_workspace()
+        default_workspace_id = active_workspace.id if active_workspace else "personal"
+        return reorder_tuple(workspace_list, default_workspace_id)
+    else:
+        return workspace_list
 
 
 def get_default_account_id() -> Optional[str]:
