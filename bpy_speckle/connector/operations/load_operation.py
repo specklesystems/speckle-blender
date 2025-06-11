@@ -22,7 +22,7 @@ from specklepy.logging import metrics
 from ... import bl_info
 
 
-def load_operation(context: Context) -> None:
+def load_operation(context: Context, instance_loading_mode: str = "INSTANCE_PROXIES") -> None:
     """
     load objects from Speckle and maintain hierarchy.
     """
@@ -249,6 +249,7 @@ def load_operation(context: Context) -> None:
                 material_mapping,
                 definition_collections=definition_collections,
                 root_collection=target_collection,
+                instance_loading_mode=instance_loading_mode,
             )
 
             if blender_obj is None:
