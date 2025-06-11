@@ -10,26 +10,60 @@ def convert_to_speckle(
     blender_object: Object,
     scale_factor: float = 1.0,
     units: str = "m",
+    apply_modifiers: bool = True,
 ) -> Optional[BlenderObject]:
     display_value = []
     properties = {}
 
     if blender_object.type == "CURVE":
-        curve_result = curve_to_speckle(blender_object, scale_factor)
-        if curve_result and hasattr(curve_result, "@elements"):
-            display_value = curve_result["@elements"]
-            for i, element in enumerate(display_value):
-                if hasattr(element, "applicationId"):
-                    element.applicationId = get_curve_element_id(blender_object, i)
-        elif curve_result:
-            if hasattr(curve_result, "applicationId"):
-                curve_result.applicationId = get_curve_element_id(blender_object, 0)
-            display_value = [curve_result]
+        # handle curve modifiers apply_modifiers is True
+        if apply_modifiers and blender_object.modifiers:
+            import bpy
+            
+            # Convert curve with modifiers to mesh
+            depsgraph = bpy.context.evaluated_depsgraph_get()
+            evaluated_obj = blender_object.evaluated_get(depsgraph)
+            evaluated_mesh = evaluated_obj.to_mesh()
+            
+            if evaluated_mesh:
+                meshes = mesh_to_speckle_meshes(
+                    blender_object, evaluated_mesh, scale_factor, units
+                )
+                blender_object.to_mesh_clear()
+                if meshes:
+                    display_value = meshes
+        else:
+            # curve conversion without modifiers
+            curve_result = curve_to_speckle(blender_object, scale_factor)
+            if curve_result and hasattr(curve_result, "@elements"):
+                display_value = curve_result["@elements"]
+                for i, element in enumerate(display_value):
+                    if hasattr(element, "applicationId"):
+                        element.applicationId = get_curve_element_id(blender_object, i)
+            elif curve_result:
+                if hasattr(curve_result, "applicationId"):
+                    curve_result.applicationId = get_curve_element_id(blender_object, 0)
+                display_value = [curve_result]
 
     elif blender_object.type == "MESH":
+        # get mesh data - apply modifiers if requested
+        mesh_data = blender_object.data
+        if apply_modifiers and blender_object.modifiers:
+            import bpy
+            
+            # use evaluated object to get mesh with modifiers applied
+            depsgraph = bpy.context.evaluated_depsgraph_get()
+            evaluated_obj = blender_object.evaluated_get(depsgraph)
+            evaluated_mesh = evaluated_obj.to_mesh()
+            mesh_data = evaluated_mesh
+        
         meshes = mesh_to_speckle_meshes(
-            blender_object, blender_object.data, scale_factor, units
+            blender_object, mesh_data, scale_factor, units
         )
+        
+        if apply_modifiers and blender_object.modifiers and mesh_data != blender_object.data:
+            blender_object.to_mesh_clear()
+        
         if meshes:
             display_value = meshes
 
