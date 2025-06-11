@@ -24,6 +24,7 @@ def publish_operation(
     context: Context,
     objects_to_convert: List,
     version_message: str = "",
+    apply_modifiers: bool = True,
 ) -> Tuple[bool, str, Optional[str]]:
     """
     publish objects to speckle
@@ -46,7 +47,7 @@ def publish_operation(
         transport = ServerTransport(stream_id=wm.selected_project_id, client=client)
 
         # build collection hierarchy and convert objects
-        root_collection = build_collection_hierarchy(context, objects_to_convert)
+        root_collection = build_collection_hierarchy(context, objects_to_convert, apply_modifiers)
 
         if not root_collection:
             return False, "No objects could be converted to Speckle format", None
@@ -99,7 +100,7 @@ def publish_operation(
 
 
 def build_collection_hierarchy(
-    context: Context, objects_to_convert: List
+    context: Context, objects_to_convert: List, apply_modifiers: bool = True
 ) -> Optional[Collection]:
     """
     build a speckle collection hierarchy that mimicks blender's collection structure
@@ -113,7 +114,7 @@ def build_collection_hierarchy(
     if not collection_data["objects"] and not collection_data["collections"]:
         return None
 
-    converted_objects = convert_selected_objects(context, objects_to_convert)
+    converted_objects = convert_selected_objects(context, objects_to_convert, apply_modifiers)
     if not converted_objects:
         return None
 
@@ -260,7 +261,7 @@ def find_target_collection_for_object(
 
 
 def convert_selected_objects(
-    context: Context, objects_to_convert: List
+    context: Context, objects_to_convert: List, apply_modifiers: bool = True
 ) -> List[Optional[Base]]:
     """
     convert selected objects to Speckle format with proper units
@@ -275,7 +276,7 @@ def convert_selected_objects(
             speckle_objects.append(None)
             continue
 
-        speckle_obj = convert_to_speckle(obj, scale_factor, units.value)
+        speckle_obj = convert_to_speckle(obj, scale_factor, units.value, apply_modifiers)
         speckle_objects.append(speckle_obj)
 
     return speckle_objects

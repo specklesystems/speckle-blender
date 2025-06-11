@@ -13,10 +13,16 @@ class SPECKLE_OT_publish(bpy.types.Operator):
     bl_description = "Publish selected objects to Speckle"
 
     version_message: bpy.props.StringProperty(name="Version Message")  # type: ignore
+    apply_modifiers: bpy.props.BoolProperty(  # type: ignore
+        name="Apply Modifiers",
+        description="Apply all modifiers to objects before conversion",
+        default=True
+    )
 
     def draw(self, context: Context) -> None:
         layout = self.layout
         layout.prop(self, "version_message")
+        layout.prop(self, "apply_modifiers")
 
     def invoke(self, context: Context, event: Event) -> Set[str]:
         return context.window_manager.invoke_props_dialog(self)
@@ -63,7 +69,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             return {"CANCELLED"}
 
         success, message, version_id = publish_operation(
-            context, objects_to_convert, self.version_message
+            context, objects_to_convert, self.version_message, self.apply_modifiers
         )
 
         if not success:

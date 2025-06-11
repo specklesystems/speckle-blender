@@ -1,7 +1,7 @@
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.credentials import get_local_accounts, Account
 from typing import List, Tuple, Optional
-from .misc import format_relative_time, strip_non_ascii
+from .misc import format_relative_time
 from specklepy.core.api.inputs.model_inputs import ModelVersionsFilter
 from specklepy.core.api.models.current import Version
 
