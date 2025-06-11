@@ -73,7 +73,9 @@ from .connector.blender_operators.load_latest_button import SPECKLE_OT_load_late
 from .connector.blender_operators.add_project_by_url import (
     SPECKLE_OT_add_project_by_url,
 )
+
 from .connector.blender_operators.create_project import SPECKLE_OT_create_project
+from .connector.blender_operators.create_model import SPECKLE_OT_create_model
 from .connector.utils.account_manager import speckle_account
 
 # States
@@ -160,6 +162,7 @@ classes = (
     SPECKLE_OT_load_latest,
     SPECKLE_OT_add_project_by_url,
     SPECKLE_OT_create_project,
+    SPECKLE_OT_create_model,
     speckle_account,
 )
 
