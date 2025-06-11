@@ -6,6 +6,7 @@ from ..utils.account_manager import (
     speckle_account,
     get_workspaces,
     speckle_workspace,
+    can_create_project_in_workspace,
 )
 from ..utils.project_manager import get_projects_for_account
 
@@ -126,7 +127,9 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
         wm.selected_account_id = self.accounts
         wm.selected_workspace_id = self.workspaces
-
+        wm.can_create_project_in_workspace = can_create_project_in_workspace(
+            self.accounts, self.workspaces
+        )
         wm.speckle_projects.clear()
 
         # get projects for the selected account, using search if provided
@@ -215,6 +218,9 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             workspace.name = name
         selected_workspace_id = self.workspaces
         wm.selected_workspace_id = selected_workspace_id
+        wm.can_create_project_in_workspace = can_create_project_in_workspace(
+            selected_account_id, selected_workspace_id
+        )
 
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(
@@ -261,7 +267,15 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             # Search field
             row = layout.row(align=True)
             row.prop(self, "search_query", icon="VIEWZOOM", text="")
-            row.operator("speckle.add_project_by_url", icon="LINKED", text="")
+            # add project by url button
+            split = row.split()
+            split.operator("speckle.add_project_by_url", icon="LINKED", text="")
+            # create project button
+            # hide if in load mode
+            if wm.ui_mode != "LOAD":
+                split = row.split()
+                split.operator("speckle.create_project", icon="ADD", text="")
+                split.enabled = wm.can_create_project_in_workspace
 
             layout.template_list(
                 "SPECKLE_UL_projects_list",
