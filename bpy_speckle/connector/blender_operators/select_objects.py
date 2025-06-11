@@ -24,24 +24,16 @@ class SPECKLE_OT_select_objects(Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
-        collection_name = model_card.collection_name
-
-        collection = bpy.data.collections.get(collection_name)
-        if not collection:
-            self.report({"ERROR"}, f"Collection {collection_name} not found")
-            return {"CANCELLED"}
-
         # deselect all objects first
         bpy.ops.object.select_all(action="DESELECT")
 
-        # select all objects in the collection and its child collections
-        def select_collection_objects(collection):
-            for obj in collection.objects:
+        # select objects in model card
+        for obj in model_card.objects:
+            obj = bpy.data.objects.get(obj.name)
+            try:
                 obj.select_set(True)
-            for child in collection.children:
-                select_collection_objects(child)
-
-        select_collection_objects(collection)
+            except Exception:
+                continue
 
         selected = context.selected_objects
         if selected:
