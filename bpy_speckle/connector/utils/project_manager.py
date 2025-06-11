@@ -33,7 +33,11 @@ def get_projects_for_account(
             )
 
             # create filter with search parameter
-            filter = WorksaceProjectsFilter(search=search) if search else None
+            filter = (
+                WorksaceProjectsFilter(search=search, with_project_role_only=False)
+                if search
+                else None
+            )
 
             projects_with_permissions = (
                 workspace_resource.get_projects_with_permissions(
