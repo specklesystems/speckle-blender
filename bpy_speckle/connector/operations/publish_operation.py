@@ -21,7 +21,7 @@ from ... import bl_info
 
 
 def publish_operation(
-    context: Context, objects_to_convert: List
+    context: Context, objects_to_convert: List, version_message: str
 ) -> Tuple[bool, str, Optional[str]]:
     """
     publish objects to speckle
@@ -58,7 +58,7 @@ def publish_operation(
             objectId=obj_id,
             modelId=wm.selected_model_id,
             projectId=wm.selected_project_id,
-            message="",
+            message=version_message,
             sourceApplication="blender",
         )
 
