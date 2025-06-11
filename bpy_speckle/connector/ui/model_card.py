@@ -69,7 +69,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
             "selection_summary": self.selection_summary,
             "version_id": self.version_id,
             "collection_name": self.collection_name,
-            "objects": self.objects,
+            "objects": [obj.name for obj in self.objects],
         }
 
     @classmethod
@@ -88,4 +88,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
         item.selection_summary = data["selection_summary"]
         item.version_id = data["version_id"]
         item.collection_name = data["collection_name"]
-        item.objects = data["objects"]
+        item.objects.clear()
+        for obj_name in data.get("objects", []):
+            s_obj = item.objects.add()
+            s_obj.name = obj_name
