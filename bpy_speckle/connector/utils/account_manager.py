@@ -68,8 +68,7 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
         workspace_list = []
         personal_projects_text = "Personal Projects"
     
-    if client.active_user.can_create_personal_projects().authorized:
-        workspace_list.append(("personal", personal_projects_text))
+    workspace_list.append(("personal", personal_projects_text))\
 
     print("Workspaces added")
     
