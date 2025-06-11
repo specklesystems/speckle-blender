@@ -12,8 +12,14 @@ class SPECKLE_OT_publish(bpy.types.Operator):
     bl_label = "Publish to Speckle"
     bl_description = "Publish selected objects to Speckle"
 
+    version_message: bpy.props.StringProperty(name="Version Message")  # type: ignore
+
+    def draw(self, context: Context) -> None:
+        layout = self.layout
+        layout.prop(self, "version_message")
+
     def invoke(self, context: Context, event: Event) -> Set[str]:
-        return self.execute(context)
+        return context.window_manager.invoke_props_dialog(self)
 
     def execute(self, context: Context) -> Set[str]:
         wm = context.window_manager
@@ -56,7 +62,9 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             self.report({"ERROR"}, "None of the selected objects could be found")
             return {"CANCELLED"}
 
-        success, message, version_id = publish_operation(context, objects_to_convert)
+        success, message, version_id = publish_operation(
+            context, objects_to_convert, self.version_message
+        )
 
         if not success:
             self.report({"ERROR"}, message)
@@ -90,4 +98,5 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         wm.selected_version_id = ""
 
         self.report({"INFO"}, message)
+        context.area.tag_redraw()
         return {"FINISHED"}
