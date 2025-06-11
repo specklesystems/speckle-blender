@@ -19,16 +19,20 @@ class SPECKLE_OT_create_model(bpy.types.Operator):
         if not self.model_name.strip():
             self.report({"ERROR"}, "Model name cannot be empty")
             return {"CANCELLED"}
-
-        model_id, model_name = create_model(
-            wm.selected_account_id, wm.selected_project_id, self.model_name
-        )
-        wm.selected_model_id = model_id
-        wm.selected_model_name = model_name
-        self.report({"INFO"}, f"Created model: {model_name} -> ID: {model_id}")
-        # Force redraw
-        context.window.screen = context.window.screen
-        context.area.tag_redraw()
+        
+        try:
+            model_id, model_name = create_model(
+                wm.selected_account_id, wm.selected_project_id, self.model_name
+            )
+            wm.selected_model_id = model_id
+            wm.selected_model_name = model_name
+            self.report({"INFO"}, f"Created model: {model_name} -> ID: {model_id}")
+            # Force redraw
+            context.window.screen = context.window.screen
+            context.area.tag_redraw()
+        except Exception as e:
+            self.report({"ERROR"}, f"Failed to create model: {str(e)}")
+            return {"CANCELLED"}
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
