@@ -87,6 +87,9 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             model_card.collection_name = (
                 f"{getattr(wm, 'selected_model_name', 'Model')} - {version_id[:8]}"
             )
+            for obj in objects_to_convert:
+                s_obj = model_card.objects.add()
+                s_obj.name = obj.name
 
         # clear selected model details from Window Manager
         wm.selected_account_id = ""
