@@ -21,7 +21,9 @@ from ... import bl_info
 
 
 def publish_operation(
-    context: Context, objects_to_convert: List, version_message: str
+    context: Context,
+    objects_to_convert: List,
+    version_message: str = "",
 ) -> Tuple[bool, str, Optional[str]]:
     """
     publish objects to speckle
