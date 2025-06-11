@@ -1,6 +1,7 @@
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.credentials import get_local_accounts
 from specklepy.core.api.resources.current.workspace_resource import WorkspaceResource
+from specklepy.core.api.inputs.project_inputs import WorksaceProjectsFilter
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
 from .misc import format_relative_time, format_role, strip_non_ascii
@@ -31,9 +32,12 @@ def get_projects_for_account(
                 account, client.url, client.httpclient, client.server.version()
             )
 
+            # create filter with search parameter
+            filter = WorksaceProjectsFilter(search=search) if search else None
+
             projects_with_permissions = (
                 workspace_resource.get_projects_with_permissions(
-                    workspace_id=workspace_id, limit=10
+                    workspace_id=workspace_id, limit=10, filter=filter
                 )
             )
 
@@ -95,7 +99,7 @@ def _get_personal_projects_with_permissions(
         include_implicit_access=True,
     )
 
-    projects = client.active_user.get_projects(limit=50, filter=filter).items
+    projects = client.active_user.get_projects(limit=10, filter=filter).items
 
     result = []
     for project in projects:
@@ -135,7 +139,7 @@ def _get_projects_with_individual_permissions(
         include_implicit_access=True,
     )
 
-    projects = client.active_user.get_projects(limit=50, filter=filter).items
+    projects = client.active_user.get_projects(limit=10, filter=filter).items
 
     result = []
     for project in projects:
