@@ -32,7 +32,8 @@ class SPECKLE_OT_select_objects(Operator):
             blender_obj = bpy.data.objects.get(obj.name)
             if not blender_obj:
                 continue
-            blender_obj.select_set(True)
+            if blender_obj.name in context.view_layer.objects:
+                blender_obj.select_set(True)
 
         selected = context.selected_objects
         if selected:
