@@ -29,11 +29,10 @@ class SPECKLE_OT_select_objects(Operator):
 
         # select objects in model card
         for obj in model_card.objects:
-            obj = bpy.data.objects.get(obj.name)
-            try:
-                obj.select_set(True)
-            except Exception:
+            blender_obj = bpy.data.objects.get(obj.name)
+            if not blender_obj:
                 continue
+            blender_obj.select_set(True)
 
         selected = context.selected_objects
         if selected:

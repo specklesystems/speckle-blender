@@ -290,7 +290,10 @@ def load_operation(context: Context) -> None:
     # get model card and add objects to it
     model_card = context.scene.speckle_state.model_cards[-1]
     for obj in converted_objects.values():
-        s_obj = model_card.objects.add()
-        s_obj.name = obj.name
+        if isinstance(obj, bpy.types.Object):
+            if obj.name in (o.name for o in model_card.objects):
+                continue
+            s_obj = model_card.objects.add()
+            s_obj.name = obj.name
 
     print(f"\nLoad process completed. Imported {len(converted_objects)} objects.")
