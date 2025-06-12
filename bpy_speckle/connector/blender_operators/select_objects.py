@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import Operator
+from bpy.types import Operator, Context
 from bpy.props import StringProperty
 
 
@@ -24,22 +24,26 @@ class SPECKLE_OT_select_objects(Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
-        # deselect all objects first
-        bpy.ops.object.select_all(action="DESELECT")
-
-        # select objects in model card
-        for obj in model_card.objects:
-            blender_obj = bpy.data.objects.get(obj.name)
-            if not blender_obj:
-                continue
-            if blender_obj.name in context.view_layer.objects:
-                blender_obj.select_set(True)
-
-        selected = context.selected_objects
-        if selected:
-            context.view_layer.objects.active = selected[0]
-
-            bpy.ops.view3d.view_selected()
+        select_model_card_objects(model_card, context)
 
         self.report({"INFO"}, f"Selected {len(context.selected_objects)} objects")
         return {"FINISHED"}
+
+
+def select_model_card_objects(model_card, context: Context):
+    # deselect all objects first
+    bpy.ops.object.select_all(action="DESELECT")
+    # select objects in model card
+    for obj in model_card.objects:
+        blender_obj = bpy.data.objects.get(obj.name)
+        if not blender_obj:
+            continue
+        if blender_obj.name in context.view_layer.objects:
+            blender_obj.select_set(True)
+
+    selected = context.selected_objects
+    if selected:
+        context.view_layer.objects.active = selected[0]
+
+        bpy.ops.view3d.view_selected()
+    return {"FINISHED"}
