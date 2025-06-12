@@ -52,8 +52,10 @@ class SPECKLE_OT_load(bpy.types.Operator):
         model_card.collection_name = (
             f"{wm.selected_model_name} - {wm.selected_version_id[:8]}"
         )
+        model_card.instance_loading_mode = self.instance_loading_mode
 
-        load_operation(context, self.instance_loading_mode)
+        converted_objects = load_operation(context, self.instance_loading_mode)
+        update_model_card_objects(model_card, converted_objects)
 
         # Clear selected model details from Window Manager
         wm.selected_account_id = ""
@@ -65,3 +67,19 @@ class SPECKLE_OT_load(bpy.types.Operator):
         wm.selected_version_id = ""
 
         return {"FINISHED"}
+
+
+def update_model_card_objects(model_card, converted_objects):
+    for obj in converted_objects.values():
+        # if its a collection, add it to collections field of model card
+        if isinstance(obj, bpy.types.Collection):
+            if obj.name in (o.name for o in model_card.collections):
+                continue
+            s_col = model_card.collections.add()
+            s_col.name = obj.name
+        # if its an object, add it to the objects field of model card
+        if isinstance(obj, bpy.types.Object):
+            if obj.name in (o.name for o in model_card.objects):
+                continue
+            s_obj = model_card.objects.add()
+            s_obj.name = obj.name
