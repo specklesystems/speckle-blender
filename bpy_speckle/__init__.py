@@ -69,7 +69,7 @@ from .connector.blender_operators.model_card_settings import (
 )
 from .connector.blender_operators.select_objects import SPECKLE_OT_select_objects
 from .connector.blender_operators.add_account_button import SPECKLE_OT_add_account
-from .connector.blender_operators.load_latest_button import SPECKLE_OT_load_latest
+from .connector.blender_operators.model_card_load_button import SPECKLE_OT_load_latest
 from .connector.blender_operators.add_project_by_url import (
     SPECKLE_OT_add_project_by_url,
 )

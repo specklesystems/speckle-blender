@@ -59,13 +59,20 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             icon=model_button_icon,
         )
         if wm.ui_mode == "PUBLISH":
-            #TODO: implement Publish flow
+            # TODO: implement Publish flow
             # Selection filter
             row = layout.row()
             row.enabled = project_selected and model_selected
-            selection_button_text = f"{len(wm.speckle_objects)} Objects" if wm.speckle_objects else "Select Objects"
-            row.operator("speckle.selection_filter_dialog", text=selection_button_text, icon="PLUS")
-            
+            selection_button_text = (
+                f"{len(wm.speckle_objects)} Objects"
+                if wm.speckle_objects
+                else "Select Objects"
+            )
+            row.operator(
+                "speckle.selection_filter_dialog",
+                text=selection_button_text,
+                icon="PLUS",
+            )
 
             # Publish button
             row = layout.row()
@@ -122,7 +129,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
                 # Load latest button in the model card
                 row.operator(
-                    "speckle.load_latest", text="", icon=icon
+                    "speckle.model_card_load", text="", icon=icon
                 ).model_card_id = model_card.get_model_card_id()
                 row.label(text=f"{model_card.model_name}")
 
