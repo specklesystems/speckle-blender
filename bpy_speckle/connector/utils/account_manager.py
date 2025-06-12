@@ -51,7 +51,7 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     if not account:
         print("No accounts found > No workspaces!")
         return [("", "")]
-    
+
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
     workspaces_enabled = client.server.get().workspaces.workspaces_enabled
@@ -67,11 +67,10 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     else:
         workspace_list = []
         personal_projects_text = "Personal Projects"
-    
-    workspace_list.append(("personal", personal_projects_text))\
 
+    workspace_list.append(("personal", personal_projects_text))
     print("Workspaces added")
-    
+
     if workspaces_enabled:
         active_workspace = client.active_user.get_active_workspace()
         default_workspace_id = active_workspace.id if active_workspace else "personal"
@@ -184,15 +183,16 @@ def get_model_details_by_wrapper(
         model = client.model.get(model_id, project_id)
         model_name = model.name
         load_option = "LATEST" if not wrapper.commit_id else "SPECIFIC"
-        version_id = (
-            wrapper.commit_id
-            if wrapper.commit_id
-            else client.version.get_versions(
+        if wrapper.commit_id:
+            version_id = wrapper.commit_id
+        else:
+            versions = client.version.get_versions(
                 wrapper.model_id, wrapper.stream_id, limit=1
             )
-            .items[0]
-            .id
-        )
+            if versions.items and len(versions.items) > 0:
+                version_id = versions.items[0].id
+            else:
+                version_id = ""
     return (
         account_id,
         project_id,
