@@ -1391,11 +1391,19 @@ def instance_proxy_to_linked_duplicates(
     location, rotation, scale_vector = matrix.decompose()
     location = location * unit_scale
 
-    # create an empty parent object
+    # create transformation matrix
+    final_matrix = (
+        mathutils.Matrix.Translation(location)
+        @ rotation.to_matrix().to_4x4()
+        @ mathutils.Matrix.Diagonal(scale_vector).to_4x4()
+    )
+
     instance_name = f"Instance_{speckle_instance.id[:8]}"
     parent_empty = bpy.data.objects.new(instance_name, None)
     parent_empty.empty_display_type = 'PLAIN_AXES'
     parent_empty.empty_display_size = 0.1
+    
+    parent_empty.matrix_world = final_matrix
     
     # link parent to root collection
     root_collection.objects.link(parent_empty)
@@ -1415,20 +1423,10 @@ def instance_proxy_to_linked_duplicates(
         
         root_collection.objects.link(duplicate_obj)
         
-        duplicate_obj.parent = parent_empty
-        
-        duplicate_obj.matrix_parent_inverse = parent_empty.matrix_world.inverted()
+        # apply the instance transformation directly to each object
+        duplicate_obj.matrix_world = final_matrix @ obj.matrix_world
         
         duplicated_objects.append(duplicate_obj)
-
-    # apply transformation to parent object
-    final_matrix = (
-        mathutils.Matrix.Translation(location)
-        @ rotation.to_matrix().to_4x4()
-        @ mathutils.Matrix.Diagonal(scale_vector).to_4x4()
-    )
-    
-    parent_empty.matrix_world = final_matrix
 
     return parent_empty
 
