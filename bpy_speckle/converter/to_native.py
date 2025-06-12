@@ -85,6 +85,7 @@ def convert_to_native(
     material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
     definition_collections: Optional[Dict[str, bpy.types.Collection]] = None,
     root_collection: Optional[bpy.types.Collection] = None,
+    instance_loading_mode: str = "INSTANCE_PROXIES",
 ) -> Optional[Object]:
     """
     converts a speckle object to blender object with material support
@@ -109,9 +110,14 @@ def convert_to_native(
         if definition_collections:
             for def_id, coll in definition_collections.items():
                 if def_id == speckle_object.definitionId:
-                    converted_object = instance_proxy_to_native(
-                        speckle_object, coll, root_collection, scale
-                    )
+                    if instance_loading_mode == "LINKED_DUPLICATES":
+                        converted_object = instance_proxy_to_linked_duplicates(
+                            speckle_object, coll, root_collection, scale
+                        )
+                    else:  # INSTANCE_PROXIES (default)
+                        converted_object = instance_proxy_to_native(
+                            speckle_object, coll, root_collection, scale
+                        )
         else:
             print("No InstanceDefinitionProxy is found.")
     elif isinstance(speckle_object, Line):
@@ -314,7 +320,7 @@ def _members_to_native(
 
     for item in others:
         try:
-            blender_object = convert_to_native(item, material_mapping)
+            blender_object = convert_to_native(item, material_mapping, instance_loading_mode="INSTANCE_PROXIES")
             if blender_object:
                 # If the parent is a DataObject, override the name of the converted child
                 if is_data_object:
@@ -1202,10 +1208,18 @@ def instance_definition_proxy_to_native(
     root_object: Base,
     material_mapping: Dict[str, Any],
     processed_definitions: Dict[str, Any] = None,
+    instance_loading_mode: str = "INSTANCE_PROXIES",
 ) -> Tuple[Dict[str, bpy.types.Collection], Dict[str, Any]]:
     """
     converts instance definition proxies to Blender collections recursively
     """
+    # Validate instance loading mode
+    assert instance_loading_mode in ["INSTANCE_PROXIES", "LINKED_DUPLICATES"], (
+        f"Invalid instance_loading_mode: {instance_loading_mode}. "
+        "Must be 'INSTANCE_PROXIES' or 'LINKED_DUPLICATES'"
+    )
+    assert isinstance(material_mapping, dict), "material_mapping must be a dictionary"
+    
     processed_definitions = processed_definitions or {}
     definition_collections = {}
     converted_objects = {}
@@ -1258,16 +1272,28 @@ def instance_definition_proxy_to_native(
                             nested_def = definitions[found_obj.definitionId]
                             max_depth = getattr(nested_def, "maxDepth", 0)
                             if max_depth > 0:  # Only process if max_depth allows
-                                blender_obj = instance_proxy_to_native(
-                                    found_obj,
-                                    definition_collections[found_obj.definitionId],
-                                    definition_collection,
-                                    scale=1.0,
+                                assert found_obj.definitionId in definition_collections, (
+                                    f"Definition collection not found for nested instance {found_obj.definitionId}"
                                 )
+                                
+                                if instance_loading_mode == "LINKED_DUPLICATES":
+                                    blender_obj = instance_proxy_to_linked_duplicates(
+                                        found_obj,
+                                        definition_collections[found_obj.definitionId],
+                                        definition_collection,
+                                        scale=1.0,
+                                    )
+                                else:  # INSTANCE_PROXIES (default)
+                                    blender_obj = instance_proxy_to_native(
+                                        found_obj,
+                                        definition_collections[found_obj.definitionId],
+                                        definition_collection,
+                                        scale=1.0,
+                                    )
                                 if blender_obj:
                                     converted_objects[obj_id] = blender_obj
                         else:
-                            blender_obj = convert_to_native(found_obj, material_mapping)
+                            blender_obj = convert_to_native(found_obj, material_mapping, instance_loading_mode="INSTANCE_PROXIES")
                             if blender_obj:
                                 definition_collection.objects.link(blender_obj)
                                 converted_objects[obj_id] = blender_obj
@@ -1315,6 +1341,94 @@ def proxy_scale(speckle_object: Base, fallback: float = 1.0) -> float:
     final_scale = unit_scale / blender_scale
 
     return final_scale
+
+
+def instance_proxy_to_linked_duplicates(
+    speckle_instance: InstanceProxy,
+    definition_collection: bpy.types.Collection,
+    root_collection: bpy.types.Collection,
+    scale: float = 1.0,
+) -> Optional[bpy.types.Object]:
+    """
+    converts a Speckle InstanceProxy to linked duplicate objects
+    """
+    if not definition_collection:
+        print(f"Definition collection not found for instance {speckle_instance.id}")
+        return None
+
+    unit_scale = proxy_scale(speckle_instance)
+
+    # convert transformation matrix
+    matrix = mathutils.Matrix(
+        [
+            [
+                speckle_instance.transform[0],
+                speckle_instance.transform[1],
+                speckle_instance.transform[2],
+                speckle_instance.transform[3],
+            ],
+            [
+                speckle_instance.transform[4],
+                speckle_instance.transform[5],
+                speckle_instance.transform[6],
+                speckle_instance.transform[7],
+            ],
+            [
+                speckle_instance.transform[8],
+                speckle_instance.transform[9],
+                speckle_instance.transform[10],
+                speckle_instance.transform[11],
+            ],
+            [
+                speckle_instance.transform[12],
+                speckle_instance.transform[13],
+                speckle_instance.transform[14],
+                speckle_instance.transform[15],
+            ],
+        ]
+    )
+
+    location, rotation, scale_vector = matrix.decompose()
+    location = location * unit_scale
+
+    # create transformation matrix
+    final_matrix = (
+        mathutils.Matrix.Translation(location)
+        @ rotation.to_matrix().to_4x4()
+        @ mathutils.Matrix.Diagonal(scale_vector).to_4x4()
+    )
+
+    instance_name = f"Instance_{speckle_instance.id[:8]}"
+    parent_empty = bpy.data.objects.new(instance_name, None)
+    parent_empty.empty_display_type = 'PLAIN_AXES'
+    parent_empty.empty_display_size = 0.1
+    
+    parent_empty.matrix_world = final_matrix
+    
+    # link parent to root collection
+    root_collection.objects.link(parent_empty)
+    
+    parent_empty["speckle_id"] = speckle_instance.id
+    parent_empty["speckle_type"] = speckle_instance.speckle_type
+    parent_empty["definition_id"] = speckle_instance.definitionId
+    if hasattr(speckle_instance, "maxDepth"):
+        parent_empty["max_depth"] = speckle_instance.maxDepth
+
+    duplicated_objects = []
+    for obj in definition_collection.objects:
+        # create a copy of the object with linked data
+        duplicate_obj = obj.copy()
+        
+        duplicate_obj.name = f"{obj.name}_{speckle_instance.id[:8]}"
+        
+        root_collection.objects.link(duplicate_obj)
+        
+        # apply the instance transformation directly to each object
+        duplicate_obj.matrix_world = final_matrix @ obj.matrix_world
+        
+        duplicated_objects.append(duplicate_obj)
+
+    return parent_empty
 
 
 def instance_proxy_to_native(

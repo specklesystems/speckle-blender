@@ -22,10 +22,11 @@ from specklepy.logging import metrics
 from ... import bl_info
 
 
-def load_operation(context: Context) -> None:
+def load_operation(context: Context, instance_loading_mode: str = "INSTANCE_PROXIES") -> None:
     """
     load objects from Speckle and maintain hierarchy.
     """
+    
     wm = context.window_manager
 
     # get account
@@ -76,7 +77,7 @@ def load_operation(context: Context) -> None:
     material_mapping = render_material_proxy_to_native(version_data)
 
     definition_collections, definition_objects = instance_definition_proxy_to_native(
-        version_data, material_mapping
+        version_data, material_mapping, instance_loading_mode=instance_loading_mode
     )
 
     definitions_root_collection = None
@@ -249,6 +250,7 @@ def load_operation(context: Context) -> None:
                 material_mapping,
                 definition_collections=definition_collections,
                 root_collection=target_collection,
+                instance_loading_mode=instance_loading_mode,
             )
 
             if blender_obj is None:
@@ -286,5 +288,14 @@ def load_operation(context: Context) -> None:
     for area in context.screen.areas:
         if area.type == "OUTLINER":
             area.tag_redraw()
+
+    # get model card and add objects to it
+    model_card = context.scene.speckle_state.model_cards[-1]
+    for obj in converted_objects.values():
+        if isinstance(obj, bpy.types.Object):
+            if obj.name in (o.name for o in model_card.objects):
+                continue
+            s_obj = model_card.objects.add()
+            s_obj.name = obj.name
 
     print(f"\nLoad process completed. Imported {len(converted_objects)} objects.")

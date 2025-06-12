@@ -1,5 +1,6 @@
 import bpy
 from typing import Dict, Any
+from .selection_filter_dialog import speckle_object
 
 
 class speckle_model_card(bpy.types.PropertyGroup):
@@ -44,6 +45,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
     collection_name: bpy.props.StringProperty(
         name="Collection Name", description="Name of the collection", default=""
     )  # type: ignore
+    objects: bpy.props.CollectionProperty(type=speckle_object)  # type: ignore
 
     def get_model_card_id(self) -> str:
         if not self.project_id or not self.model_id:
@@ -67,6 +69,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
             "selection_summary": self.selection_summary,
             "version_id": self.version_id,
             "collection_name": self.collection_name,
+            "objects": [obj.name for obj in self.objects],
         }
 
     @classmethod
@@ -85,3 +88,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
         item.selection_summary = data["selection_summary"]
         item.version_id = data["version_id"]
         item.collection_name = data["collection_name"]
+        item.objects.clear()
+        for obj_name in data.get("objects", []):
+            s_obj = item.objects.add()
+            s_obj.name = obj_name
