@@ -1208,10 +1208,18 @@ def instance_definition_proxy_to_native(
     root_object: Base,
     material_mapping: Dict[str, Any],
     processed_definitions: Dict[str, Any] = None,
+    instance_loading_mode: str = "INSTANCE_PROXIES",
 ) -> Tuple[Dict[str, bpy.types.Collection], Dict[str, Any]]:
     """
     converts instance definition proxies to Blender collections recursively
     """
+    # Validate instance loading mode
+    assert instance_loading_mode in ["INSTANCE_PROXIES", "LINKED_DUPLICATES"], (
+        f"Invalid instance_loading_mode: {instance_loading_mode}. "
+        "Must be 'INSTANCE_PROXIES' or 'LINKED_DUPLICATES'"
+    )
+    assert isinstance(material_mapping, dict), "material_mapping must be a dictionary"
+    
     processed_definitions = processed_definitions or {}
     definition_collections = {}
     converted_objects = {}
@@ -1264,12 +1272,24 @@ def instance_definition_proxy_to_native(
                             nested_def = definitions[found_obj.definitionId]
                             max_depth = getattr(nested_def, "maxDepth", 0)
                             if max_depth > 0:  # Only process if max_depth allows
-                                blender_obj = instance_proxy_to_native(
-                                    found_obj,
-                                    definition_collections[found_obj.definitionId],
-                                    definition_collection,
-                                    scale=1.0,
+                                assert found_obj.definitionId in definition_collections, (
+                                    f"Definition collection not found for nested instance {found_obj.definitionId}"
                                 )
+                                
+                                if instance_loading_mode == "LINKED_DUPLICATES":
+                                    blender_obj = instance_proxy_to_linked_duplicates(
+                                        found_obj,
+                                        definition_collections[found_obj.definitionId],
+                                        definition_collection,
+                                        scale=1.0,
+                                    )
+                                else:  # INSTANCE_PROXIES (default)
+                                    blender_obj = instance_proxy_to_native(
+                                        found_obj,
+                                        definition_collections[found_obj.definitionId],
+                                        definition_collection,
+                                        scale=1.0,
+                                    )
                                 if blender_obj:
                                     converted_objects[obj_id] = blender_obj
                         else:
