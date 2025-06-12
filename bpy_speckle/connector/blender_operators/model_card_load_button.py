@@ -3,6 +3,8 @@ from typing import Set
 from bpy.types import Context
 from ..utils.version_manager import get_latest_version
 from ..operations.load_operation import load_operation
+from .select_objects import select_model_card_objects
+from .load_button import update_model_card_objects
 
 
 class SPECKLE_OT_load_latest(bpy.types.Operator):
@@ -19,62 +21,62 @@ class SPECKLE_OT_load_latest(bpy.types.Operator):
         model_card = context.scene.speckle_state.get_model_card_by_id(
             self.model_card_id
         )
-
-        # Check if load_option is set to "LATEST"
-        if model_card.load_option != "LATEST":
-            # Do nothing if load_option is not "LATEST"
-            return {"FINISHED"}
-
-        # Get the latest version from Speckle
-        latest_version_id, message, timestamp = get_latest_version(
-            model_card.account_id, model_card.project_id, model_card.model_id
-        )
-        # Throw error if latest version is not found
-        if not latest_version_id:
-            self.report({"ERROR"}, "Failed to get latest version")
+        if model_card is None:
+            self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
-        # Check if the collection exists and delete it if it does
-        collection = bpy.data.collections.get(model_card.collection_name)
+        # delete model card/currently loaded objects
+        select_model_card_objects(model_card, context)
+        bpy.ops.object.delete()
 
-        # Update the model card with the latest version ID
-        original_version_id = model_card.version_id
-        if latest_version_id == original_version_id:
-            self.report({"INFO"}, "Latest version is already loaded")
-            return {"FINISHED"}
+        # delete model card/currently loaded collections
+        for col in model_card.collections:
+            coll = bpy.data.collections.get(col.name)
+            if not coll:
+                continue
+            # unlink from scenes
+            for scene in bpy.data.scenes:
+                if coll.name in scene.collection.children:
+                    scene.collection.children.unlink(coll)
+            bpy.data.collections.remove(coll)
 
-        if collection:
-            # Remove the collection
-            bpy.data.collections.remove(collection)
-            self.report(
-                {"INFO"}, f"Deleted existing collection: {model_card.collection_name}"
-            )
-        # overwrite version id of the model card stored in the doc
-        model_card.version_id = latest_version_id
-
-        # overwrite version id store in wm
-        # Set Window Manager properties
+        # set wm
         wm.selected_account_id = model_card.account_id
         wm.selected_project_id = model_card.project_id
         wm.selected_model_name = model_card.model_name
-        wm.selected_version_id = latest_version_id
 
-        # Load the latest version
-        try:
-            load_operation(context)
-            self.report(
-                {"INFO"},
-                f"Loaded latest version: {latest_version_id[:8]} (was: {original_version_id[:8]})",
+        # if load option is set to "LATEST"
+        if model_card.load_option == "LATEST":
+            # get latest version from speckle
+            latest_version_id, message, timestamp = get_latest_version(
+                model_card.account_id, model_card.project_id, model_card.model_id
             )
-            # update collection name in model card
-            model_card.collection_name = (
-                f"{model_card.model_name} - {latest_version_id[:8]}"
+            # set version id in wm
+            wm.selected_version_id = latest_version_id
+
+            # load latest version
+            converted_objects = load_operation(
+                context, model_card.instance_loading_mode
             )
-        except Exception as e:
-            # Restore the original version ID if loading fails
-            model_card.version_id = original_version_id
-            self.report({"ERROR"}, f"Failed to load latest version: {str(e)}")
-            return {"CANCELLED"}
+            # update model card details
+            update_model_card_objects(model_card, converted_objects)
+            model_card.version_id = latest_version_id
+
+        else:
+            # set version id in wm
+            wm.selected_version_id = model_card.version_id
+
+            # load version id
+            converted_objects = load_operation(
+                context, model_card.instance_loading_mode
+            )
+            if not converted_objects:
+                self.report({"ERROR"}, "Load operation failed")
+                return {"CANCELLED"}
+            # update model card details
+            update_model_card_objects(model_card, converted_objects)
+
+        select_model_card_objects(model_card, context)
 
         # Clear selected model details from Window Manager
         wm.selected_account_id = ""

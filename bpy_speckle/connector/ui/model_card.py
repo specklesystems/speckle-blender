@@ -3,6 +3,14 @@ from typing import Dict, Any
 from .selection_filter_dialog import speckle_object
 
 
+class speckle_collection(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing collection information
+    """
+
+    name: bpy.props.StringProperty()  # type: ignore
+
+
 class speckle_model_card(bpy.types.PropertyGroup):
     """
     represents a Speckle model card in the Blender UI
@@ -47,6 +55,14 @@ class speckle_model_card(bpy.types.PropertyGroup):
     )  # type: ignore
     objects: bpy.props.CollectionProperty(type=speckle_object)  # type: ignore
 
+    collections: bpy.props.CollectionProperty(type=speckle_collection)  # type: ignore
+
+    instance_loading_mode: bpy.props.StringProperty(
+        name="Instance Loading Mode",
+        description="Mode of loading instances",
+        default="INSTANCE_PROXIES",
+    )  # type: ignore
+
     def get_model_card_id(self) -> str:
         if not self.project_id or not self.model_id:
             raise ValueError(
@@ -70,6 +86,9 @@ class speckle_model_card(bpy.types.PropertyGroup):
             "version_id": self.version_id,
             "collection_name": self.collection_name,
             "objects": [obj.name for obj in self.objects],
+            "collections": [col.name for col in self.collections],
+            "instance_loading_mode": self.instance_loading_mode,
+            "load_option": self.load_option,
         }
 
     @classmethod
@@ -92,3 +111,11 @@ class speckle_model_card(bpy.types.PropertyGroup):
         for obj_name in data.get("objects", []):
             s_obj = item.objects.add()
             s_obj.name = obj_name
+        item.collections.clear()
+        for col_name in data.get("collections", []):
+            s_col = item.collections.add()
+            s_col.name = col_name
+        item.instance_loading_mode = data.get(
+            "instance_loading_mode", "INSTANCE_PROXIES"
+        )
+        item.load_option = data.get("load_option", "LATEST")

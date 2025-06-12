@@ -56,7 +56,7 @@ from .connector.ui.selection_filter_dialog import (
     SPECKLE_OT_selection_filter_dialog,
     speckle_object,
 )
-from .connector.ui.model_card import speckle_model_card
+from .connector.ui.model_card import speckle_model_card, speckle_collection
 
 # Operators
 from .connector.blender_operators.publish_button import SPECKLE_OT_publish
@@ -152,6 +152,7 @@ classes = (
     SPECKLE_UL_versions_list,
     SPECKLE_OT_selection_filter_dialog,
     speckle_object,
+    speckle_collection,
     speckle_model_card,
     SPECKLE_OT_model_card_settings,
     SPECKLE_OT_view_in_browser,
