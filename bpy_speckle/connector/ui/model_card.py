@@ -63,6 +63,12 @@ class speckle_model_card(bpy.types.PropertyGroup):
         default="INSTANCE_PROXIES",
     )  # type: ignore
 
+    apply_modifiers: bpy.props.BoolProperty(
+        name="Apply Modifiers",
+        description="Apply modifiers to the objects",
+        default=True,
+    )  # type: ignore
+
     def get_model_card_id(self) -> str:
         if not self.project_id or not self.model_id:
             raise ValueError(
@@ -89,6 +95,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
             "collections": [col.name for col in self.collections],
             "instance_loading_mode": self.instance_loading_mode,
             "load_option": self.load_option,
+            "apply_modifiers": self.apply_modifiers,
         }
 
     @classmethod
@@ -119,3 +126,5 @@ class speckle_model_card(bpy.types.PropertyGroup):
             "instance_loading_mode", "INSTANCE_PROXIES"
         )
         item.load_option = data.get("load_option", "LATEST")
+        item.apply_modifiers = data.get("apply_modifiers", True)
+

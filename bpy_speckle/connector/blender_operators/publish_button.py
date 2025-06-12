@@ -16,7 +16,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
     apply_modifiers: bpy.props.BoolProperty(  # type: ignore
         name="Apply Modifiers",
         description="Apply all modifiers to objects before conversion",
-        default=True
+        default=True,
     )
 
     def draw(self, context: Context) -> None:
@@ -93,6 +93,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             model_card.collection_name = (
                 f"{getattr(wm, 'selected_model_name', 'Model')} - {version_id[:8]}"
             )
+            model_card.apply_modifiers = self.apply_modifiers
             for obj in objects_to_convert:
                 s_obj = model_card.objects.add()
                 s_obj.name = obj.name

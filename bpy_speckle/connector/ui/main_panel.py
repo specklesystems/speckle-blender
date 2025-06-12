@@ -125,12 +125,20 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             for model_card in model_cards:
                 box: UILayout = project_box.box()
                 row: UILayout = box.row()
-                icon: str = "EXPORT" if model_card.is_publish else "IMPORT"
 
                 # Load latest button in the model card
-                row.operator(
-                    "speckle.model_card_load", text="", icon=icon
-                ).model_card_id = model_card.get_model_card_id()
+                if model_card.is_publish:
+                    row.operator(
+                        "speckle.model_card_publish", text="", icon="EXPORT"
+                    ).model_card_id = model_card.get_model_card_id()
+                elif not model_card.is_publish:
+                    row.operator(
+                        "speckle.model_card_load", text="", icon="IMPORT"
+                    ).model_card_id = model_card.get_model_card_id()
+                else:
+                    self.report({"ERROR"}, "Model card state unknown")
+                    return {"CANCELLED"}
+
                 row.label(text=f"{model_card.model_name}")
 
                 # Select button in the model card
