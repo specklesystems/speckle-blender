@@ -14,17 +14,25 @@ class SPECKLE_OT_load(bpy.types.Operator):
         name="Instance Loading",
         description="Choose how to load instances",
         items=[
-            ("INSTANCE_PROXIES", "Collection Instances", "Load objects as collection instances"),
-            ("LINKED_DUPLICATES", "Linked Duplicates", "Get objects as linked duplicates"),
+            (
+                "INSTANCE_PROXIES",
+                "Collection Instances",
+                "Load objects as collection instances",
+            ),
+            (
+                "LINKED_DUPLICATES",
+                "Linked Duplicates",
+                "Get objects as linked duplicates",
+            ),
         ],
         default="INSTANCE_PROXIES",
     )
 
     def draw(self, context: Context) -> None:
         layout = self.layout
-        split = layout.split(factor=0.4)
-        split.label(text="Instance Loading:")
-        split.prop(self, "instance_loading_mode", text="")
+        row = layout.row()
+        row.label(text="Instance Loading:")
+        row.prop(self, "instance_loading_mode", text="")
 
     def invoke(self, context: Context, event: Event) -> Set[str]:
         return context.window_manager.invoke_props_dialog(self)
@@ -41,7 +49,9 @@ class SPECKLE_OT_load(bpy.types.Operator):
         model_card.is_publish = False
         model_card.load_option = wm.selected_version_load_option
         model_card.version_id = wm.selected_version_id
-        model_card.collection_name = f"{wm.selected_model_name} - {wm.selected_version_id[:8]}"
+        model_card.collection_name = (
+            f"{wm.selected_model_name} - {wm.selected_version_id[:8]}"
+        )
 
         load_operation(context, self.instance_loading_mode)
 
