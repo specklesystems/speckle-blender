@@ -33,26 +33,29 @@ def get_versions_for_model(
         # Authenticate
         client.authenticate_with_account(account)
 
-        filter: ModelVersionsFilter = ModelVersionsFilter(search=search, priorityIds=[])
+        filter: ModelVersionsFilter = ModelVersionsFilter(priorityIds=[])
 
         # Get versions
         versions: List[Version] = client.version.get_versions(
             project_id=project_id, model_id=model_id, limit=10, filter=filter
         )
-
-        return [
-            (
-                version.id,
-                version.message if version.message is not None else "No message",
-                format_relative_time(version.created_at),
-            )
-            for version in versions
-            if version.referenced_object is not None
-        ]
+        versions_list: List[Tuple[str, str, str]] = []
+        for version in versions.items:
+            if version.referenced_object != "":
+                versions_list.append(
+                    (
+                        version.id,
+                        version.message
+                        if version.message is not None
+                        else "No message",
+                        format_relative_time(version.created_at),
+                    )
+                )
+        return versions_list
 
     except Exception as e:
         print(f"Error fetching versions: {str(e)}")
-        return []
+        return [("", "", "")]
 
 
 def get_latest_version(

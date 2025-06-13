@@ -36,10 +36,6 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
     bl_idname = "speckle.version_selection_dialog"
     bl_label = "Select Version"
 
-    search_query: bpy.props.StringProperty(  # type: ignore
-        name="Search", description="Search a project", default=""
-    )
-
     version_index: bpy.props.IntProperty(name="Model Index", default=0)  # type: ignore
 
     load_option: bpy.props.EnumProperty(  # type: ignore
@@ -60,12 +56,10 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
         wm = context.window_manager
         wm.speckle_versions.clear()
 
-        search = self.search_query if self.search_query.strip() else None
         versions = get_versions_for_model(
             account_id=wm.selected_account_id,
             project_id=wm.selected_project_id,
             model_id=wm.selected_model_id,
-            search=search,
         )
 
         for id, message, updated in versions:
@@ -126,9 +120,6 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
         layout.prop(self, "load_option", expand=True)
 
         if self.load_option == "SPECIFIC":
-            # Search field
-            row = layout.row(align=True)
-            row.prop(self, "search_query", icon="VIEWZOOM", text="")
             # Versions UIList
             layout.template_list(
                 "SPECKLE_UL_versions_list",
