@@ -103,7 +103,6 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
                 print(f"Invalid version index {self.version_index}")
                 return {"CANCELLED"}
         wm.selected_version_id = version_id_to_store
-        wm.selected_version_load_option = self.load_option
 
         if self.model_card_id != "":
             model_card = context.scene.speckle_state.get_model_card_by_id(
@@ -117,13 +116,12 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             model_card.version_id = version_id_to_store
             self.report(
                 {"INFO"},
-                f"Model card updated: Selected version: {version_id_to_store}, Option: {self.load_option}",
+                f"Model card updated: Selected version: {model_card.version_id}, Option: {self.load_option}",
             )
-            # call the load operator
             bpy.ops.speckle.model_card_load(model_card_id=self.model_card_id)
-            context.area.tag_redraw()
             return {"FINISHED"}
 
+        wm.selected_version_load_option = self.load_option
         self.report(
             {"INFO"},
             f"Selected version: {version_id_to_store} (Option: {self.load_option})",
@@ -143,6 +141,7 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             wm.selected_account_id = model_card.account_id
             wm.selected_project_id = model_card.project_id
             wm.selected_model_id = model_card.model_id
+            wm.selected_version_id = model_card.version_id
 
         self.update_versions_list(context)
 
