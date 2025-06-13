@@ -5,6 +5,7 @@ from typing import Set
 
 from ..operations.publish_operation import publish_operation
 from ..utils.account_manager import get_server_url_by_account_id
+from ..utils.model_card_utils import model_card_exists, update_model_card_objects
 
 
 class SPECKLE_OT_publish(bpy.types.Operator):
@@ -80,7 +81,13 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         if hasattr(context.scene, "speckle_state") and hasattr(
             context.scene.speckle_state, "model_cards"
         ):
-            model_card = context.scene.speckle_state.model_cards.add()
+            if model_card_exists(wm.selected_project_id, wm.selected_model_id, context):
+                model_card = context.scene.speckle_state.get_model_card_by_id(
+                    f"{wm.selected_project_id}-{wm.selected_model_id}"
+                )
+            else:
+                model_card = context.scene.speckle_state.model_cards.add()
+
             model_card.account_id = account_id
             model_card.server_url = get_server_url_by_account_id(account_id)
             model_card.project_id = project_id
@@ -94,9 +101,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
                 f"{getattr(wm, 'selected_model_name', 'Model')} - {version_id[:8]}"
             )
             model_card.apply_modifiers = self.apply_modifiers
-            for obj in objects_to_convert:
-                s_obj = model_card.objects.add()
-                s_obj.name = obj.name
+            update_model_card_objects(model_card, objects_to_convert)
 
         # clear selected model details from Window Manager
         wm.selected_account_id = ""
