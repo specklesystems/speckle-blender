@@ -2,6 +2,7 @@ import bpy
 from typing import List
 from bpy.types import Operator, Context, Object
 from bpy.props import EnumProperty
+from ..utils.model_card_utils import update_model_card_objects
 
 
 class SPECKLE_OT_selection_filter_dialog(Operator):
@@ -21,10 +22,25 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         default="SELECTION",
     )  # type: ignore
 
+    model_card_id: bpy.props.StringProperty(
+        name="Model Card ID",
+        description="This is used to indicate the function is called from a model card",
+        default="",
+    )  # type: ignore
+
     def execute(self, context: Context) -> set:
         wm = context.window_manager
         wm.speckle_objects.clear()
         user_selection = context.selected_objects
+        if self.model_card_id != "":
+            model_card = context.scene.speckle_state.get_model_card_by_id(
+                self.model_card_id
+            )
+            update_model_card_objects(model_card, user_selection)
+            self.report({"INFO"}, "Selection updated")
+            context.area.tag_redraw()
+            return {"FINISHED"}
+
         for sel in user_selection:
             obj = wm.speckle_objects.add()
             obj.name = sel.name
@@ -38,8 +54,17 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         layout = self.layout
         wm = context.window_manager
 
-        layout.label(text=f"Project: {wm.selected_project_name}")
-        layout.label(text=f"Model: {wm.selected_model_name}")
+        project_name = wm.selected_project_name
+        model_name = wm.selected_model_name
+        if self.model_card_id != "":
+            model_card = context.scene.speckle_state.get_model_card_by_id(
+                self.model_card_id
+            )
+            project_name = model_card.project_name
+            model_name = model_card.model_name
+
+        layout.label(text=f"Project: {project_name}")
+        layout.label(text=f"Model: {model_name}")
 
         layout.prop(self, "selection_type")
         layout.separator()

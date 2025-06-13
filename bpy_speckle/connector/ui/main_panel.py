@@ -153,10 +153,10 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                 ).model_card_id = model_card.get_model_card_id()
                 row: UILayout = box.row()
                 if model_card.is_publish:
-                    split: UILayout = row.split(factor=0.33)
-                    # TODO: Connect to selection operator
-                    split.operator("speckle.publish", text="Selection")
-                    split.label(text=f"{model_card.selection_summary}")
+                    row.operator(
+                        "speckle.selection_filter_dialog",
+                        text=f"Selection: {len(model_card.objects)} objects",
+                    ).model_card_id = model_card.get_model_card_id()
                 else:
                     split: UILayout = row.split(factor=0.33)
                     # TODO: Connect to version operator
