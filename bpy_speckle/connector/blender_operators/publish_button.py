@@ -97,9 +97,6 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             model_card.is_publish = True
             model_card.load_option = "SPECIFIC"  # published versions are specific
             model_card.version_id = version_id
-            model_card.collection_name = (
-                f"{getattr(wm, 'selected_model_name', 'Model')} - {version_id[:8]}"
-            )
             model_card.apply_modifiers = self.apply_modifiers
             update_model_card_objects(model_card, objects_to_convert)
 

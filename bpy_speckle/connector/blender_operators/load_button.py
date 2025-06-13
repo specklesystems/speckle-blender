@@ -60,9 +60,6 @@ class SPECKLE_OT_load(bpy.types.Operator):
         model_card.is_publish = False
         model_card.load_option = wm.selected_version_load_option
         model_card.version_id = wm.selected_version_id
-        model_card.collection_name = (
-            f"{wm.selected_model_name} - {wm.selected_version_id[:8]}"
-        )
         model_card.instance_loading_mode = self.instance_loading_mode
 
         converted_objects = load_operation(context, self.instance_loading_mode)
