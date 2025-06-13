@@ -71,4 +71,9 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
         wm.selected_version_id = ""
         wm.selected_model_name = ""
 
+        self.report(
+            {"INFO"},
+            f"{len(converted_objects)} objects loaded from Speckle. Model: {model_card.model_name}, Version: {model_card.version_id}",
+        )
+
         return {"FINISHED"}
