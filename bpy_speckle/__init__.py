@@ -38,25 +38,26 @@ bl_info = {
 from .connector.ui.main_panel import SPECKLE_PT_main_panel
 from .connector.ui.project_selection_dialog import (
     SPECKLE_OT_project_selection_dialog,
-    speckle_project,
     SPECKLE_UL_projects_list,
     speckle_workspace,
 )
 from .connector.ui.model_selection_dialog import (
     SPECKLE_OT_model_selection_dialog,
-    speckle_model,
     SPECKLE_UL_models_list,
 )
 from .connector.ui.version_selection_dialog import (
     SPECKLE_OT_version_selection_dialog,
-    speckle_version,
     SPECKLE_UL_versions_list,
 )
-from .connector.ui.selection_filter_dialog import (
-    SPECKLE_OT_selection_filter_dialog,
+from .connector.ui.selection_filter_dialog import SPECKLE_OT_selection_filter_dialog
+from .connector.utils.property_groups import (
+    speckle_project,
+    speckle_model,
+    speckle_version,
     speckle_object,
+    speckle_collection,
+    speckle_model_card,
 )
-from .connector.ui.model_card import speckle_model_card, speckle_collection
 
 # Operators
 from .connector.blender_operators.publish_button import SPECKLE_OT_publish

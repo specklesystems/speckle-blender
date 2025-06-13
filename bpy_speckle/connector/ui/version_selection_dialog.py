@@ -3,17 +3,6 @@ from bpy.types import UILayout, Context, PropertyGroup, Event
 from ..utils.version_manager import get_versions_for_model, get_latest_version
 
 
-class speckle_version(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing version information
-    """
-
-    id: bpy.props.StringProperty(name="ID")  # type: ignore
-    message: bpy.props.StringProperty(name="Message")  # type: ignore
-    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
-    source_app: bpy.props.StringProperty(name="Source")  # type: ignore
-
-
 class SPECKLE_UL_versions_list(bpy.types.UIList):
     """
     UIList for displaying a list of Speckle versions

@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import Context
-from ..ui.model_card import speckle_model_card
+from ..utils.property_groups import speckle_model_card
 
 
 def update_model_card_objects(

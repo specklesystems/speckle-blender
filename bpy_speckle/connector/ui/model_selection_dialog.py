@@ -2,16 +2,7 @@ import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from ..utils.model_manager import get_models_for_project
 from ..utils.version_manager import get_latest_version
-
-
-class speckle_model(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing model information
-    """
-
-    name: bpy.props.StringProperty()  # type: ignore
-    id: bpy.props.StringProperty(name="ID")  # type: ignore
-    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
+from ..utils.property_groups import speckle_model
 
 
 class SPECKLE_UL_models_list(bpy.types.UIList):

@@ -1,6 +1,46 @@
 import bpy
 from typing import Dict, Any
-from .selection_filter_dialog import speckle_object
+
+
+class speckle_project(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing project information
+    """
+
+    name: bpy.props.StringProperty()  # type: ignore
+    role: bpy.props.StringProperty(name="Role")  # type: ignore
+    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
+    can_receive: bpy.props.BoolProperty(name="Can Receive", default=False)  # type: ignore
+
+
+class speckle_model(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing model information
+    """
+
+    name: bpy.props.StringProperty()  # type: ignore
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
+    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
+
+
+class speckle_version(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing version information
+    """
+
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
+    message: bpy.props.StringProperty(name="Message")  # type: ignore
+    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
+    source_app: bpy.props.StringProperty(name="Source")  # type: ignore
+
+
+class speckle_object(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing model information
+    """
+
+    name: bpy.props.StringProperty()  # type: ignore
 
 
 class speckle_collection(bpy.types.PropertyGroup):
@@ -127,4 +167,3 @@ class speckle_model_card(bpy.types.PropertyGroup):
         )
         item.load_option = data.get("load_option", "LATEST")
         item.apply_modifiers = data.get("apply_modifiers", True)
-

@@ -87,11 +87,3 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
 
     def check(self, context: Context) -> bool:
         return True  # this forces the dialog to redraw
-
-
-class speckle_object(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing model information
-    """
-
-    name: bpy.props.StringProperty()  # type: ignore
