@@ -55,7 +55,7 @@ def get_versions_for_model(
 
     except Exception as e:
         print(f"Error fetching versions: {str(e)}")
-        return [("", "", "")]
+        return []
 
 
 def get_latest_version(

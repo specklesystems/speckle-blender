@@ -109,6 +109,10 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             model_card = context.scene.speckle_state.get_model_card_by_id(
                 self.model_card_id
             )
+            if model_card is None:
+                self.report({"ERROR"}, f"Model card '{self.model_card_id}' not found")
+                return {"CANCELLED"}
+
             model_card.load_option = self.load_option
             model_card.version_id = version_id_to_store
             self.report(
