@@ -44,7 +44,13 @@ class SPECKLE_OT_load(bpy.types.Operator):
 
     def execute(self, context: Context) -> Set[str]:
         wm = context.window_manager
-        model_card = context.scene.speckle_state.model_cards.add()
+        if model_card_exists(wm.selected_project_id, wm.selected_model_id, context):
+            model_card = context.scene.speckle_state.get_model_card_by_id(
+                f"{wm.selected_project_id}-{wm.selected_model_id}"
+            )
+            delete_model_card_objects(model_card, context)
+        else:
+            model_card = context.scene.speckle_state.model_cards.add()
         model_card.account_id = wm.selected_account_id
         model_card.server_url = get_server_url_by_account_id(wm.selected_account_id)
         model_card.project_id = wm.selected_project_id
