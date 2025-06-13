@@ -108,6 +108,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         wm.selected_model_name = ""
         wm.selected_version_load_option = ""
         wm.selected_version_id = ""
+        wm.speckle_objects.clear()
 
         self.report({"INFO"}, message)
         context.area.tag_redraw()
