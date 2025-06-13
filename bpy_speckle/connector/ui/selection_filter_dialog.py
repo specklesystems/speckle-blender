@@ -47,7 +47,7 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
 
             # Call the publish operator
             bpy.ops.speckle.model_card_publish(
-                model_card_id=self.model_card_id, version_message="Updated selection"
+                model_card_id=self.model_card_id, version_message=self.version_message
             )
 
             context.area.tag_redraw()
