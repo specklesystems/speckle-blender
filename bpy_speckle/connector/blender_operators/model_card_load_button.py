@@ -7,7 +7,7 @@ from .select_objects import select_model_card_objects
 from .load_button import update_model_card_objects
 
 
-class SPECKLE_OT_load_latest(bpy.types.Operator):
+class SPECKLE_OT_load_model_card(bpy.types.Operator):
     bl_idname = "speckle.model_card_load"
     bl_label = "Load Latest from Speckle"
     bl_description = "Load the latest version from Speckle"
