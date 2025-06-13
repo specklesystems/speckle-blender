@@ -11,6 +11,9 @@ class SPECKLE_OT_select_objects(Operator):
     bl_idname = "speckle.select_objects"
     bl_label = "Select Objects"
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = (
+        "Selects and zooms extents to objects loaded from this Speckle model"
+    )
 
     model_card_id: StringProperty(
         name="Model Card ID", description="ID of the model card", default=""

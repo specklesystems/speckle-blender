@@ -12,8 +12,8 @@ from ..utils.model_card_utils import (
 
 class SPECKLE_OT_load(bpy.types.Operator):
     bl_idname = "speckle.load"
-    bl_label = "Load from Speckle"
-    bl_description = "Load objects from Speckle"
+    bl_label = "Load model"
+    bl_description = "Load selection from Speckle"
 
     instance_loading_mode: bpy.props.EnumProperty(  # type: ignore
         name="Instance Loading",

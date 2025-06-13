@@ -35,6 +35,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
 class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
     bl_idname = "speckle.version_selection_dialog"
     bl_label = "Select Version"
+    bl_description = "Select a model version to load. Default is the latest version. You can also select a specific version."
 
     version_index: bpy.props.IntProperty(name="Model Index", default=0)  # type: ignore
 

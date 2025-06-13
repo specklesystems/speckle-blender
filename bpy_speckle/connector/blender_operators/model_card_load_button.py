@@ -12,7 +12,7 @@ from ..utils.model_card_utils import (
 class SPECKLE_OT_load_model_card(bpy.types.Operator):
     bl_idname = "speckle.model_card_load"
     bl_label = "Load Latest from Speckle"
-    bl_description = "Load the latest version from Speckle"
+    bl_description = "Depending on the load option, loads the latest or a specific version from Speckle"
 
     model_card_id: bpy.props.StringProperty(name="Model Card ID", default="")  # type: ignore
 

@@ -7,7 +7,7 @@ from ..operations.publish_operation import publish_operation
 class SPECKLE_OT_publish_model_card(bpy.types.Operator):
     bl_idname = "speckle.model_card_publish"
     bl_label = "Publish model"
-    bl_description = "Publish model"
+    bl_description = "Publish tracked objects to Speckle"
 
     model_card_id: bpy.props.StringProperty(name="Model Card ID", default="")  # type: ignore
     version_message: bpy.props.StringProperty(name="Version Message", default="")  # type: ignore

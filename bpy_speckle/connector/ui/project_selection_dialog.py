@@ -77,6 +77,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
+    bl_description = "Select a project to load models from"
 
     def update_workspaces_and_projects_list(self, context: Context) -> None:
         wm = context.window_manager

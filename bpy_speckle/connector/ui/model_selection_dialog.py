@@ -41,6 +41,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
 
     bl_idname = "speckle.model_selection_dialog"
     bl_label = "Select Model"
+    bl_description = "Select a model to load"
 
     def update_models_list(self, context: Context) -> None:
         wm = context.window_manager
