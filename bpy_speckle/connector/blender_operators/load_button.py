@@ -3,6 +3,11 @@ from typing import Set
 from bpy.types import Context, Event
 from ..operations.load_operation import load_operation
 from ..utils.account_manager import get_server_url_by_account_id
+from ..utils.model_card_utils import (
+    update_model_card_objects,
+    delete_model_card_objects,
+    model_card_exists,
+)
 
 
 class SPECKLE_OT_load(bpy.types.Operator):
@@ -67,19 +72,3 @@ class SPECKLE_OT_load(bpy.types.Operator):
         wm.selected_version_id = ""
 
         return {"FINISHED"}
-
-
-def update_model_card_objects(model_card, converted_objects):
-    for obj in converted_objects.values():
-        # if its a collection, add it to collections field of model card
-        if isinstance(obj, bpy.types.Collection):
-            if obj.name in (o.name for o in model_card.collections):
-                continue
-            s_col = model_card.collections.add()
-            s_col.name = obj.name
-        # if its an object, add it to the objects field of model card
-        if isinstance(obj, bpy.types.Object):
-            if obj.name in (o.name for o in model_card.objects):
-                continue
-            s_obj = model_card.objects.add()
-            s_obj.name = obj.name

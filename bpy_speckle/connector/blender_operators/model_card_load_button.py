@@ -3,8 +3,10 @@ from typing import Set
 from bpy.types import Context
 from ..utils.version_manager import get_latest_version
 from ..operations.load_operation import load_operation
-from .select_objects import select_model_card_objects
-from .load_button import update_model_card_objects
+from ..utils.model_card_utils import (
+    delete_model_card_objects,
+    update_model_card_objects,
+)
 
 
 class SPECKLE_OT_load_model_card(bpy.types.Operator):
@@ -25,20 +27,7 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
-        # delete model card/currently loaded objects
-        select_model_card_objects(model_card, context)
-        bpy.ops.object.delete()
-
-        # delete model card/currently loaded collections
-        for col in model_card.collections:
-            coll = bpy.data.collections.get(col.name)
-            if not coll:
-                continue
-            # unlink from scenes
-            for scene in bpy.data.scenes:
-                if coll.name in scene.collection.children:
-                    scene.collection.children.unlink(coll)
-            bpy.data.collections.remove(coll)
+        delete_model_card_objects(model_card, context)
 
         # set wm
         wm.selected_account_id = model_card.account_id
@@ -75,8 +64,6 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
                 return {"CANCELLED"}
             # update model card details
             update_model_card_objects(model_card, converted_objects)
-
-        select_model_card_objects(model_card, context)
 
         # Clear selected model details from Window Manager
         wm.selected_account_id = ""
