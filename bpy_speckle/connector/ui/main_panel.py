@@ -161,7 +161,9 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
                 # Select button in the model card
                 select_op = row_1.operator(
-                    "speckle.select_objects", text="", icon="RESTRICT_SELECT_OFF"
+                    "speckle.select_objects",
+                    text="",
+                    icon_value=get_icon("object_highlight"),
                 )
                 select_op.model_card_id = model_card.get_model_card_id()
 
