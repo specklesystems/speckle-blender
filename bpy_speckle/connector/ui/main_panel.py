@@ -124,41 +124,25 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
             for model_card in model_cards:
                 box: UILayout = project_box.box()
-                row: UILayout = box.row()
+                row_1: UILayout = box.row()
+                row_2: UILayout = box.row()
 
-                # Load latest button in the model card
                 if model_card.is_publish:
-                    row.operator(
+                    # Publish button in the model card
+                    row_1.operator(
                         "speckle.model_card_publish", text="", icon="EXPORT"
                     ).model_card_id = model_card.get_model_card_id()
-                elif not model_card.is_publish:
-                    row.operator(
-                        "speckle.model_card_load", text="", icon="IMPORT"
-                    ).model_card_id = model_card.get_model_card_id()
-                else:
-                    self.report({"ERROR"}, "Model card state unknown")
-                    return {"CANCELLED"}
-
-                row.label(text=f"{model_card.model_name}")
-
-                # Select button in the model card
-                select_op = row.operator(
-                    "speckle.select_objects", text="", icon="RESTRICT_SELECT_OFF"
-                )
-                select_op.model_card_id = model_card.get_model_card_id()
-
-                # Settings button in the model card
-                row.operator(
-                    "speckle.model_card_settings", text="", icon="PREFERENCES"
-                ).model_card_id = model_card.get_model_card_id()
-                row: UILayout = box.row()
-                if model_card.is_publish:
-                    row.operator(
+                    # Selection filter button in the model card
+                    row_2.operator(
                         "speckle.selection_filter_dialog",
                         text=f"Selection: {len(model_card.objects)} objects",
                     ).model_card_id = model_card.get_model_card_id()
-                else:
-                    split: UILayout = row.split(factor=0.33)
+                elif not model_card.is_publish:
+                    # Load button in the model card
+                    row_1.operator(
+                        "speckle.model_card_load", text="", icon="IMPORT"
+                    ).model_card_id = model_card.get_model_card_id()
+                    split: UILayout = row_2.split(factor=0.33)
                     # TODO: Connect to version operator
                     if model_card.load_option == "LATEST":
                         split.operator("speckle.load", text="Latest")
@@ -168,3 +152,19 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                         split.enabled = False
                     # TODO: Get last updated time
                     split.label(text="Last updated: 2 days ago")
+                else:
+                    self.report({"ERROR"}, "Model card state unknown")
+                    return {"CANCELLED"}
+
+                row_1.label(text=f"{model_card.model_name}")
+
+                # Select button in the model card
+                select_op = row_1.operator(
+                    "speckle.select_objects", text="", icon="RESTRICT_SELECT_OFF"
+                )
+                select_op.model_card_id = model_card.get_model_card_id()
+
+                # Settings button in the model card
+                row_1.operator(
+                    "speckle.model_card_settings", text="", icon="PREFERENCES"
+                ).model_card_id = model_card.get_model_card_id()
