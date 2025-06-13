@@ -46,6 +46,10 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
                     {"WARNING"}, f"Object '{speckle_obj.name}' not found, skipping"
                 )
 
+        if not objects_to_convert:
+            self.report({"ERROR"}, "No objects to publish")
+            return {"CANCELLED"}
+
         # publish to speckle
         success, message, version_id = publish_operation(
             context,
@@ -53,6 +57,9 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
             self.version_message,
             model_card.apply_modifiers,
         )
+
+        model_card.version_id = version_id
+        model_card.is_publish = True
 
         if not success:
             self.report({"ERROR"}, message)
