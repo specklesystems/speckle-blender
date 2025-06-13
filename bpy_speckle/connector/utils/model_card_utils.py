@@ -43,7 +43,7 @@ def delete_model_card_objects(model_card: speckle_model_card, context: Context) 
             continue
         # unlink from scenes
         for scene in bpy.data.scenes:
-            if coll.name in scene.collection.children:
+            if scene.collection.children.get(coll.name):
                 scene.collection.children.unlink(coll)
         bpy.data.collections.remove(coll)
 
