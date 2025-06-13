@@ -21,30 +21,7 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         default="SELECTION",
     )  # type: ignore
 
-
     def execute(self, context: Context) -> set:
-        # model_card = context.scene.speckle_state.model_cards.add()
-        # model_card.project_name = self.project_name
-        # model_card.model_name = self.model_name
-        # model_card.model_id = self.model_id
-        # model_card.project_id = self.project_id
-        # model_card.is_publish = True
-
-        # selected_objects: list[Object] = context.selected_objects
-        # total_selected: int = len(selected_objects)
-        # object_types: dict[str, int] = {}
-        # for obj in selected_objects:
-        #     if obj.type not in object_types:
-        #         object_types[obj.type] = 1
-        #     else:
-        #         object_types[obj.type] += 1
-
-        # summary: str = f"{total_selected} objects - "
-        # for obj_type, count in object_types.items():
-        #     summary += f"{obj_type}: {count}, "
-
-        # model_card.selection_summary = summary.strip()
-        #TODO: implement selection filter dialog
         wm = context.window_manager
         wm.speckle_objects.clear()
         user_selection = context.selected_objects
@@ -111,9 +88,10 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
     def check(self, context: Context) -> bool:
         return True  # this forces the dialog to redraw
 
+
 class speckle_object(bpy.types.PropertyGroup):
     """
     PropertyGroup for storing model information
     """
 
-    name: bpy.props.StringProperty()  #type: ignore
+    name: bpy.props.StringProperty()  # type: ignore
