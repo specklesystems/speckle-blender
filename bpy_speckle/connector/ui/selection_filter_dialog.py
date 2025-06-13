@@ -28,6 +28,12 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         default="",
     )  # type: ignore
 
+    version_message: bpy.props.StringProperty(
+        name="Version Message",
+        description="Message to be used for the version",
+        default="",
+    )  # type: ignore
+
     def execute(self, context: Context) -> set:
         wm = context.window_manager
         wm.speckle_objects.clear()
@@ -38,6 +44,12 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
             )
             update_model_card_objects(model_card, user_selection)
             self.report({"INFO"}, "Selection updated")
+
+            # Call the publish operator
+            bpy.ops.speckle.model_card_publish(
+                model_card_id=self.model_card_id, version_message="Updated selection"
+            )
+
             context.area.tag_redraw()
             return {"FINISHED"}
 
@@ -91,6 +103,14 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
             row.label(text=str(count))
 
         layout.separator()
+
+        if self.model_card_id != "":
+            layout.label(text="Version Message")
+            layout.prop(self, "version_message", text="")
+            layout.label(
+                text="New version will be published after updating selection",
+                icon="INFO_LARGE",
+            )
 
     def get_icon_for_type(self, obj_type: str) -> str:
         icon_map: dict[str, str] = {
