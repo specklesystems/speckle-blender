@@ -3,7 +3,18 @@ from bpy.types import Context
 from ..ui.model_card import speckle_model_card
 
 
-def update_model_card_objects(model_card, converted_objects):
+def update_model_card_objects(
+    model_card,
+    converted_objects,
+):
+    # clear model card objects
+    model_card.objects.clear()
+    model_card.collections.clear()
+
+    # if converted_objects is a list, convert it to a dictionary
+    if isinstance(converted_objects, list):
+        converted_objects = {obj.name: obj for obj in converted_objects}
+
     for obj in converted_objects.values():
         # if its a collection, add it to collections field of model card
         if isinstance(obj, bpy.types.Collection):
