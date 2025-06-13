@@ -142,16 +142,17 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                     row_1.operator(
                         "speckle.model_card_load", text="", icon="IMPORT"
                     ).model_card_id = model_card.get_model_card_id()
-                    split: UILayout = row_2.split(factor=0.33)
-                    # TODO: Connect to version operator
-                    if model_card.load_option == "LATEST":
-                        split.operator("speckle.load", text="Latest")
-                        split.enabled = False
-                    if model_card.load_option == "SPECIFIC":
-                        split.operator("speckle.load", text=f"{model_card.version_id}")
-                        split.enabled = False
+                    version_button_text = (
+                        f"Latest: {model_card.version_id}"
+                        if model_card.load_option == "LATEST"
+                        else f"{model_card.version_id}"
+                    )
+                    row_2.operator(
+                        "speckle.version_selection_dialog",
+                        text=version_button_text,
+                    ).model_card_id = model_card.get_model_card_id()
                     # TODO: Get last updated time
-                    split.label(text="Last updated: 2 days ago")
+
                 else:
                     self.report({"ERROR"}, "Model card state unknown")
                     return {"CANCELLED"}
