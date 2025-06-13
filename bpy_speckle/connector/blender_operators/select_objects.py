@@ -1,5 +1,4 @@
-import bpy
-from bpy.types import Operator, Context
+from bpy.types import Operator
 from bpy.props import StringProperty
 from ..utils.model_card_utils import select_model_card_objects, zoom_to_selected_objects
 
