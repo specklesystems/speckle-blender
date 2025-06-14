@@ -154,7 +154,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                     # TODO: Get last updated time
 
                 else:
-                    self.report({"ERROR"}, "Model card state unknown")
+                    print({"ERROR"}, "Model card state unknown")
                     return {"CANCELLED"}
 
                 row_1.label(text=f"{model_card.model_name}")
