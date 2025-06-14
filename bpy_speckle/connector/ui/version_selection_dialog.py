@@ -119,8 +119,9 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
                 {"INFO"},
                 f"Model card updated: Selected version: {model_card.version_id}, Option: {self.load_option}",
             )
-            context.area.tag_redraw()
             bpy.ops.speckle.model_card_load(model_card_id=self.model_card_id)
+            context.area.tag_redraw()
+
             return {"FINISHED"}
 
         wm.selected_version_load_option = self.load_option
