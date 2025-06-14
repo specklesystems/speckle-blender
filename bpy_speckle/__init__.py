@@ -14,7 +14,6 @@
 import bpy
 from bpy.types import WindowManager
 from .connector.ui import icons
-import json
 
 # Ensure dependencies
 from .installer import ensure_dependencies
@@ -127,20 +126,6 @@ def invoke_window_manager_properties():
     WindowManager.speckle_objects = bpy.props.CollectionProperty(type=speckle_object)
 
 
-def save_model_cards(scene):
-    model_cards_data = [card.to_dict() for card in scene.speckle_state.model_cards]
-    scene["speckle_model_cards_data"] = json.dumps(model_cards_data)
-
-
-def load_model_cards(scene):
-    if "speckle_model_cards_data" in scene:
-        model_cards_data = json.loads(scene["speckle_model_cards_data"])
-        scene.speckle_state.model_cards.clear()
-        for card_data in model_cards_data:
-            card = speckle_model_card.from_dict(card_data)
-            scene.speckle_state.model_cards.add().update(card)
-
-
 # Classes to load
 classes = (
     SPECKLE_PT_main_panel,
@@ -175,16 +160,6 @@ classes = (
 )
 
 
-@bpy.app.handlers.persistent
-def load_handler(dummy):
-    load_model_cards(bpy.context.scene)
-
-
-@bpy.app.handlers.persistent
-def save_handler(dummy):
-    save_model_cards(bpy.context.scene)
-
-
 # Register and Unregister
 def register():
     icons.load_icons()
@@ -192,9 +167,6 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     register_speckle_state()  # Register SpeckleState
-
-    bpy.app.handlers.load_post.append(load_handler)
-    bpy.app.handlers.save_post.append(save_handler)
 
     invoke_window_manager_properties()
 
@@ -204,9 +176,6 @@ def unregister():
     unregister_speckle_state()  # Unregister SpeckleState
     for cls in classes:
         bpy.utils.unregister_class(cls)
-
-    bpy.app.handlers.load_post.remove(load_handler)
-    bpy.app.handlers.save_post.remove(save_handler)
 
 
 # Run the register function when the script is executed
