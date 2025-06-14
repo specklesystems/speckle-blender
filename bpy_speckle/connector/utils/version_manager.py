@@ -7,7 +7,7 @@ from specklepy.core.api.models.current import Version
 
 
 def get_versions_for_model(
-    account_id: str, project_id: str, model_id: str, search: Optional[str] = None
+    account_id: str, project_id: str, model_id: str
 ) -> List[Tuple[str, str, str]]:
     """
     fetches versions for a given model from the Speckle server
