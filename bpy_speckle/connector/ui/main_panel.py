@@ -72,7 +72,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                 "speckle.selection_filter_dialog",
                 text=selection_button_text,
                 icon="PLUS",
-            )
+            ).model_card_id = ""
 
             # Publish button
             row = layout.row()
@@ -98,7 +98,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                 "speckle.version_selection_dialog",
                 text=version_button_text,
                 icon=version_button_icon,
-            )
+            ).model_card_id = ""
 
             # load button
             row = layout.row()
