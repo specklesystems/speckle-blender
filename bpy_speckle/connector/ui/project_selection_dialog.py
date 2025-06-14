@@ -276,13 +276,3 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
                 "project_index",
             )
             layout.separator()
-
-
-def register() -> None:
-    bpy.utils.register_class(SPECKLE_UL_projects_list)
-    bpy.utils.register_class(SPECKLE_OT_project_selection_dialog)
-
-
-def unregister() -> None:
-    bpy.utils.unregister_class(SPECKLE_OT_project_selection_dialog)
-    bpy.utils.unregister_class(SPECKLE_UL_projects_list)
