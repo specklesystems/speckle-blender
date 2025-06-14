@@ -58,12 +58,12 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
             model_card.apply_modifiers,
         )
 
-        model_card.version_id = version_id
-        model_card.is_publish = True
-
         if not success:
             self.report({"ERROR"}, message)
             return {"CANCELLED"}
+
+        model_card.version_id = version_id
+        model_card.is_publish = True
 
         # Clear selected model details from Window Manager
         wm.selected_account_id = ""
