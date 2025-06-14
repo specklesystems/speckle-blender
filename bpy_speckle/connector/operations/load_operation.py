@@ -44,7 +44,7 @@ def load_operation(
 
     if account is None:
         print("No Speckle account found")
-        return
+        return {}
 
     print(f"Using account: {account.userInfo.email}")
 
