@@ -3,17 +3,6 @@ from bpy.types import UILayout, Context, PropertyGroup, Event
 from ..utils.version_manager import get_versions_for_model, get_latest_version
 
 
-class speckle_version(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing version information
-    """
-
-    id: bpy.props.StringProperty(name="ID")  # type: ignore
-    message: bpy.props.StringProperty(name="Message")  # type: ignore
-    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
-    source_app: bpy.props.StringProperty(name="Source")  # type: ignore
-
-
 class SPECKLE_UL_versions_list(bpy.types.UIList):
     """
     UIList for displaying a list of Speckle versions
@@ -46,10 +35,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
 class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
     bl_idname = "speckle.version_selection_dialog"
     bl_label = "Select Version"
-
-    search_query: bpy.props.StringProperty(  # type: ignore
-        name="Search", description="Search a project", default=""
-    )
+    bl_description = "Select a model version to load. Default is the latest version. You can also select a specific version."
 
     version_index: bpy.props.IntProperty(name="Model Index", default=0)  # type: ignore
 
@@ -67,16 +53,20 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
         default="LATEST",
     )
 
+    model_card_id: bpy.props.StringProperty(
+        name="Model Card ID",
+        description="This is used to indicate the function is called from a model card",
+        default="",
+    )  # type: ignore
+
     def update_versions_list(self, context: Context) -> None:
         wm = context.window_manager
         wm.speckle_versions.clear()
 
-        search = self.search_query if self.search_query.strip() else None
         versions = get_versions_for_model(
             account_id=wm.selected_account_id,
             project_id=wm.selected_project_id,
             model_id=wm.selected_model_id,
-            search=search,
         )
 
         for id, message, updated in versions:
@@ -113,17 +103,49 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             else:
                 print(f"Invalid version index {self.version_index}")
                 return {"CANCELLED"}
-
         wm.selected_version_id = version_id_to_store
-        wm.selected_version_load_option = self.load_option
 
-        print(f"Selected version: {version_id_to_store} (Option: {self.load_option})")
+        if self.model_card_id != "":
+            model_card = context.scene.speckle_state.get_model_card_by_id(
+                self.model_card_id
+            )
+            if model_card is None:
+                self.report({"ERROR"}, f"Model card '{self.model_card_id}' not found")
+                return {"CANCELLED"}
+
+            model_card.load_option = self.load_option
+            model_card.version_id = version_id_to_store
+            self.report(
+                {"INFO"},
+                f"Model card updated: Selected version: {model_card.version_id}, Option: {self.load_option}",
+            )
+            bpy.ops.speckle.model_card_load(model_card_id=self.model_card_id)
+            context.area.tag_redraw()
+
+            return {"FINISHED"}
+
+        wm.selected_version_load_option = self.load_option
+        self.report(
+            {"INFO"},
+            f"Selected version: {version_id_to_store} (Option: {self.load_option})",
+        )
 
         context.area.tag_redraw()
 
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
+        if self.model_card_id != "":
+            wm = context.window_manager
+            model_card = context.scene.speckle_state.get_model_card_by_id(
+                self.model_card_id
+            )
+            self.load_option = model_card.load_option
+            wm.selected_account_id = model_card.account_id
+            wm.selected_project_id = model_card.project_id
+            wm.selected_model_id = model_card.model_id
+            wm.selected_version_id = model_card.version_id
+
         self.update_versions_list(context)
 
         return context.window_manager.invoke_props_dialog(self)
@@ -131,15 +153,25 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
         wm = context.window_manager
-        layout.label(text=f"Project: {wm.selected_project_name}")
-        layout.label(text=f"Model: {wm.selected_model_name}")
+        project_name = wm.selected_project_name
+        model_name = wm.selected_model_name
+        if self.model_card_id != "":
+            model_card = context.scene.speckle_state.get_model_card_by_id(
+                self.model_card_id
+            )
+            project_name = model_card.project_name
+            model_name = model_card.model_name
 
-        layout.prop(self, "load_option", expand=True)
+        layout.label(text=f"Project: {project_name}")
+        layout.label(text=f"Model: {model_name}")
+
+        layout.prop(
+            self,
+            "load_option",
+            expand=True,
+        )
 
         if self.load_option == "SPECIFIC":
-            # Search field
-            row = layout.row(align=True)
-            row.prop(self, "search_query", icon="VIEWZOOM", text="")
             # Versions UIList
             layout.template_list(
                 "SPECKLE_UL_versions_list",

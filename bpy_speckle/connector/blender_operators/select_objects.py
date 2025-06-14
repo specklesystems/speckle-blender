@@ -1,6 +1,6 @@
-import bpy
 from bpy.types import Operator
 from bpy.props import StringProperty
+from ..utils.model_card_utils import select_model_card_objects, zoom_to_selected_objects
 
 
 class SPECKLE_OT_select_objects(Operator):
@@ -11,6 +11,9 @@ class SPECKLE_OT_select_objects(Operator):
     bl_idname = "speckle.select_objects"
     bl_label = "Select Objects"
     bl_options = {"REGISTER", "UNDO"}
+    bl_description = (
+        "Selects and zooms extents to objects loaded from this Speckle model"
+    )
 
     model_card_id: StringProperty(
         name="Model Card ID", description="ID of the model card", default=""
@@ -24,22 +27,8 @@ class SPECKLE_OT_select_objects(Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
-        # deselect all objects first
-        bpy.ops.object.select_all(action="DESELECT")
-
-        # select objects in model card
-        for obj in model_card.objects:
-            blender_obj = bpy.data.objects.get(obj.name)
-            if not blender_obj:
-                continue
-            if blender_obj.name in context.view_layer.objects:
-                blender_obj.select_set(True)
-
-        selected = context.selected_objects
-        if selected:
-            context.view_layer.objects.active = selected[0]
-
-            bpy.ops.view3d.view_selected()
+        select_model_card_objects(model_card, context)
+        zoom_to_selected_objects(context)
 
         self.report({"INFO"}, f"Selected {len(context.selected_objects)} objects")
         return {"FINISHED"}

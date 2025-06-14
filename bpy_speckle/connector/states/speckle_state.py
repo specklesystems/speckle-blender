@@ -1,9 +1,9 @@
 import bpy
-from bpy.props import CollectionProperty, StringProperty
+from bpy.props import CollectionProperty
 from bpy.types import PropertyGroup
 from typing import Optional
 
-from ..ui.model_card import speckle_model_card
+from ..utils.property_groups import speckle_model_card
 
 
 class SpeckleState(PropertyGroup):

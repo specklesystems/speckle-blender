@@ -1,6 +1,54 @@
 import bpy
 from typing import Dict, Any
-from .selection_filter_dialog import speckle_object
+
+
+class speckle_project(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing project information
+    """
+
+    name: bpy.props.StringProperty()  # type: ignore
+    role: bpy.props.StringProperty(name="Role")  # type: ignore
+    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
+    can_receive: bpy.props.BoolProperty(name="Can Receive", default=False)  # type: ignore
+
+
+class speckle_model(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing model information
+    """
+
+    name: bpy.props.StringProperty()  # type: ignore
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
+    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
+
+
+class speckle_version(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing version information
+    """
+
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
+    message: bpy.props.StringProperty(name="Message")  # type: ignore
+    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
+    source_app: bpy.props.StringProperty(name="Source")  # type: ignore
+
+
+class speckle_object(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing model information
+    """
+
+    name: bpy.props.StringProperty()  # type: ignore
+
+
+class speckle_collection(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing collection information
+    """
+
+    name: bpy.props.StringProperty()  # type: ignore
 
 
 class speckle_model_card(bpy.types.PropertyGroup):
@@ -42,10 +90,18 @@ class speckle_model_card(bpy.types.PropertyGroup):
     load_option: bpy.props.StringProperty(
         name="Version ID", description="ID of the selected version", default=""
     )  # type: ignore
-    collection_name: bpy.props.StringProperty(
-        name="Collection Name", description="Name of the collection", default=""
-    )  # type: ignore
     objects: bpy.props.CollectionProperty(type=speckle_object)  # type: ignore
+    collections: bpy.props.CollectionProperty(type=speckle_collection)  # type: ignore
+    instance_loading_mode: bpy.props.StringProperty(
+        name="Instance Loading Mode",
+        description="Mode of loading instances",
+        default="INSTANCE_PROXIES",
+    )  # type: ignore
+    apply_modifiers: bpy.props.BoolProperty(
+        name="Apply Modifiers",
+        description="Apply modifiers to the objects",
+        default=True,
+    )  # type: ignore
 
     def get_model_card_id(self) -> str:
         if not self.project_id or not self.model_id:
@@ -53,42 +109,3 @@ class speckle_model_card(bpy.types.PropertyGroup):
                 "Project ID and Model ID are required to generate a model card ID."
             )
         return self.project_id + "-" + self.model_id
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        converts the model card to a dictionary representation
-        """
-        return {
-            "account_id": self.account_id,
-            "server_url": self.server_url,
-            "project_name": self.project_name,
-            "project_id": self.project_id,
-            "model_id": self.model_id,
-            "model_name": self.model_name,
-            "is_publish": self.is_publish,
-            "selection_summary": self.selection_summary,
-            "version_id": self.version_id,
-            "collection_name": self.collection_name,
-            "objects": [obj.name for obj in self.objects],
-        }
-
-    @classmethod
-    def from_dict(cls, data):
-        """
-        creates a new model card instance from a dictionary
-        """
-        item = cls()
-        item.account_id = data["account_id"]
-        item.server_url = data["server_url"]
-        item.project_name = data["project_name"]
-        item.project_id = data["project_id"]
-        item.model_id = data["model_id"]
-        item.model_name = data["model_name"]
-        item.is_publish = data["is_publish"]
-        item.selection_summary = data["selection_summary"]
-        item.version_id = data["version_id"]
-        item.collection_name = data["collection_name"]
-        item.objects.clear()
-        for obj_name in data.get("objects", []):
-            s_obj = item.objects.add()
-            s_obj.name = obj_name
