@@ -1,11 +1,56 @@
 import bpy
 from specklepy.core.api.credentials import get_local_accounts
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 from specklepy.core.api.credentials import Account
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.wrapper import StreamWrapper
-
+import time
 from .misc import strip_non_ascii
+
+
+class SpeckleClientCache:
+    def __init__(self):
+        self._clients: Dict[str, Tuple[SpeckleClient, float]] = {}
+        self._max_age = 600  # 10 minutes
+
+    def get_client(self, account_id: str) -> SpeckleClient:
+        current_time = time.time()
+
+        # Check cache first
+        if account_id in self._clients:
+            client, last_used = self._clients[account_id]
+            if current_time - last_used < self._max_age:
+                print(
+                    f"[Cache HIT] Using cached client for account {account_id} (age: {current_time - last_used:.1f}s)"
+                )
+                self._clients[account_id] = (client, current_time)
+                return client
+            else:
+                print(
+                    f"[Cache EXPIRED] Client for account {account_id} expired (age: {current_time - last_used:.1f}s)"
+                )
+        else:
+            print(f"[Cache MISS] No cached client found for account {account_id}")
+
+        # Create new client if needed
+        print(f"[Cache] Creating new client for account {account_id}")
+        account = get_account_from_id(account_id)
+        if not account:
+            raise ValueError(f"No account found for ID: {account_id}")
+
+        client = SpeckleClient(host=account.serverInfo.url)
+        client.authenticate_with_account(account)
+        self._clients[account_id] = (client, current_time)
+        return client
+
+    def clear(self) -> None:
+        """Clear all cached clients."""
+        print("[Cache] Clearing all cached clients")
+        self._clients.clear()
+
+
+# Global cache instance
+_client_cache = SpeckleClientCache()
 
 
 class speckle_account(bpy.types.PropertyGroup):
@@ -47,36 +92,43 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
     """
     retrieves the workspaces for a given account ID
     """
-    account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
-    if not account:
-        print("No accounts found > No workspaces!")
+
+    try:
+        # Get client from cache
+        client = _client_cache.get_client(account_id)
+
+        workspaces_enabled = client.server.get().workspaces.workspaces_enabled
+
+        if workspaces_enabled:
+            workspaces = client.active_user.get_workspaces().items
+
+            workspace_list = [
+                (ws.id, strip_non_ascii(ws.name))
+                for ws in workspaces
+                if ws.creation_state is None or ws.creation_state.completed
+            ]
+            personal_projects_text = "Personal Projects (Legacy)"
+        else:
+            workspace_list = []
+            personal_projects_text = "Personal Projects"
+
+        workspace_list.append(("personal", personal_projects_text))
+
+        if workspaces_enabled:
+            active_workspace = client.active_user.get_active_workspace()
+            default_workspace_id = (
+                active_workspace.id if active_workspace else "personal"
+            )
+
+            result = reorder_tuple(workspace_list, default_workspace_id)
+        else:
+            result = workspace_list
+
+        return result
+    except Exception as e:
+        print(f"Error in get_workspaces: {str(e)}")
+        _client_cache.clear()  # Clear cache on error
         return [("", "")]
-
-    client = SpeckleClient(host=account.serverInfo.url)
-    client.authenticate_with_account(account)
-    workspaces_enabled = client.server.get().workspaces.workspaces_enabled
-
-    if workspaces_enabled:
-        workspaces = client.active_user.get_workspaces().items
-        workspace_list = [
-            (ws.id, strip_non_ascii(ws.name))
-            for ws in workspaces
-            if ws.creation_state is None or ws.creation_state.completed
-        ]
-        personal_projects_text = "Personal Projects (Legacy)"
-    else:
-        workspace_list = []
-        personal_projects_text = "Personal Projects"
-
-    workspace_list.append(("personal", personal_projects_text))
-    print("Workspaces added")
-
-    if workspaces_enabled:
-        active_workspace = client.active_user.get_active_workspace()
-        default_workspace_id = active_workspace.id if active_workspace else "personal"
-        return reorder_tuple(workspace_list, default_workspace_id)
-    else:
-        return workspace_list
 
 
 def get_default_account_id() -> Optional[str]:
@@ -103,14 +155,17 @@ def get_default_workspace_id(account_id: str) -> Optional[str]:
     """
     retrieves the ID of the default workspace for a given account ID
     """
-    account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
-    client = SpeckleClient(host=account.serverInfo.url)
-    client.authenticate_with_account(account)
-    return (
-        client.active_user.get_active_workspace().id
-        if client.active_user.get_active_workspace()
-        else "personal"
-    )
+    try:
+        client = _client_cache.get_client(account_id)
+        return (
+            client.active_user.get_active_workspace().id
+            if client.active_user.get_active_workspace()
+            else "personal"
+        )
+    except Exception as e:
+        print(f"Error in get_default_workspace_id: {str(e)}")
+        _client_cache.clear()  # Clear cache on error
+        return None
 
 
 def get_account_from_id(account_id: str) -> Optional[Account]:
@@ -139,8 +194,8 @@ def get_project_from_url(
     """
     try:
         wrapper = StreamWrapper(url)
-        client = wrapper.get_client()
-        client.authenticate_with_account(wrapper.get_account())
+        account = wrapper.get_account()
+        client = _client_cache.get_client(account.id)
 
         # get the stream_id (project_id) from the wrapper
         if not wrapper.stream_id:
@@ -244,21 +299,19 @@ def can_create_project_in_workspace(account_id: str, workspace_id: str) -> bool:
     """
     Check if the user can create a project in the specified workspace.
     """
-    account = get_account_from_id(account_id)
-    if not account:
-        print(f"No account found for ID: {account_id}")
+    try:
+        client = _client_cache.get_client(account_id)
+
+        if workspace_id == "personal":
+            return client.active_user.can_create_personal_projects().authorized
+        else:
+            try:
+                workspace = client.workspace.get(workspace_id)
+                return workspace.permissions.can_create_project.authorized
+            except Exception as e:
+                print(f"Failed to get workspace: {str(e)}")
+                return False
+    except Exception as e:
+        print(f"Error in can_create_project_in_workspace: {str(e)}")
+        _client_cache.clear()  # Clear cache on error
         return False
-    client = SpeckleClient(host=account.serverInfo.url)
-    client.authenticate_with_account(account)
-
-    # wrap the workspace request in try/except and return False on any exception to keep the UI responsive.
-
-    if workspace_id == "personal":
-        return client.active_user.can_create_personal_projects().authorized
-    else:
-        try:
-            workspace = client.workspace.get(workspace_id)
-            return workspace.permissions.can_create_project.authorized
-        except Exception as e:
-            print(f"Failed to get workspace: {str(e)}")
-            return False
