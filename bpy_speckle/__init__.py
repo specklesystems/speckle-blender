@@ -88,6 +88,36 @@ from .connector.states.speckle_state import (
     register as register_speckle_state,
     unregister as unregister_speckle_state,
 )
+from .connector.utils.project_manager import get_projects_for_account
+from .connector.utils.account_manager import can_create_project_in_workspace
+
+
+def update_projects_list(self, context):
+    """Callback to update projects list when workspace changes"""
+    wm = context.window_manager
+    wm.speckle_projects.clear()
+
+    # get projects for the selected account and workspace
+    projects = get_projects_for_account(
+        wm.selected_account_id, workspace_id=wm.selected_workspace_id
+    )
+
+    for name, role, updated, id, can_receive in projects:
+        project = wm.speckle_projects.add()
+        project.name = name
+        project.role = role
+        project.updated = updated
+        project.id = id
+        project.can_receive = can_receive
+
+    # Update can_create_project_in_workspace flag
+    wm.can_create_project_in_workspace = can_create_project_in_workspace(
+        wm.selected_account_id, wm.selected_workspace_id
+    )
+    print(f"Workspace changed to: {wm.selected_workspace_id}")
+    print(f"Projects list updated")
+
+    context.area.tag_redraw()
 
 
 def invoke_window_manager_properties():
@@ -98,7 +128,9 @@ def invoke_window_manager_properties():
     WindowManager.speckle_workspaces = bpy.props.CollectionProperty(
         type=speckle_workspace
     )
-    WindowManager.selected_workspace_id = bpy.props.StringProperty()
+    WindowManager.selected_workspace_id = bpy.props.StringProperty(
+        update=update_projects_list
+    )
     WindowManager.selected_workspace_name = bpy.props.StringProperty()
     WindowManager.can_create_project_in_workspace = bpy.props.BoolProperty()
     # Projects
