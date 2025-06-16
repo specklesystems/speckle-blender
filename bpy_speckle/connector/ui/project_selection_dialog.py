@@ -262,7 +262,11 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             # Workspace selection
             row = layout.row()
             if wm.selected_workspace_id != "NO_WORKSPACES":
-                row.prop(self, "workspaces", text="")
+                row.operator(
+                    "speckle.workspace_selection_dialog",
+                    icon="WORKSPACE",
+                    text=wm.selected_workspace_name,
+                )
 
             # Search field
             row = layout.row(align=True)
