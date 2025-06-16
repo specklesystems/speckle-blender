@@ -155,7 +155,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
                 else:
                     print({"ERROR"}, "Model card state unknown")
-                    return {"CANCELLED"}
+                    return
 
                 row_1.label(text=f"{model_card.model_name}")
 
