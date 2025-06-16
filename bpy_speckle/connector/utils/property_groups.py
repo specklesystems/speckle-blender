@@ -37,7 +37,7 @@ class speckle_version(bpy.types.PropertyGroup):
 
 class speckle_object(bpy.types.PropertyGroup):
     """
-    PropertyGroup for storing model information
+    PropertyGroup for storing object names
     """
 
     name: bpy.props.StringProperty()  # type: ignore
@@ -88,7 +88,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
         name="Version ID", description="ID of the selected version", default=""
     )  # type: ignore
     load_option: bpy.props.StringProperty(
-        name="Version ID", description="ID of the selected version", default=""
+        name="Load Option", description="Option of loading the model", default=""
     )  # type: ignore
     objects: bpy.props.CollectionProperty(type=speckle_object)  # type: ignore
     collections: bpy.props.CollectionProperty(type=speckle_collection)  # type: ignore
