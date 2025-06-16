@@ -56,6 +56,11 @@ from .connector.ui.selection_filter_dialog import (
     SPECKLE_OT_selection_filter_dialog,
     speckle_object,
 )
+from .connector.ui.workspace_selection_dialog import (
+    SPECKLE_OT_workspace_selection_dialog,
+    SPECKLE_UL_workspaces_list,
+)
+
 from .connector.ui.model_card import speckle_model_card
 
 # Operators
@@ -164,6 +169,8 @@ classes = (
     SPECKLE_OT_create_project,
     SPECKLE_OT_create_model,
     speckle_account,
+    SPECKLE_UL_workspaces_list,
+    SPECKLE_OT_workspace_selection_dialog,
 )
 
 
