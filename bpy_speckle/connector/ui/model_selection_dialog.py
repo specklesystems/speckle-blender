@@ -117,15 +117,3 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         )
 
         layout.separator()
-
-
-def register() -> None:
-    bpy.utils.register_class(speckle_model)
-    bpy.utils.register_class(SPECKLE_UL_models_list)
-    bpy.utils.register_class(SPECKLE_OT_model_selection_dialog)
-
-
-def unregister() -> None:
-    bpy.utils.unregister_class(SPECKLE_OT_model_selection_dialog)
-    bpy.utils.unregister_class(SPECKLE_UL_models_list)
-    bpy.utils.unregister_class(speckle_model)
