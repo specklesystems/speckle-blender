@@ -37,6 +37,8 @@ class SPECKLE_OT_workspace_selection_dialog(bpy.types.Operator):
     bl_label = "Select Workspace"
     bl_description = "Select a workspace to load projects from"
 
+    workspace_index: bpy.props.IntProperty(name="Workspace Index", default=0)  # type: ignore
+
     def invoke(self, context: Context, event: Event) -> set[str]:
         wm = context.window_manager
         wm.speckle_workspaces.clear()
