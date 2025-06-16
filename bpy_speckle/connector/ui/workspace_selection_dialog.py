@@ -1,8 +1,7 @@
 import bpy
 from bpy.types import Context, UILayout, Event, PropertyGroup
 from typing import List, Tuple
-from ..utils.account_manager import get_workspaces
-from ..utils.project_manager import speckle_workspace
+from ..utils.account_manager import get_workspaces, speckle_workspace
 
 
 class SPECKLE_UL_workspaces_list(bpy.types.UIList):
