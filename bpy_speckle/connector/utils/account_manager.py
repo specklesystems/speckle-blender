@@ -99,7 +99,7 @@ def get_server_url_by_account_id(account_id: str) -> Optional[str]:
     return None
 
 
-def get_default_workspace_id(account_id: str) -> Optional[str]:
+def get_active_workspace(account_id: str) -> Tuple[str, str]:
     """
     retrieves the ID of the default workspace for a given account ID
     """
@@ -109,7 +109,10 @@ def get_default_workspace_id(account_id: str) -> Optional[str]:
     return (
         client.active_user.get_active_workspace().id
         if client.active_user.get_active_workspace()
-        else "personal"
+        else "personal",
+        client.active_user.get_active_workspace().name
+        if client.active_user.get_active_workspace()
+        else "Personal Projects",
     )
 
 
