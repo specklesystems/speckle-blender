@@ -4,7 +4,6 @@ from typing import List, Tuple, Optional, Dict
 from specklepy.core.api.credentials import Account
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.wrapper import StreamWrapper
-import time
 from .misc import strip_non_ascii
 
 
