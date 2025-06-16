@@ -81,9 +81,11 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         if hasattr(context.scene, "speckle_state") and hasattr(
             context.scene.speckle_state, "model_cards"
         ):
-            if model_card_exists(wm.selected_project_id, wm.selected_model_id, context):
+            if model_card_exists(
+                wm.selected_project_id, wm.selected_model_id, True, context
+            ):
                 model_card = context.scene.speckle_state.get_model_card_by_id(
-                    f"{wm.selected_project_id}-{wm.selected_model_id}"
+                    f"{wm.ui_mode}-{wm.selected_project_id}-{wm.selected_model_id}"
                 )
             else:
                 model_card = context.scene.speckle_state.model_cards.add()

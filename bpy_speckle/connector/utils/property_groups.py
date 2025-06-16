@@ -108,4 +108,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
             raise ValueError(
                 "Project ID and Model ID are required to generate a model card ID."
             )
-        return self.project_id + "-" + self.model_id
+        if self.is_publish:
+            return f"PUBLISH-{self.project_id}-{self.model_id}"
+        else:
+            return f"LOAD-{self.project_id}-{self.model_id}"

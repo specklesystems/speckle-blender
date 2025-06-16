@@ -71,11 +71,17 @@ def zoom_to_selected_objects(context: Context):
     bpy.ops.view3d.view_selected()
 
 
-def model_card_exists(project_id: str, model_id: str, context: Context) -> bool:
+def model_card_exists(
+    project_id: str, model_id: str, is_publish: bool, context: Context
+) -> bool:
     """
     checks if a model card exists
     """
     for model_card in context.scene.speckle_state.model_cards:
-        if model_card.project_id == project_id and model_card.model_id == model_id:
+        if (
+            model_card.project_id == project_id
+            and model_card.model_id == model_id
+            and model_card.is_publish == is_publish
+        ):
             return True
     return False
