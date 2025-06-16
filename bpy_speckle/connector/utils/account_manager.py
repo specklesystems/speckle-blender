@@ -106,14 +106,10 @@ def get_active_workspace(account_id: str) -> Tuple[str, str]:
     account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
-    return (
-        client.active_user.get_active_workspace().id
-        if client.active_user.get_active_workspace()
-        else "personal",
-        client.active_user.get_active_workspace().name
-        if client.active_user.get_active_workspace()
-        else "Personal Projects",
-    )
+    active_workspace = client.active_user.get_active_workspace()
+    if not active_workspace:
+        return ("personal", "Personal Projects")
+    return (active_workspace.id, active_workspace.name)
 
 
 def get_account_from_id(account_id: str) -> Optional[Account]:

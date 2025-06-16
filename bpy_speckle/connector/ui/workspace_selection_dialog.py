@@ -2,6 +2,8 @@ import bpy
 from bpy.types import Context, UILayout, Event, PropertyGroup
 from typing import List, Tuple
 from ..utils.account_manager import get_workspaces, speckle_workspace
+from ..utils.project_manager import get_projects_for_account
+from ..utils.account_manager import can_create_project_in_workspace
 
 
 class SPECKLE_UL_workspaces_list(bpy.types.UIList):
@@ -73,5 +75,35 @@ class SPECKLE_OT_workspace_selection_dialog(bpy.types.Operator):
             selected_workspace = wm.speckle_workspaces[self.workspace_index]
             wm.selected_workspace_id = selected_workspace.id
             wm.selected_workspace_name = selected_workspace.name
+            update_projects_list(self, context)
             context.area.tag_redraw()
         return {"FINISHED"}
+
+
+def update_projects_list(self, context):
+    """Callback to update projects list when workspace changes"""
+
+    wm = context.window_manager
+    wm.speckle_projects.clear()
+
+    # get projects for the selected account and workspace
+    projects = get_projects_for_account(
+        wm.selected_account_id, workspace_id=wm.selected_workspace_id
+    )
+
+    for name, role, updated, id, can_receive in projects:
+        project = wm.speckle_projects.add()
+        project.name = name
+        project.role = role
+        project.updated = updated
+        project.id = id
+        project.can_receive = can_receive
+
+    # Update can_create_project_in_workspace flag
+    wm.can_create_project_in_workspace = can_create_project_in_workspace(
+        wm.selected_account_id, wm.selected_workspace_id
+    )
+    print(f"Workspace changed to: {wm.selected_workspace_id}")
+    print("Projects list updated")
+
+    context.area.tag_redraw()
