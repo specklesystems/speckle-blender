@@ -1,11 +1,12 @@
 import bpy
 from bpy.types import Context
+from typing import Dict
 from ..utils.property_groups import speckle_model_card
 
 
 def update_model_card_objects(
-    model_card,
-    converted_objects,
+    model_card: speckle_model_card,
+    converted_objects: Dict[str, bpy.types.Object | bpy.types.Collection],
 ):
     # clear model card objects
     model_card.objects.clear()
