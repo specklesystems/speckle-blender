@@ -10,37 +10,23 @@ from .misc import strip_non_ascii
 
 class SpeckleClientCache:
     def __init__(self):
-        self._clients: Dict[str, Tuple[SpeckleClient, float]] = {}
-        self._max_age = 600  # 10 minutes
+        self._clients: Dict[str, SpeckleClient] = {}
 
     def get_client(self, account_id: str) -> SpeckleClient:
-        current_time = time.time()
-
         # Check cache first
         if account_id in self._clients:
-            client, last_used = self._clients[account_id]
-            if current_time - last_used < self._max_age:
-                print(
-                    f"[Cache HIT] Using cached client for account {account_id} (age: {current_time - last_used:.1f}s)"
-                )
-                self._clients[account_id] = (client, current_time)
-                return client
-            else:
-                print(
-                    f"[Cache EXPIRED] Client for account {account_id} expired (age: {current_time - last_used:.1f}s)"
-                )
-        else:
-            print(f"[Cache MISS] No cached client found for account {account_id}")
+            print(f"[Cache HIT] Using cached client for account {account_id}")
+            return self._clients[account_id]
 
         # Create new client if needed
-        print(f"[Cache] Creating new client for account {account_id}")
+        print(f"[Cache MISS] Creating new client for account {account_id}")
         account = get_account_from_id(account_id)
         if not account:
             raise ValueError(f"No account found for ID: {account_id}")
 
         client = SpeckleClient(host=account.serverInfo.url)
         client.authenticate_with_account(account)
-        self._clients[account_id] = (client, current_time)
+        self._clients[account_id] = client
         return client
 
     def clear(self) -> None:
