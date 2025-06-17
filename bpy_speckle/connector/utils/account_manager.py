@@ -1,6 +1,6 @@
 import bpy
 from specklepy.core.api.credentials import get_local_accounts
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 from specklepy.core.api.credentials import Account
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.wrapper import StreamWrapper
@@ -99,18 +99,17 @@ def get_server_url_by_account_id(account_id: str) -> Optional[str]:
     return None
 
 
-def get_default_workspace_id(account_id: str) -> Optional[str]:
+def get_active_workspace(account_id: str) -> Optional[Dict[str, str]]:
     """
     retrieves the ID of the default workspace for a given account ID
     """
     account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
-    return (
-        client.active_user.get_active_workspace().id
-        if client.active_user.get_active_workspace()
-        else "personal"
-    )
+    active_workspace = client.active_user.get_active_workspace()
+    if active_workspace:
+        return {"id": active_workspace.id, "name": active_workspace.name}
+    return {"id": "personal", "name": "Personal Projects"}
 
 
 def get_account_from_id(account_id: str) -> Optional[Account]:

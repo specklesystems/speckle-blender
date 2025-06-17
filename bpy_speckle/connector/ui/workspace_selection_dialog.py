@@ -58,16 +58,15 @@ class SPECKLE_OT_workspace_selection_dialog(bpy.types.Operator):
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
         wm = context.window_manager
-        if wm.selected_workspace_id:
-            layout.label(text=f"Selected Workspace: {wm.selected_workspace_name}")
-            layout.template_list(
-                "SPECKLE_UL_workspaces_list",
-                "",
-                context.window_manager,
-                "speckle_workspaces",
-                self,
-                "workspace_index",
-            )
+        layout.label(text=f"Selected Workspace: {wm.selected_workspace_name}")
+        layout.template_list(
+            "SPECKLE_UL_workspaces_list",
+            "",
+            context.window_manager,
+            "speckle_workspaces",
+            self,
+            "workspace_index",
+        )
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
@@ -75,7 +74,7 @@ class SPECKLE_OT_workspace_selection_dialog(bpy.types.Operator):
             selected_workspace = wm.speckle_workspaces[self.workspace_index]
             wm.selected_workspace_id = selected_workspace.id
             wm.selected_workspace_name = selected_workspace.name
-            update_projects_list(self, context)
+            update_projects_list(context)
             context.area.tag_redraw()
         return {"FINISHED"}
 
