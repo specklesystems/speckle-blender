@@ -187,21 +187,17 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         row = layout.row()
 
         if wm.selected_account_id == "NO_ACCOUNTS":
-            account_button_text = "Add Account"
-            account_button_icon = "WORLD"
-        else:
-            account = get_account_from_id(wm.selected_account_id)
-            account_button_text = f"{account.userInfo.name} - {account.userInfo.email} - {account.serverInfo.url}"
-            account_button_icon = "USER"
-
-        row.operator(
-            "speckle.account_selection_dialog",
-            icon=account_button_icon,
-            text=account_button_text,
-        )
+            row.operator("speckle.add_account", icon="WORLD", text="Sign In")
 
         # if no accounts then don't show workspaces or projects list
         if wm.selected_account_id != "NO_ACCOUNTS":
+            account = get_account_from_id(wm.selected_account_id)
+
+            row.operator(
+                "speckle.account_selection_dialog",
+                icon="USER",
+                text=f"{account.userInfo.name} - {account.userInfo.email} - {account.serverInfo.url}",
+            )
             # Workspace selection
             row = layout.row()
             if wm.selected_workspace_id != "NO_WORKSPACES":

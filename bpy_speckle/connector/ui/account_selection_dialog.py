@@ -7,6 +7,7 @@ from ..utils.account_manager import (
     speckle_workspace,
     get_workspaces,
     get_default_workspace_id,
+    get_account_from_id,
 )
 from ..utils.project_manager import get_projects_for_account
 from ..ui.project_selection_dialog import speckle_project
@@ -73,21 +74,40 @@ class SPECKLE_OT_account_selection_dialog(bpy.types.Operator):
 
     def draw(self, context: Context) -> None:
         layout = self.layout
-        layout.label(text="Select account")
-        layout.template_list(
-            "SPECKLE_UL_accounts_list",
-            "",
-            context.window_manager,
-            "speckle_accounts",
-            self,
-            "account_index",
+        wm = context.window_manager
+        row = layout.row()
+        # add account button
+        if wm.selected_account_id == "NO_ACCOUNTS":
+            add_account_button_text = "Sign In"
+            add_account_button_icon = "WORLD"
+        else:
+            add_account_button_text = "Add Account"
+            add_account_button_icon = "ADD"
+        row.operator(
+            "speckle.add_account",
+            icon=add_account_button_icon,
+            text=add_account_button_text,
         )
+
+        if wm.selected_account_id != "NO_ACCOUNTS":
+            layout.template_list(
+                "SPECKLE_UL_accounts_list",
+                "",
+                context.window_manager,
+                "speckle_accounts",
+                self,
+                "account_index",
+            )
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
         # update the selected account id
-        wm.selected_account_id = wm.speckle_accounts[self.account_index].id
-        self.report({"INFO"}, f"Selected account: {wm.selected_account_id}")
+        account = get_account_from_id(wm.speckle_accounts[self.account_index].id)
+        wm.selected_account_id = account.id
+        self.report(
+            {"INFO"},
+            f"Selected account: {account.userInfo.name} - {account.userInfo.email} - {account.serverInfo.url}",
+        )
         update_workspaces_list(context)
         update_projects_list(context)
         # redraw the area
