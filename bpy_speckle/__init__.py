@@ -14,7 +14,6 @@
 import bpy
 from bpy.types import WindowManager
 from .connector.ui import icons
-import json
 
 # Ensure dependencies
 from .installer import ensure_dependencies
@@ -38,25 +37,26 @@ bl_info = {
 from .connector.ui.main_panel import SPECKLE_PT_main_panel
 from .connector.ui.project_selection_dialog import (
     SPECKLE_OT_project_selection_dialog,
-    speckle_project,
     SPECKLE_UL_projects_list,
     speckle_workspace,
 )
 from .connector.ui.model_selection_dialog import (
     SPECKLE_OT_model_selection_dialog,
-    speckle_model,
     SPECKLE_UL_models_list,
 )
 from .connector.ui.version_selection_dialog import (
     SPECKLE_OT_version_selection_dialog,
-    speckle_version,
     SPECKLE_UL_versions_list,
 )
-from .connector.ui.selection_filter_dialog import (
-    SPECKLE_OT_selection_filter_dialog,
+from .connector.ui.selection_filter_dialog import SPECKLE_OT_selection_filter_dialog
+from .connector.utils.property_groups import (
+    speckle_project,
+    speckle_model,
+    speckle_version,
     speckle_object,
+    speckle_collection,
+    speckle_model_card,
 )
-from .connector.ui.model_card import speckle_model_card
 
 # Operators
 from .connector.blender_operators.publish_button import SPECKLE_OT_publish
@@ -69,7 +69,12 @@ from .connector.blender_operators.model_card_settings import (
 )
 from .connector.blender_operators.select_objects import SPECKLE_OT_select_objects
 from .connector.blender_operators.add_account_button import SPECKLE_OT_add_account
-from .connector.blender_operators.load_latest_button import SPECKLE_OT_load_latest
+from .connector.blender_operators.model_card_load_button import (
+    SPECKLE_OT_load_model_card,
+)
+from .connector.blender_operators.model_card_publish_button import (
+    SPECKLE_OT_publish_model_card,
+)
 from .connector.blender_operators.add_project_by_url import (
     SPECKLE_OT_add_project_by_url,
 )
@@ -84,9 +89,16 @@ from .connector.states.speckle_state import (
     unregister as unregister_speckle_state,
 )
 
+
 from .connector.ui.workspace_selection_dialog import (
     SPECKLE_OT_workspace_selection_dialog,
     SPECKLE_UL_workspaces_list,
+)
+
+# Utils
+from .connector.ui.account_selection_dialog import (
+    SPECKLE_OT_account_selection_dialog,
+    SPECKLE_UL_accounts_list,
 )
 
 
@@ -126,20 +138,6 @@ def invoke_window_manager_properties():
     WindowManager.speckle_objects = bpy.props.CollectionProperty(type=speckle_object)
 
 
-def save_model_cards(scene):
-    model_cards_data = [card.to_dict() for card in scene.speckle_state.model_cards]
-    scene["speckle_model_cards_data"] = json.dumps(model_cards_data)
-
-
-def load_model_cards(scene):
-    if "speckle_model_cards_data" in scene:
-        model_cards_data = json.loads(scene["speckle_model_cards_data"])
-        scene.speckle_state.model_cards.clear()
-        for card_data in model_cards_data:
-            card = speckle_model_card.from_dict(card_data)
-            scene.speckle_state.model_cards.add().update(card)
-
-
 # Classes to load
 classes = (
     SPECKLE_PT_main_panel,
@@ -157,6 +155,7 @@ classes = (
     SPECKLE_UL_versions_list,
     SPECKLE_OT_selection_filter_dialog,
     speckle_object,
+    speckle_collection,
     speckle_model_card,
     SPECKLE_OT_model_card_settings,
     SPECKLE_OT_view_in_browser,
@@ -164,24 +163,17 @@ classes = (
     SPECKLE_OT_delete_model_card,
     SPECKLE_OT_select_objects,
     SPECKLE_OT_add_account,
-    SPECKLE_OT_load_latest,
+    SPECKLE_OT_load_model_card,
+    SPECKLE_OT_publish_model_card,
     SPECKLE_OT_add_project_by_url,
     SPECKLE_OT_create_project,
     SPECKLE_OT_create_model,
     speckle_account,
     SPECKLE_UL_workspaces_list,
     SPECKLE_OT_workspace_selection_dialog,
+    SPECKLE_OT_account_selection_dialog,
+    SPECKLE_UL_accounts_list,
 )
-
-
-@bpy.app.handlers.persistent
-def load_handler(dummy):
-    load_model_cards(bpy.context.scene)
-
-
-@bpy.app.handlers.persistent
-def save_handler(dummy):
-    save_model_cards(bpy.context.scene)
 
 
 # Register and Unregister
@@ -192,9 +184,6 @@ def register():
         bpy.utils.register_class(cls)
     register_speckle_state()  # Register SpeckleState
 
-    bpy.app.handlers.load_post.append(load_handler)
-    bpy.app.handlers.save_post.append(save_handler)
-
     invoke_window_manager_properties()
 
 
@@ -203,9 +192,6 @@ def unregister():
     unregister_speckle_state()  # Unregister SpeckleState
     for cls in classes:
         bpy.utils.unregister_class(cls)
-
-    bpy.app.handlers.load_post.remove(load_handler)
-    bpy.app.handlers.save_post.remove(save_handler)
 
 
 # Run the register function when the script is executed

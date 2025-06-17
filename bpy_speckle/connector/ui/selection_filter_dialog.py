@@ -2,6 +2,7 @@ import bpy
 from typing import List
 from bpy.types import Operator, Context, Object
 from bpy.props import EnumProperty
+from ..utils.model_card_utils import update_model_card_objects
 
 
 class SPECKLE_OT_selection_filter_dialog(Operator):
@@ -21,33 +22,37 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         default="SELECTION",
     )  # type: ignore
 
+    model_card_id: bpy.props.StringProperty(
+        name="Model Card ID",
+        description="This is used to indicate the function is called from a model card",
+        default="",
+    )  # type: ignore
+
+    version_message: bpy.props.StringProperty(
+        name="Version Message",
+        description="Message to be used for the version",
+        default="",
+    )  # type: ignore
 
     def execute(self, context: Context) -> set:
-        # model_card = context.scene.speckle_state.model_cards.add()
-        # model_card.project_name = self.project_name
-        # model_card.model_name = self.model_name
-        # model_card.model_id = self.model_id
-        # model_card.project_id = self.project_id
-        # model_card.is_publish = True
-
-        # selected_objects: list[Object] = context.selected_objects
-        # total_selected: int = len(selected_objects)
-        # object_types: dict[str, int] = {}
-        # for obj in selected_objects:
-        #     if obj.type not in object_types:
-        #         object_types[obj.type] = 1
-        #     else:
-        #         object_types[obj.type] += 1
-
-        # summary: str = f"{total_selected} objects - "
-        # for obj_type, count in object_types.items():
-        #     summary += f"{obj_type}: {count}, "
-
-        # model_card.selection_summary = summary.strip()
-        #TODO: implement selection filter dialog
         wm = context.window_manager
         wm.speckle_objects.clear()
         user_selection = context.selected_objects
+        if self.model_card_id != "":
+            model_card = context.scene.speckle_state.get_model_card_by_id(
+                self.model_card_id
+            )
+            update_model_card_objects(model_card, user_selection)
+            self.report({"INFO"}, "Selection updated")
+
+            # Call the publish operator
+            bpy.ops.speckle.model_card_publish(
+                model_card_id=self.model_card_id, version_message=self.version_message
+            )
+
+            context.area.tag_redraw()
+            return {"FINISHED"}
+
         for sel in user_selection:
             obj = wm.speckle_objects.add()
             obj.name = sel.name
@@ -61,10 +66,19 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         layout = self.layout
         wm = context.window_manager
 
-        layout.label(text=f"Project: {wm.selected_project_name}")
-        layout.label(text=f"Model: {wm.selected_model_name}")
+        project_name = wm.selected_project_name
+        model_name = wm.selected_model_name
+        if self.model_card_id != "":
+            model_card = context.scene.speckle_state.get_model_card_by_id(
+                self.model_card_id
+            )
+            project_name = model_card.project_name
+            model_name = model_card.model_name
 
-        layout.prop(self, "selection_type")
+        layout.label(text=f"Project: {project_name}")
+        layout.label(text=f"Model: {model_name}")
+
+        #layout.prop(self, "selection_type")
         layout.separator()
 
         selected_objects: List[Object] = context.selected_objects
@@ -90,6 +104,14 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
 
         layout.separator()
 
+        if self.model_card_id != "":
+            layout.label(text="Version Message")
+            layout.prop(self, "version_message", text="")
+            layout.label(
+                text="New version will be published after updating selection",
+                icon="INFO_LARGE",
+            )
+
     def get_icon_for_type(self, obj_type: str) -> str:
         icon_map: dict[str, str] = {
             "MESH": "OUTLINER_OB_MESH",
@@ -110,10 +132,3 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
 
     def check(self, context: Context) -> bool:
         return True  # this forces the dialog to redraw
-
-class speckle_object(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing model information
-    """
-
-    name: bpy.props.StringProperty()  #type: ignore

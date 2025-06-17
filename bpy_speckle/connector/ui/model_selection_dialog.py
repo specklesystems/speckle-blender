@@ -2,16 +2,7 @@ import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from ..utils.model_manager import get_models_for_project
 from ..utils.version_manager import get_latest_version
-
-
-class speckle_model(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing model information
-    """
-
-    name: bpy.props.StringProperty()  # type: ignore
-    id: bpy.props.StringProperty(name="ID")  # type: ignore
-    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
+from ..utils.property_groups import speckle_model
 
 
 class SPECKLE_UL_models_list(bpy.types.UIList):
@@ -50,6 +41,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
 
     bl_idname = "speckle.model_selection_dialog"
     bl_label = "Select Model"
+    bl_description = "Select a model to load"
 
     def update_models_list(self, context: Context) -> None:
         wm = context.window_manager
@@ -125,15 +117,3 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         )
 
         layout.separator()
-
-
-def register() -> None:
-    bpy.utils.register_class(speckle_model)
-    bpy.utils.register_class(SPECKLE_UL_models_list)
-    bpy.utils.register_class(SPECKLE_OT_model_selection_dialog)
-
-
-def unregister() -> None:
-    bpy.utils.unregister_class(SPECKLE_OT_model_selection_dialog)
-    bpy.utils.unregister_class(SPECKLE_UL_models_list)
-    bpy.utils.unregister_class(speckle_model)
