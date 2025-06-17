@@ -6,7 +6,7 @@ from ..utils.account_manager import (
     speckle_account,
     speckle_workspace,
     get_workspaces,
-    get_default_workspace_id,
+    get_active_workspace,
     get_account_from_id,
 )
 from ..utils.project_manager import get_projects_for_account
@@ -123,7 +123,7 @@ def update_workspaces_list(context: Context) -> None:
         workspace: speckle_workspace = wm.speckle_workspaces.add()
         workspace.id = id
         workspace.name = name
-    wm.selected_workspace_id = get_default_workspace_id(wm.selected_account_id)
+    wm.selected_workspace.id = get_active_workspace(wm.selected_account_id)["id"]
     print("Updated Workspaces List!")
 
 
@@ -131,7 +131,7 @@ def update_projects_list(context: Context) -> None:
     wm = context.window_manager
     wm.speckle_projects.clear()
     projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(
-        wm.selected_account_id, workspace_id=wm.selected_workspace_id
+        wm.selected_account_id, workspace_id=wm.selected_workspace.id
     )
     for name, role, updated, id, can_receive in projects:
         project: speckle_project = wm.speckle_projects.add()

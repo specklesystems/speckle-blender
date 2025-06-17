@@ -125,8 +125,8 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         if wm.selected_account_id == "":
             wm.selected_account_id = get_default_account_id()
 
-        wm.selected_workspace.id = get_active_workspace(selected_account_id)["id"]
-        wm.selected_workspace.name = get_active_workspace(selected_account_id)["name"]
+        wm.selected_workspace.id = get_active_workspace(wm.selected_account_id)["id"]
+        wm.selected_workspace.name = get_active_workspace(wm.selected_account_id)["name"]
 
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(
