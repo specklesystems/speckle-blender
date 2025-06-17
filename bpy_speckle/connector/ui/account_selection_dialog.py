@@ -87,7 +87,7 @@ class SPECKLE_OT_account_selection_dialog(bpy.types.Operator):
         wm = context.window_manager
         # update the selected account id
         wm.selected_account_id = wm.speckle_accounts[self.account_index].id
-        print(f"Selected account: {wm.selected_account_id}")
+        self.report({"INFO"}, f"Selected account: {wm.selected_account_id}")
         update_workspaces_list(context)
         update_projects_list(context)
         # redraw the area
