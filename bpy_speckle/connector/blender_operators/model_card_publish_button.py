@@ -26,9 +26,6 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
         model_card = context.scene.speckle_state.get_model_card_by_id(
             self.model_card_id
         )
-        if model_card is None:
-            self.report({"ERROR"}, "Model card not found")
-            return {"CANCELLED"}
 
         # set wm
         wm.selected_account_id = model_card.account_id
