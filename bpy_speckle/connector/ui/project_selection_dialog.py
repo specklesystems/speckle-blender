@@ -7,6 +7,8 @@ from ..utils.account_manager import (
     get_workspaces,
     speckle_workspace,
     can_create_project_in_workspace,
+    get_default_account_id,
+    get_account_from_id,
 )
 from ..utils.project_manager import get_projects_for_account
 
@@ -195,20 +197,11 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
     def invoke(self, context: Context, event: Event) -> set[str]:
         wm = context.window_manager
 
-        # Clear existing accounts and projects
-        wm.speckle_accounts.clear()
+        # Clear existing projects
         wm.speckle_projects.clear()
         wm.speckle_workspaces.clear()
 
-        # Fetch accounts
-        for id, user_name, server_url, user_email in get_account_enum_items():
-            account: speckle_account = wm.speckle_accounts.add()
-            account.id = id
-            account.user_name = user_name
-            account.server_url = server_url
-            account.user_email = user_email
-
-        selected_account_id = self.accounts
+        selected_account_id = get_default_account_id()
         wm.selected_account_id = selected_account_id
 
         # Fetch workspaces from server
@@ -243,22 +236,19 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
         # Account selection
         row = layout.row()
-        if wm.selected_account_id != "NO_ACCOUNTS":
-            row.operator(
-                "speckle.account_selection_dialog",
-                icon="WORLD",
-                text="Select Account",
-            )
-        add_account_button_text = (
-            "Sign In" if wm.selected_account_id == "NO_ACCOUNTS" else ""
-        )
-        add_account_button_icon = (
-            "WORLD" if wm.selected_account_id == "NO_ACCOUNTS" else "ADD"
-        )
+
+        if wm.selected_account_id == "NO_ACCOUNTS":
+            account_button_text = "Add Account"
+            account_button_icon = "WORLD"
+        else:
+            account = get_account_from_id(wm.selected_account_id)
+            account_button_text = f"{account.userInfo.name} - {account.userInfo.email} - {account.serverInfo.url}"
+            account_button_icon = "USER"
+
         row.operator(
-            "speckle.add_account",
-            icon=add_account_button_icon,
-            text=add_account_button_text,
+            "speckle.account_selection_dialog",
+            icon=account_button_icon,
+            text=account_button_text,
         )
 
         # if no accounts then don't show workspaces or projects list
