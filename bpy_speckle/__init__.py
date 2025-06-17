@@ -89,6 +89,12 @@ from .connector.states.speckle_state import (
     unregister as unregister_speckle_state,
 )
 
+
+from .connector.ui.workspace_selection_dialog import (
+    SPECKLE_OT_workspace_selection_dialog,
+    SPECKLE_UL_workspaces_list,
+)
+
 # Utils
 from .connector.ui.account_selection_dialog import (
     SPECKLE_OT_account_selection_dialog,
@@ -104,7 +110,7 @@ def invoke_window_manager_properties():
     WindowManager.speckle_workspaces = bpy.props.CollectionProperty(
         type=speckle_workspace
     )
-    WindowManager.selected_workspace_id = bpy.props.StringProperty()
+    WindowManager.selected_workspace = bpy.props.PointerProperty(type=speckle_workspace)
     WindowManager.can_create_project_in_workspace = bpy.props.BoolProperty()
     # Projects
     WindowManager.speckle_projects = bpy.props.CollectionProperty(type=speckle_project)
@@ -163,6 +169,8 @@ classes = (
     SPECKLE_OT_create_project,
     SPECKLE_OT_create_model,
     speckle_account,
+    SPECKLE_UL_workspaces_list,
+    SPECKLE_OT_workspace_selection_dialog,
     SPECKLE_OT_account_selection_dialog,
     SPECKLE_UL_accounts_list,
 )

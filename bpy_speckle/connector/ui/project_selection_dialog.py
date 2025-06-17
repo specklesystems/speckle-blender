@@ -7,22 +7,12 @@ from ..utils.account_manager import (
     get_workspaces,
     speckle_workspace,
     can_create_project_in_workspace,
+    get_active_workspace,
     get_default_account_id,
     get_account_from_id,
 )
 from ..utils.project_manager import get_projects_for_account
 from ..utils.property_groups import speckle_project
-
-
-def get_workspaces_callback(self, context):
-    """
-    Callback to dynamically fetch workspace enum items.
-    """
-    wm = context.window_manager
-    return [
-        (workspace.id, workspace.name, "", "WORKSPACE", i)
-        for i, workspace in enumerate(wm.speckle_workspaces)
-    ]
 
 
 class SPECKLE_UL_projects_list(bpy.types.UIList):
@@ -74,16 +64,16 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         """
         wm = context.window_manager
 
-        wm.selected_workspace_id = self.workspaces
+
         wm.can_create_project_in_workspace = can_create_project_in_workspace(
-            wm.selected_account_id, self.workspaces
+            wm.selected_account_id, wm.selected_workspace.id
         )
         wm.speckle_projects.clear()
 
         # get projects for the selected account, using search if provided
         search = self.search_query if self.search_query.strip() else None
         projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(
-            wm.selected_account_id, search=search, workspace_id=self.workspaces
+            wm.selected_account_id, search=search, workspace_id=wm.selected_workspace.id
         )
 
         for name, role, updated, id, can_receive in projects:
@@ -100,13 +90,6 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         name="Search or Paste a URL",
         description="Search a project or paste a URL to add a project",
         default="",
-        update=update_projects_list,
-    )
-
-    workspaces: bpy.props.EnumProperty(  # type: ignore
-        name="Workspace",
-        description="Selected workspace to filter projects by",
-        items=get_workspaces_callback,
         update=update_projects_list,
     )
 
@@ -138,25 +121,16 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
         # Clear existing projects
         wm.speckle_projects.clear()
-        wm.speckle_workspaces.clear()
 
         if wm.selected_account_id == "":
             wm.selected_account_id = get_default_account_id()
 
-        # Fetch workspaces from server
-        for id, name in get_workspaces(wm.selected_account_id):
-            workspace: speckle_workspace = wm.speckle_workspaces.add()
-            workspace.id = id
-            workspace.name = name
-        selected_workspace_id = self.workspaces
-        wm.selected_workspace_id = selected_workspace_id
-        wm.can_create_project_in_workspace = can_create_project_in_workspace(
-            wm.selected_account_id, selected_workspace_id
-        )
+        wm.selected_workspace.id = get_active_workspace(wm.selected_account_id)["id"]
+        wm.selected_workspace.name = get_active_workspace(wm.selected_account_id)["name"]
 
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(
-            wm.selected_account_id, workspace_id=selected_workspace_id
+            wm.selected_account_id, wm.selected_workspace.id
         )
 
         for name, role, updated, id, can_receive in projects:
@@ -190,8 +164,11 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             )
             # Workspace selection
             row = layout.row()
-            if wm.selected_workspace_id != "NO_WORKSPACES":
-                row.prop(self, "workspaces", text="")
+            row.operator(
+                "speckle.workspace_selection_dialog",
+                icon="WORKSPACE",
+                text=wm.selected_workspace.name,
+            )
 
             # Search field
             row = layout.row(align=True)
