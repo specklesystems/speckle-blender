@@ -244,7 +244,11 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # Account selection
         row = layout.row()
         if wm.selected_account_id != "NO_ACCOUNTS":
-            row.prop(self, "accounts", text="")
+            row.operator(
+                "speckle.account_selection_dialog",
+                icon="WORLD",
+                text="Select Account",
+            )
         add_account_button_text = (
             "Sign In" if wm.selected_account_id == "NO_ACCOUNTS" else ""
         )

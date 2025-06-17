@@ -84,6 +84,12 @@ from .connector.states.speckle_state import (
     unregister as unregister_speckle_state,
 )
 
+# Utils
+from .connector.ui.account_selection_dialog import (
+    SPECKLE_OT_account_selection_dialog,
+    SPECKLE_UL_accounts_list,
+)
+
 
 def invoke_window_manager_properties():
     # Accounts
@@ -164,6 +170,8 @@ classes = (
     SPECKLE_OT_create_project,
     SPECKLE_OT_create_model,
     speckle_account,
+    SPECKLE_OT_account_selection_dialog,
+    SPECKLE_UL_accounts_list,
 )
 
 
