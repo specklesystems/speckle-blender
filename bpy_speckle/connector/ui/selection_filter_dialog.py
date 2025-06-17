@@ -78,7 +78,7 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         layout.label(text=f"Project: {project_name}")
         layout.label(text=f"Model: {model_name}")
 
-        layout.prop(self, "selection_type")
+        #layout.prop(self, "selection_type")
         layout.separator()
 
         selected_objects: List[Object] = context.selected_objects
