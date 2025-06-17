@@ -50,7 +50,7 @@ class SPECKLE_OT_workspace_selection_dialog(bpy.types.Operator):
             workspace: speckle_workspace = wm.speckle_workspaces.add()
             workspace.id = id
             workspace.name = name
-            if id == wm.selected_workspace_id:
+            if id == wm.selected_workspace.id:
                 current_workspace_index = i
         self.workspace_index = current_workspace_index
         return context.window_manager.invoke_props_dialog(self)
@@ -58,7 +58,7 @@ class SPECKLE_OT_workspace_selection_dialog(bpy.types.Operator):
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
         wm = context.window_manager
-        layout.label(text=f"Selected Workspace: {wm.selected_workspace_name}")
+        layout.label(text=f"Selected Workspace: {wm.selected_workspace.name}")
         layout.template_list(
             "SPECKLE_UL_workspaces_list",
             "",
@@ -72,8 +72,8 @@ class SPECKLE_OT_workspace_selection_dialog(bpy.types.Operator):
         wm = context.window_manager
         if 0 <= self.workspace_index < len(wm.speckle_workspaces):
             selected_workspace = wm.speckle_workspaces[self.workspace_index]
-            wm.selected_workspace_id = selected_workspace.id
-            wm.selected_workspace_name = selected_workspace.name
+            wm.selected_workspace.id = selected_workspace.id
+            wm.selected_workspace.name = selected_workspace.name
             update_projects_list(context)
             context.area.tag_redraw()
         return {"FINISHED"}
@@ -87,7 +87,7 @@ def update_projects_list(context):
 
     # get projects for the selected account and workspace
     projects = get_projects_for_account(
-        wm.selected_account_id, wm.selected_workspace_id
+        wm.selected_account_id, wm.selected_workspace.id
     )
 
     for name, role, updated, id, can_receive in projects:
@@ -100,9 +100,9 @@ def update_projects_list(context):
 
     # Update can_create_project_in_workspace flag
     wm.can_create_project_in_workspace = can_create_project_in_workspace(
-        wm.selected_account_id, wm.selected_workspace_id
+        wm.selected_account_id, wm.selected_workspace.id
     )
-    print(f"Workspace changed to: {wm.selected_workspace_id}")
+    print(f"Workspace changed to: {wm.selected_workspace.id}")
     print("Projects list updated")
 
     context.area.tag_redraw()

@@ -26,8 +26,8 @@ class SPECKLE_OT_create_project(bpy.types.Operator):
             wm.selected_account_id,
             self.project_name,
             None
-            if wm.selected_workspace_id == "personal"
-            else wm.selected_workspace_id,
+            if wm.selected_workspace.id == "personal"
+            else wm.selected_workspace.id,
         )
         wm.selected_project_id = project_id
         wm.selected_project_name = project_name

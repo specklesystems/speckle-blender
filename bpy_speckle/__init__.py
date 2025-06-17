@@ -98,8 +98,7 @@ def invoke_window_manager_properties():
     WindowManager.speckle_workspaces = bpy.props.CollectionProperty(
         type=speckle_workspace
     )
-    WindowManager.selected_workspace_id = bpy.props.StringProperty()
-    WindowManager.selected_workspace_name = bpy.props.StringProperty()
+    WindowManager.selected_workspace = bpy.props.PointerProperty(type=speckle_workspace)
     WindowManager.can_create_project_in_workspace = bpy.props.BoolProperty()
     # Projects
     WindowManager.speckle_projects = bpy.props.CollectionProperty(type=speckle_project)

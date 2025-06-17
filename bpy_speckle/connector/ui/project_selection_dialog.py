@@ -95,7 +95,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         # get projects for the selected account, using search if provided
         search = self.search_query if self.search_query.strip() else None
         projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(
-            self.accounts, search=search, workspace_id=self.workspaces
+            self.accounts, search=search, workspace_id=wm.selected_workspace.id
         )
 
         for name, role, updated, id, can_receive in projects:
@@ -116,16 +116,15 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         wm = context.window_manager
 
         wm.selected_account_id = self.accounts
-        wm.selected_workspace_id = self.workspaces
         wm.can_create_project_in_workspace = can_create_project_in_workspace(
-            self.accounts, self.workspaces
+            self.accounts, wm.selected_workspace.id
         )
         wm.speckle_projects.clear()
 
         # get projects for the selected account, using search if provided
         search = self.search_query if self.search_query.strip() else None
         projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(
-            self.accounts, search=search, workspace_id=self.workspaces
+            self.accounts, search=search, workspace_id=wm.selected_workspace.id
         )
 
         for name, role, updated, id, can_receive in projects:
@@ -193,12 +192,12 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         selected_account_id = self.accounts
         wm.selected_account_id = selected_account_id
 
-        wm.selected_workspace_id = get_active_workspace(selected_account_id)["id"]
-        wm.selected_workspace_name = get_active_workspace(selected_account_id)["name"]
+        wm.selected_workspace.id = get_active_workspace(selected_account_id)["id"]
+        wm.selected_workspace.name = get_active_workspace(selected_account_id)["name"]
 
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(
-            selected_account_id, wm.selected_workspace_id
+            selected_account_id, wm.selected_workspace.id
         )
 
         for name, role, updated, id, can_receive in projects:
@@ -238,7 +237,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             row.operator(
                 "speckle.workspace_selection_dialog",
                 icon="WORKSPACE",
-                text=wm.selected_workspace_name,
+                text=wm.selected_workspace.name,
             )
 
             # Search field
