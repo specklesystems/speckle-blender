@@ -1,9 +1,15 @@
 import bpy
 from bpy.types import Context, Event
+from typing import List, Tuple
 from ..utils.account_manager import (
     get_account_enum_items,
     speckle_account,
+    speckle_workspace,
+    get_workspaces,
+    get_default_workspace_id,
 )
+from ..utils.project_manager import get_projects_for_account
+from ..ui.project_selection_dialog import speckle_project
 
 
 class SPECKLE_UL_accounts_list(bpy.types.UIList):
@@ -79,5 +85,39 @@ class SPECKLE_OT_account_selection_dialog(bpy.types.Operator):
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
+        # update the selected account id
         wm.selected_account_id = wm.speckle_accounts[self.account_index].id
+        print(f"Selected account: {wm.selected_account_id}")
+        update_workspaces_list(context)
+        update_projects_list(context)
+        # redraw the area
+        context.area.tag_redraw()
         return {"FINISHED"}
+
+
+def update_workspaces_list(context: Context) -> None:
+    wm = context.window_manager
+    wm.speckle_workspaces.clear()
+    workspaces = get_workspaces(wm.selected_account_id)
+    for id, name in workspaces:
+        workspace: speckle_workspace = wm.speckle_workspaces.add()
+        workspace.id = id
+        workspace.name = name
+    wm.selected_workspace_id = get_default_workspace_id(wm.selected_account_id)
+    print("Updated Workspaces List!")
+
+
+def update_projects_list(context: Context) -> None:
+    wm = context.window_manager
+    wm.speckle_projects.clear()
+    projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(
+        wm.selected_account_id, workspace_id=wm.selected_workspace_id
+    )
+    for name, role, updated, id, can_receive in projects:
+        project: speckle_project = wm.speckle_projects.add()
+        project.name = name
+        project.role = role
+        project.updated = updated
+        project.id = id
+        project.can_receive = can_receive
+    print("Updated Projects List!")
