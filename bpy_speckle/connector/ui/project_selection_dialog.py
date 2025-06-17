@@ -9,6 +9,7 @@ from ..utils.account_manager import (
     can_create_project_in_workspace,
 )
 from ..utils.project_manager import get_projects_for_account
+from ..utils.property_groups import speckle_project
 
 
 def get_accounts_callback(self, context):
@@ -33,18 +34,6 @@ def get_workspaces_callback(self, context):
         (workspace.id, workspace.name, "", "WORKSPACE", i)
         for i, workspace in enumerate(wm.speckle_workspaces)
     ]
-
-
-class speckle_project(bpy.types.PropertyGroup):
-    """
-    PropertyGroup for storing project information
-    """
-
-    name: bpy.props.StringProperty()  # type: ignore
-    role: bpy.props.StringProperty(name="Role")  # type: ignore
-    updated: bpy.props.StringProperty(name="Updated")  # type: ignore
-    id: bpy.props.StringProperty(name="ID")  # type: ignore
-    can_receive: bpy.props.BoolProperty(name="Can Receive", default=False)  # type: ignore
 
 
 class SPECKLE_UL_projects_list(bpy.types.UIList):
@@ -88,6 +77,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
     bl_idname = "speckle.project_selection_dialog"
     bl_label = "Select Project"
+    bl_description = "Select a project to load models from"
 
     def update_workspaces_and_projects_list(self, context: Context) -> None:
         wm = context.window_manager
@@ -286,15 +276,3 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
                 "project_index",
             )
             layout.separator()
-
-
-def register() -> None:
-    bpy.utils.register_class(speckle_project)
-    bpy.utils.register_class(SPECKLE_UL_projects_list)
-    bpy.utils.register_class(SPECKLE_OT_project_selection_dialog)
-
-
-def unregister() -> None:
-    bpy.utils.unregister_class(SPECKLE_OT_project_selection_dialog)
-    bpy.utils.unregister_class(SPECKLE_UL_projects_list)
-    bpy.utils.unregister_class(speckle_project)
