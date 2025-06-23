@@ -169,5 +169,5 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
                 # Settings button in the model card
                 row_1.operator(
-                    "speckle.model_card_settings", text="", icon="THREE_DOTS"
+                    "speckle.model_card_settings", text="", icon="COLLAPSEMENU"
                 ).model_card_id = model_card.get_model_card_id()
