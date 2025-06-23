@@ -104,6 +104,9 @@ def get_active_workspace(account_id: str) -> Optional[Dict[str, str]]:
     retrieves the ID of the default workspace for a given account ID
     """
     account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
+    if account is None:
+        print(f"No account found for ID: {account_id}, returning default workspace.")
+        return {"id": "personal", "name": "Personal Projects"}
     client = SpeckleClient(host=account.serverInfo.url)
     client.authenticate_with_account(account)
     active_workspace = client.active_user.get_active_workspace()
