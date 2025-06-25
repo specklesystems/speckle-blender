@@ -1,9 +1,9 @@
 import bpy
 from bpy.types import Context, Event, UILayout
-from specklepy.api.client import SpeckleClient
-from specklepy.api.credentials import get_local_accounts, Account
 from specklepy.core.api.inputs import CreateModelInput
-from typing import List, Tuple, Optional
+from typing import Tuple
+
+from ..utils.account_manager import _client_cache
 
 
 class SPECKLE_OT_create_model(bpy.types.Operator):
@@ -52,18 +52,17 @@ def unregister() -> None:
 
 
 def create_model(account_id: str, project_id: str, model_name: str) -> Tuple[str, str]:
-    accounts: List[Account] = get_local_accounts()
-    account: Optional[Account] = next(
-        (acc for acc in accounts if acc.id == account_id), None
-    )
+    try:
+        # Get cached client
+        client = _client_cache.get_client(account_id)
+        if not client:
+            raise ValueError(f"Could not get client for account: {account_id}")
 
-    if not account:
-        raise ValueError(f"Account with ID {account_id} not found")
-
-    client = SpeckleClient(host=account.serverInfo.url)
-    client.authenticate_with_account(account)
-    model = client.model.create(
-        input=CreateModelInput(name=model_name, description="", project_id=project_id)
-    )
-    # Function is annotated to return Tuple[str, str] but currently returns a list.
-    return (model.id, model.name)
+        model = client.model.create(
+            input=CreateModelInput(name=model_name, description="", project_id=project_id)
+        )
+        return (model.id, model.name)
+    except Exception as e:
+        # Clear cache on error to prevent stale clients
+        _client_cache.clear()
+        raise e
