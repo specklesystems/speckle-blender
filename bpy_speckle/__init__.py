@@ -81,7 +81,11 @@ from .connector.blender_operators.add_project_by_url import (
 
 from .connector.blender_operators.create_project import SPECKLE_OT_create_project
 from .connector.blender_operators.create_model import SPECKLE_OT_create_model
-from .connector.utils.account_manager import speckle_account
+from .connector.utils.account_manager import (
+    speckle_account,
+    get_default_account_id,
+    _client_cache,
+)
 
 # States
 from .connector.states.speckle_state import (
@@ -185,6 +189,20 @@ def register():
     register_speckle_state()  # Register SpeckleState
 
     invoke_window_manager_properties()
+
+    # Pre-warm client cache for default account
+    try:
+        default_account_id = get_default_account_id()
+        if default_account_id:
+            print(
+                f"[Speckle] Pre-warming client for default account: {default_account_id}"
+            )
+            _client_cache.get_client(default_account_id)
+            print(
+                f"[Speckle] Client pre-warming complete for account: {default_account_id}"
+            )
+    except Exception as e:
+        print(f"[Speckle] Failed to pre-warm client: {e}")
 
 
 def unregister():
