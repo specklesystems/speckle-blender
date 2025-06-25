@@ -11,7 +11,7 @@ class SPECKLE_OT_model_card_settings(bpy.types.Operator):
 
     bl_idname = "speckle.model_card_settings"
     bl_label = "Model Card Settings"
-    bl_description = "Settings for the model card"
+    bl_description = "More options for the model card"
     model_card_id: bpy.props.StringProperty(name="Model Card ID", default="")  # type:ignore
 
     def execute(self, context: Context) -> Set[str]:

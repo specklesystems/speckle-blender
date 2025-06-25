@@ -59,13 +59,20 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             icon=model_button_icon,
         )
         if wm.ui_mode == "PUBLISH":
-            #TODO: implement Publish flow
+            # TODO: implement Publish flow
             # Selection filter
             row = layout.row()
             row.enabled = project_selected and model_selected
-            selection_button_text = f"{len(wm.speckle_objects)} Objects" if wm.speckle_objects else "Select Objects"
-            row.operator("speckle.selection_filter_dialog", text=selection_button_text, icon="PLUS")
-            
+            selection_button_text = (
+                f"{len(wm.speckle_objects)} Objects"
+                if wm.speckle_objects
+                else "Select Objects"
+            )
+            row.operator(
+                "speckle.selection_filter_dialog",
+                text=selection_button_text,
+                icon="PLUS",
+            ).model_card_id = ""
 
             # Publish button
             row = layout.row()
@@ -91,7 +98,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
                 "speckle.version_selection_dialog",
                 text=version_button_text,
                 icon=version_button_icon,
-            )
+            ).model_card_id = ""
 
             # load button
             row = layout.row()
@@ -117,39 +124,50 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
             for model_card in model_cards:
                 box: UILayout = project_box.box()
-                row: UILayout = box.row()
-                icon: str = "EXPORT" if model_card.is_publish else "IMPORT"
+                row_1: UILayout = box.row()
+                row_2: UILayout = box.row()
 
-                # Load latest button in the model card
-                row.operator(
-                    "speckle.load_latest", text="", icon=icon
-                ).model_card_id = model_card.get_model_card_id()
-                row.label(text=f"{model_card.model_name}")
+                if model_card.is_publish:
+                    # Publish button in the model card
+                    row_1.operator(
+                        "speckle.model_card_publish", text="", icon="EXPORT"
+                    ).model_card_id = model_card.get_model_card_id()
+                    # Selection filter button in the model card
+                    row_2.operator(
+                        "speckle.selection_filter_dialog",
+                        text=f"Selection: {len(model_card.objects)} objects",
+                    ).model_card_id = model_card.get_model_card_id()
+                elif not model_card.is_publish:
+                    # Load button in the model card
+                    row_1.operator(
+                        "speckle.model_card_load", text="", icon="IMPORT"
+                    ).model_card_id = model_card.get_model_card_id()
+                    version_button_text = (
+                        f"Latest: {model_card.version_id}"
+                        if model_card.load_option == "LATEST"
+                        else f"{model_card.version_id}"
+                    )
+                    row_2.operator(
+                        "speckle.version_selection_dialog",
+                        text=version_button_text,
+                    ).model_card_id = model_card.get_model_card_id()
+                    # TODO: Get last updated time
+
+                else:
+                    print({"ERROR"}, "Model card state unknown")
+                    return
+
+                row_1.label(text=f"{model_card.model_name}")
 
                 # Select button in the model card
-                select_op = row.operator(
-                    "speckle.select_objects", text="", icon="RESTRICT_SELECT_OFF"
+                select_op = row_1.operator(
+                    "speckle.select_objects",
+                    text="",
+                    icon_value=get_icon("object_highlight"),
                 )
                 select_op.model_card_id = model_card.get_model_card_id()
 
                 # Settings button in the model card
-                row.operator(
-                    "speckle.model_card_settings", text="", icon="PREFERENCES"
+                row_1.operator(
+                    "speckle.model_card_settings", text="", icon="COLLAPSEMENU"
                 ).model_card_id = model_card.get_model_card_id()
-                row: UILayout = box.row()
-                if model_card.is_publish:
-                    split: UILayout = row.split(factor=0.33)
-                    # TODO: Connect to selection operator
-                    split.operator("speckle.publish", text="Selection")
-                    split.label(text=f"{model_card.selection_summary}")
-                else:
-                    split: UILayout = row.split(factor=0.33)
-                    # TODO: Connect to version operator
-                    if model_card.load_option == "LATEST":
-                        split.operator("speckle.load", text="Latest")
-                        split.enabled = False
-                    if model_card.load_option == "SPECIFIC":
-                        split.operator("speckle.load", text=f"{model_card.version_id}")
-                        split.enabled = False
-                    # TODO: Get last updated time
-                    split.label(text="Last updated: 2 days ago")

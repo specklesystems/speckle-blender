@@ -68,38 +68,6 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
-        # Ensure all required properties exist in WindowManager
-        if not hasattr(WindowManager, "selected_account_id"):
-            WindowManager.selected_account_id = bpy.props.StringProperty()
-
-        if not hasattr(WindowManager, "selected_project_id"):
-            WindowManager.selected_project_id = bpy.props.StringProperty(
-                name="Selected Project ID"
-            )
-        if not hasattr(WindowManager, "selected_project_name"):
-            WindowManager.selected_project_name = bpy.props.StringProperty(
-                name="Selected Project Name"
-            )
-
-        if not hasattr(WindowManager, "selected_model_id"):
-            WindowManager.selected_model_id = bpy.props.StringProperty(
-                name="Selected Model ID"
-            )
-        if not hasattr(WindowManager, "selected_model_name"):
-            WindowManager.selected_model_name = bpy.props.StringProperty(
-                name="Selected Model Name"
-            )
-
-        if not hasattr(WindowManager, "selected_version_id"):
-            WindowManager.selected_version_id = bpy.props.StringProperty(
-                name="Selected Version ID"
-            )
-
-        if not hasattr(WindowManager, "selected_version_load_option"):
-            WindowManager.selected_version_load_option = bpy.props.StringProperty(
-                name="Selected Version Load Option"
-            )
-
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context: Context) -> None:

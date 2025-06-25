@@ -136,21 +136,28 @@ def get_server_url_by_account_id(account_id: str) -> Optional[str]:
     return None
 
 
-def get_default_workspace_id(account_id: str) -> Optional[str]:
+def get_active_workspace(account_id: str) -> Optional[Dict[str, str]]:
     """
     retrieves the ID of the default workspace for a given account ID
     """
     try:
         client = _client_cache.get_client(account_id)
-        return (
-            client.active_user.get_active_workspace().id
-            if client.active_user.get_active_workspace()
-            else "personal"
-        )
+        active_workspace = client.active_user.get_active_workspace()
+        if active_workspace:
+            return {"id": active_workspace.id, "name": active_workspace.name}
+        return {"id": "personal", "name": "Personal Projects"}
     except Exception as e:
-        print(f"Error in get_default_workspace_id: {str(e)}")
-        _client_cache.clear()  # Clear cache on error
+        print(f"Error in get_active_workspace: {str(e)}")
+        _client_cache.clear()
         return None
+    account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
+    client = SpeckleClient(host=account.serverInfo.url)
+    client.authenticate_with_account(account)
+    return (
+        client.active_user.get_active_workspace().id
+        if client.active_user.get_active_workspace()
+        else "personal"
+    )
 
 
 def get_account_from_id(account_id: str) -> Optional[Account]:
