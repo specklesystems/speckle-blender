@@ -1,6 +1,6 @@
 from specklepy.core.api.client import SpeckleClient
-from specklepy.core.api.credentials import get_local_accounts, Account
-from typing import List, Tuple, Optional
+from .account_manager import _client_cache
+from typing import List, Tuple
 from .misc import format_relative_time
 from specklepy.core.api.inputs.model_inputs import ModelVersionsFilter
 from specklepy.core.api.models.current import Version
@@ -20,18 +20,11 @@ def get_versions_for_model(
             )
             return []
 
-        # Get the account info
-        account: Optional[Account] = next(
-            (acc for acc in get_local_accounts() if acc.id == account_id), None
-        )
-        if not account:
-            print(f"Error: Could not find account with ID: {account_id}")
+        # Get cached client
+        client: SpeckleClient = _client_cache.get_client(account_id)
+        if not client:
+            print(f"Error: Could not get client for account: {account_id}")
             return []
-
-        # Initialize the client
-        client: SpeckleClient = SpeckleClient(host=account.serverInfo.url)
-        # Authenticate
-        client.authenticate_with_account(account)
 
         filter: ModelVersionsFilter = ModelVersionsFilter(priorityIds=[])
 
@@ -55,6 +48,8 @@ def get_versions_for_model(
 
     except Exception as e:
         print(f"Error fetching versions: {str(e)}")
+        # Clear cache on error to prevent stale clients
+        _client_cache.clear()
         return []
 
 
@@ -69,18 +64,11 @@ def get_latest_version(
             )
             return ("", "", "")
 
-        # Get the account info
-        account: Optional[Account] = next(
-            (acc for acc in get_local_accounts() if acc.id == account_id), None
-        )
-        if not account:
-            print(f"Error: Could not find account with ID: {account_id}")
+        # Get cached client
+        client: SpeckleClient = _client_cache.get_client(account_id)
+        if not client:
+            print(f"Error: Could not get client for account: {account_id}")
             return ("", "", "")
-
-        # Initialize the client
-        client: SpeckleClient = SpeckleClient(host=account.serverInfo.url)
-        # Authenticate
-        client.authenticate_with_account(account)
 
         # Get versions (limit to 1 since we only need the latest)
         versions: List[Version] = client.version.get_versions(
@@ -100,4 +88,6 @@ def get_latest_version(
 
     except Exception as e:
         print(f"Error fetching latest version: {str(e)}")
+        # Clear cache on error to prevent stale clients
+        _client_cache.clear()
         return ("", "", "")

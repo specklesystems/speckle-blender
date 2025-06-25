@@ -1,9 +1,7 @@
 import bpy
 from bpy.types import Context
-from specklepy.core.api.credentials import get_local_accounts
 from specklepy.transports.server import ServerTransport
 from specklepy.core.api import operations
-from specklepy.core.api.client import SpeckleClient
 from specklepy.objects.models.collections.collection import Collection as SCollection
 from specklepy.objects.graph_traversal.default_traversal import (
     create_default_traversal_function,
@@ -11,6 +9,7 @@ from specklepy.objects.graph_traversal.default_traversal import (
 from specklepy.core.api import host_applications
 
 from ..utils.get_ascendants import get_ascendants
+from ..utils.account_manager import _client_cache
 from ...converter.utils import find_object_by_id, get_project_workspace_id
 from ...converter.to_native import (
     convert_to_native,
@@ -32,25 +31,13 @@ def load_operation(
 
     wm = context.window_manager
 
-    # get account
-    account = next(
-        (
-            acc
-            for acc in get_local_accounts()
-            if acc.id == context.window_manager.selected_account_id
-        ),
-        None,
-    )
-
-    if account is None:
-        print("No Speckle account found")
+    # get cached client
+    client = _client_cache.get_client(context.window_manager.selected_account_id)
+    if not client:
+        print("No Speckle client found")
         return {}
 
-    print(f"Using account: {account.userInfo.email}")
-
-    # receive the data
-    client = SpeckleClient(host=account.serverInfo.url)
-    client.authenticate_with_account(account)
+    print(f"Using client for account: {context.window_manager.selected_account_id}")
 
     transport = ServerTransport(stream_id=wm.selected_project_id, client=client)
 
@@ -61,20 +48,32 @@ def load_operation(
 
     metrics.set_host_app("blender")
 
-    metrics.track(
-        metrics.RECEIVE,
-        account,
-        {
-            "ui": "dui3",
-            "hostAppVersion": ".".join(map(str, bl_info["blender"])),
-            "core_version": ".".join(map(str, bl_info["version"])),
-            "sourceHostApp": host_applications.get_host_app_from_string(
-                version.source_application
-            ).slug,
-            "isMultiplayer": version.author_user.id != account.userInfo.id,
-            "workspace_id": get_project_workspace_id(client, wm.selected_project_id),
-        },
+    # Get account for metrics tracking
+    from specklepy.core.api.credentials import get_local_accounts
+    account = next(
+        (
+            acc
+            for acc in get_local_accounts()
+            if acc.id == context.window_manager.selected_account_id
+        ),
+        None,
     )
+    
+    if account:
+        metrics.track(
+            metrics.RECEIVE,
+            account,
+            {
+                "ui": "dui3",
+                "hostAppVersion": ".".join(map(str, bl_info["blender"])),
+                "core_version": ".".join(map(str, bl_info["version"])),
+                "sourceHostApp": host_applications.get_host_app_from_string(
+                    version.source_application
+                ).slug,
+                "isMultiplayer": version.author_user.id != account.userInfo.id,
+                "workspace_id": get_project_workspace_id(client, wm.selected_project_id),
+            },
+        )
 
     # Create material mapping first
     material_mapping = render_material_proxy_to_native(version_data)
