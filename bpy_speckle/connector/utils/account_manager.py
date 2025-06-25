@@ -150,14 +150,6 @@ def get_active_workspace(account_id: str) -> Optional[Dict[str, str]]:
         print(f"Error in get_active_workspace: {str(e)}")
         _client_cache.clear()
         return None
-    account = next((acc for acc in get_local_accounts() if acc.id == account_id), None)
-    client = SpeckleClient(host=account.serverInfo.url)
-    client.authenticate_with_account(account)
-    return (
-        client.active_user.get_active_workspace().id
-        if client.active_user.get_active_workspace()
-        else "personal"
-    )
 
 
 def get_account_from_id(account_id: str) -> Optional[Account]:
