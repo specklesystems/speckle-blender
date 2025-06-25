@@ -208,6 +208,7 @@ def register():
 def unregister():
     icons.unload_icons()
     unregister_speckle_state()  # Unregister SpeckleState
+    _client_cache.clear()
     for cls in classes:
         bpy.utils.unregister_class(cls)
 
