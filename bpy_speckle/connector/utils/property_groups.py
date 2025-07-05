@@ -1,5 +1,4 @@
 import bpy
-from typing import Dict, Any
 
 
 class speckle_project(bpy.types.PropertyGroup):
@@ -37,10 +36,14 @@ class speckle_version(bpy.types.PropertyGroup):
 
 class speckle_object(bpy.types.PropertyGroup):
     """
-    PropertyGroup for storing object names
+    PropertyGroup for storing object names and visibility settings
     """
 
     name: bpy.props.StringProperty()  # type: ignore
+    hide_get: bpy.props.BoolProperty(name="Hide Get", default=False)  # type: ignore
+    hide_viewport: bpy.props.BoolProperty(name="Hide Viewport", default=False)  # type: ignore
+    hide_select: bpy.props.BoolProperty(name="Hide Select", default=False)  # type: ignore
+    hide_render: bpy.props.BoolProperty(name="Hide Render", default=False)  # type: ignore
 
 
 class speckle_collection(bpy.types.PropertyGroup):
