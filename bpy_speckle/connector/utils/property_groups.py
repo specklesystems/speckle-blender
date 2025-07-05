@@ -48,10 +48,16 @@ class speckle_object(bpy.types.PropertyGroup):
 
 class speckle_collection(bpy.types.PropertyGroup):
     """
-    PropertyGroup for storing collection information
+    PropertyGroup for storing collection information and visibility settings
     """
 
     name: bpy.props.StringProperty()  # type: ignore
+    hide_viewport: bpy.props.BoolProperty(name="Hide Viewport", default=False)  # type: ignore
+    hide_select: bpy.props.BoolProperty(name="Hide Select", default=False)  # type: ignore
+    hide_render: bpy.props.BoolProperty(name="Hide Render", default=False)  # type: ignore
+    exclude_from_view_layer: bpy.props.BoolProperty(
+        name="Exclude From View Layer", default=False
+    )  # type: ignore
 
 
 class speckle_model_card(bpy.types.PropertyGroup):
