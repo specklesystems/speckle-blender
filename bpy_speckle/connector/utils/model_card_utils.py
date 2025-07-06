@@ -1,6 +1,7 @@
 import bpy
 from bpy.types import Context
 from typing import Dict
+import json
 from ..utils.property_groups import speckle_model_card
 
 
@@ -65,6 +66,11 @@ def update_model_card_objects(
             "hide_select": s_obj.hide_select,
             "hide_render": s_obj.hide_render,
         }
+
+    # Store modifier settings from property group before clearing
+    modifier_settings = {}
+    for s_obj in model_card.objects:
+        modifier_settings[s_obj.name] = s_obj.modifiers
 
     # Store collection visibility settings from property group before clearing
     collection_visibility_settings = {}
@@ -151,6 +157,11 @@ def update_model_card_objects(
                 obj.hide_select = visibility_settings[obj.name]["hide_select"]
                 obj.hide_render = visibility_settings[obj.name]["hide_render"]
 
+            # Restore modifier settings if they exist
+            if obj.name in modifier_settings:
+                s_obj.modifiers = modifier_settings[obj.name]
+                restore_modifier_settings(obj, modifier_settings[obj.name])
+
 
 def delete_model_card_objects(model_card: speckle_model_card, context: Context) -> None:
     """
@@ -218,3 +229,120 @@ def model_card_exists(
         ):
             return True
     return False
+
+
+def serialize_modifier(modifier):
+    """
+    Serialize a Blender modifier to a dictionary
+    """
+    modifier_data = {
+        "name": modifier.name,
+        "type": modifier.type,
+        "show_viewport": modifier.show_viewport,
+        "show_render": modifier.show_render,
+        "show_in_editmode": modifier.show_in_editmode,
+        "show_on_cage": modifier.show_on_cage,
+        "properties": {},
+    }
+
+    # Store all modifier-specific properties
+    for prop_name in modifier.bl_rna.properties.keys():
+        if prop_name in [
+            "rna_type",
+            "name",
+            "type",
+            "show_viewport",
+            "show_render",
+            "show_in_editmode",
+            "show_on_cage",
+        ]:
+            continue
+        try:
+            prop_value = getattr(modifier, prop_name)
+            # Handle different property types
+            if isinstance(prop_value, (int, float, bool, str)):
+                modifier_data["properties"][prop_name] = prop_value
+            elif hasattr(prop_value, "name"):  # Object references
+                modifier_data["properties"][prop_name] = prop_value.name
+            elif (
+                hasattr(prop_value, "__len__") and len(prop_value) <= 4
+            ):  # Vectors/colors
+                modifier_data["properties"][prop_name] = list(prop_value)
+        except (AttributeError, TypeError):
+            # Skip properties that can't be serialized
+            continue
+
+    return modifier_data
+
+
+def deserialize_modifier(obj, modifier_data):
+    """
+    Recreate a modifier from serialized data
+    """
+    try:
+        modifier = obj.modifiers.new(modifier_data["name"], modifier_data["type"])
+
+        # Set visibility properties
+        modifier.show_viewport = modifier_data.get("show_viewport", True)
+        modifier.show_render = modifier_data.get("show_render", True)
+        modifier.show_in_editmode = modifier_data.get("show_in_editmode", True)
+        modifier.show_on_cage = modifier_data.get("show_on_cage", False)
+
+        # Set modifier-specific properties
+        for prop_name, prop_value in modifier_data.get("properties", {}).items():
+            try:
+                if hasattr(modifier, prop_name):
+                    current_value = getattr(modifier, prop_name)
+                    # Handle object references
+                    if hasattr(current_value, "name") and isinstance(prop_value, str):
+                        referenced_obj = bpy.data.objects.get(prop_value)
+                        if referenced_obj:
+                            setattr(modifier, prop_name, referenced_obj)
+                    else:
+                        setattr(modifier, prop_name, prop_value)
+            except (AttributeError, TypeError):
+                # Skip properties that can't be set
+                continue
+
+        return modifier
+    except Exception as e:
+        print(f"Error deserializing modifier {modifier_data['name']}: {e}")
+        return None
+
+
+def store_modifier_settings(model_card: speckle_model_card):
+    """
+    Store current modifier settings of model card objects
+    This is used to restore the modifier settings of the loaded objects after loading a new version
+    """
+    for s_obj in model_card.objects:
+        blender_obj = bpy.data.objects.get(s_obj.name)
+        if blender_obj and hasattr(blender_obj, "modifiers"):
+            modifiers_data = []
+            for modifier in blender_obj.modifiers:
+                modifier_data = serialize_modifier(modifier)
+                modifiers_data.append(modifier_data)
+
+            # Store as JSON string
+            s_obj.modifiers = json.dumps(modifiers_data)
+
+
+def restore_modifier_settings(blender_obj, modifier_data_json):
+    """
+    Restore modifier settings to a Blender object
+    """
+    if not modifier_data_json or not hasattr(blender_obj, "modifiers"):
+        return
+
+    try:
+        modifiers_data = json.loads(modifier_data_json)
+
+        # Clear existing modifiers
+        blender_obj.modifiers.clear()
+
+        # Recreate modifiers
+        for modifier_data in modifiers_data:
+            deserialize_modifier(blender_obj, modifier_data)
+
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        print(f"Error restoring modifiers for {blender_obj.name}: {e}")

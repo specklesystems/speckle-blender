@@ -44,6 +44,7 @@ class speckle_object(bpy.types.PropertyGroup):
     hide_viewport: bpy.props.BoolProperty(name="Hide Viewport", default=False)  # type: ignore
     hide_select: bpy.props.BoolProperty(name="Hide Select", default=False)  # type: ignore
     hide_render: bpy.props.BoolProperty(name="Hide Render", default=False)  # type: ignore
+    modifiers: bpy.props.StringProperty(name="Modifiers", default="")  # type: ignore
 
 
 class speckle_collection(bpy.types.PropertyGroup):
