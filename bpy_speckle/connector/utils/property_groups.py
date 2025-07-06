@@ -36,7 +36,7 @@ class speckle_version(bpy.types.PropertyGroup):
 
 class speckle_object(bpy.types.PropertyGroup):
     """
-    PropertyGroup for storing object names and visibility settings
+    PropertyGroup for storing object names, visibility settings, and UV mapping data
     """
 
     name: bpy.props.StringProperty()  # type: ignore
@@ -44,6 +44,7 @@ class speckle_object(bpy.types.PropertyGroup):
     hide_viewport: bpy.props.BoolProperty(name="Hide Viewport", default=False)  # type: ignore
     hide_select: bpy.props.BoolProperty(name="Hide Select", default=False)  # type: ignore
     hide_render: bpy.props.BoolProperty(name="Hide Render", default=False)  # type: ignore
+    uv_data_serialized: bpy.props.StringProperty()  # type: ignore
 
 
 class speckle_collection(bpy.types.PropertyGroup):

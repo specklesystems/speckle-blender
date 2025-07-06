@@ -7,6 +7,7 @@ from ..utils.model_card_utils import (
     delete_model_card_objects,
     update_model_card_objects,
     store_visibility_settings,
+    store_uv_mappings,
 )
 
 
@@ -28,8 +29,9 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
-        # store visibility settings before deleting objects
+        # store visibility settings and UV mappings before deleting objects
         store_visibility_settings(model_card)
+        store_uv_mappings(model_card)
 
         delete_model_card_objects(model_card, context)
 

@@ -184,6 +184,8 @@ def load_operation(
     if speckle_root_id and speckle_root_id in collection_hierarchy:
         collection_hierarchy[speckle_root_id]["blender_collection"] = root_collection
         converted_objects[speckle_root_id] = root_collection
+        # Add root collection name as key for UV mapping preservation
+        converted_objects[root_collection.name] = root_collection
 
     # create collections in depth order (skip the root that's already mapped)
     for coll_id in sorted_collections:
@@ -213,6 +215,8 @@ def load_operation(
 
         coll_info["blender_collection"] = blender_collection
         converted_objects[coll_id] = blender_collection
+        # Add collection name as key for UV mapping preservation
+        converted_objects[blender_collection.name] = blender_collection
 
     conversion_count = 0
     for traversal_item in traversal_function.traverse(version_data):
@@ -262,6 +266,8 @@ def load_operation(
             converted_objects[speckle_obj.id] = blender_obj
             if hasattr(speckle_obj, "applicationId"):
                 converted_objects[speckle_obj.applicationId] = blender_obj
+            # Add object name as key for UV mapping preservation
+            converted_objects[blender_obj.name] = blender_obj
 
             if not isinstance(blender_obj, bpy.types.Collection):
                 try:

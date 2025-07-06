@@ -1,4 +1,5 @@
 import bpy
+import json
 from bpy.types import Context
 from typing import Dict
 from ..utils.property_groups import speckle_model_card
@@ -52,10 +53,104 @@ def store_visibility_settings(model_card: speckle_model_card):
                     s_col.exclude_from_view_layer = False
 
 
+def store_uv_mappings(model_card: speckle_model_card):
+    """
+    Store current UV mapping data of model card mesh objects
+    This is used to restore the UV mappings after loading a new version
+    """
+    for s_obj in model_card.objects:
+        blender_obj = bpy.data.objects.get(s_obj.name)
+
+        if blender_obj and blender_obj.type == "MESH" and blender_obj.data:
+            mesh = blender_obj.data
+
+            uv_data = {"active_uv_layer": "", "uv_layers": []}
+
+            # Store active UV layer name
+            if mesh.uv_layers.active:
+                uv_data["active_uv_layer"] = mesh.uv_layers.active.name
+
+            # Store UV data for each UV layer
+            for uv_layer in mesh.uv_layers:
+                # Extract UV coordinates for all loops in this layer
+                uv_coords = []
+                for uv_loop in uv_layer.data:
+                    uv_coords.extend([uv_loop.uv.x, uv_loop.uv.y])
+
+                uv_data["uv_layers"].append(
+                    {"name": uv_layer.name, "uv_coords": uv_coords}
+                )
+
+            # Serialize complete UV data as JSON string
+            s_obj.uv_data_serialized = json.dumps(uv_data)
+
+
+def restore_uv_mappings(
+    model_card: speckle_model_card,
+    converted_objects: Dict[str, bpy.types.Object | bpy.types.Collection],
+):
+    """
+    Restore UV mapping data to reloaded mesh objects
+    """
+    # First, collect UV mapping data from property groups before they are cleared
+    uv_mapping_data = {}
+    for s_obj in model_card.objects:
+        if s_obj.uv_data_serialized:  # Only process objects that have UV data stored
+            try:
+                uv_data = json.loads(s_obj.uv_data_serialized)
+                uv_mapping_data[s_obj.name] = uv_data
+            except (json.JSONDecodeError, ValueError):
+                # Skip invalid UV data
+                continue
+
+    # Now restore UV mappings to the new objects
+    for obj_name, uv_data in uv_mapping_data.items():
+        if obj_name in converted_objects:
+            blender_obj = converted_objects[obj_name]
+
+            # Only process mesh objects
+            if (
+                isinstance(blender_obj, bpy.types.Object)
+                and blender_obj.type == "MESH"
+                and blender_obj.data
+            ):
+                mesh = blender_obj.data
+
+                # Restore UV layers
+                for uv_layer_data in uv_data.get("uv_layers", []):
+                    layer_name = uv_layer_data["name"]
+                    uv_coords = uv_layer_data["uv_coords"]
+
+                    # Find or create the UV layer
+                    uv_layer = mesh.uv_layers.get(layer_name)
+                    if not uv_layer:
+                        uv_layer = mesh.uv_layers.new(name=layer_name)
+
+                    # Restore UV coordinates
+                    expected_coords = len(mesh.loops) * 2  # 2 coords per loop
+
+                    if len(uv_coords) == expected_coords:
+                        for i, uv_loop in enumerate(uv_layer.data):
+                            coord_idx = i * 2
+                            if coord_idx + 1 < len(uv_coords):
+                                uv_loop.uv = (
+                                    uv_coords[coord_idx],
+                                    uv_coords[coord_idx + 1],
+                                )
+
+                # Restore active UV layer
+                active_uv_layer = uv_data.get("active_uv_layer", "")
+                if active_uv_layer and mesh.uv_layers.get(active_uv_layer):
+                    mesh.uv_layers.active = mesh.uv_layers[active_uv_layer]
+
+
 def update_model_card_objects(
     model_card: speckle_model_card,
     converted_objects: Dict[str, bpy.types.Object | bpy.types.Collection],
 ):
+    # Restore UV mappings before clearing property groups
+    restore_uv_mappings(model_card, converted_objects)
+
     # Store visibility settings from property group before clearing
     visibility_settings = {}
     for s_obj in model_card.objects:
