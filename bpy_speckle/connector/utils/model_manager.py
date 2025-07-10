@@ -1,9 +1,8 @@
-from specklepy.core.api.client import SpeckleClient
-from specklepy.core.api.credentials import get_local_accounts, Account
 from specklepy.core.api.inputs.project_inputs import ProjectModelsFilter
 from specklepy.core.api.models.current import Model
 from typing import List, Tuple, Optional
 from .misc import format_relative_time, strip_non_ascii
+from .account_manager import _client_cache
 
 
 def get_models_for_project(
@@ -19,16 +18,11 @@ def get_models_for_project(
             )
             return []
 
-        # Get the account info
-        account: Optional[Account] = next(
-            (acc for acc in get_local_accounts() if acc.id == account_id), None
-        )
-        if not account:
-            print(f"Error: Could not find account with ID: {account_id}")
+        # Get cached client
+        client = _client_cache.get_client(account_id)
+        if not client:
+            print(f"Error: Could not get client for account: {account_id}")
             return []
-
-        client = SpeckleClient(host=account.serverInfo.url)
-        client.authenticate_with_account(account)
 
         try:
             client.project.get(project_id)
@@ -53,4 +47,6 @@ def get_models_for_project(
 
     except Exception as e:
         print(f"Error fetching models: {str(e)}")
+        # Clear cache on error to prevent stale clients
+        _client_cache.clear()
         return []
