@@ -6,6 +6,8 @@ from ..operations.load_operation import load_operation
 from ..utils.model_card_utils import (
     delete_model_card_objects,
     update_model_card_objects,
+    store_visibility_settings,
+    store_modifier_settings,
 )
 
 
@@ -27,6 +29,8 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
+        store_visibility_settings(model_card)
+        store_modifier_settings(model_card)
         delete_model_card_objects(model_card, context)
 
         # set wm
