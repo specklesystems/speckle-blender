@@ -103,7 +103,7 @@ def load_operation(
 
     traversal_function = create_default_traversal_function()
 
-    root_collection_name = f"{wm.selected_model_name} - {wm.selected_version_id[:8]}"
+    root_collection_name = f"{wm.selected_model_name} - {wm.selected_version_id}"
     root_collection = bpy.data.collections.new(root_collection_name)
     context.scene.collection.children.link(root_collection)
 
@@ -140,7 +140,7 @@ def load_operation(
                 speckle_root_id = speckle_obj.id
 
             collection_name = getattr(
-                speckle_obj, "name", f"Collection_{speckle_obj.id[:8]}"
+                speckle_obj, "name", f"Collection_{speckle_obj.id}"
             )
 
             parent_id = None
