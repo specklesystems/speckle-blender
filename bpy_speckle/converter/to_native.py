@@ -186,9 +186,106 @@ def convert_to_native(
         # Store Speckle ID in custom property
         converted_object["speckle_id"] = speckle_object.id
         if hasattr(speckle_object, "applicationId"):
-            converted_object["speckle_application_id"] = speckle_object.applicationId
+            converted_object["applicationId"] = speckle_object.applicationId
+        
+        # Extract and store Speckle properties
+        speckle_properties = extract_speckle_properties(speckle_object)
+        for prop_name, prop_value in speckle_properties.items():
+            try:
+                converted_object[prop_name] = prop_value
+            except Exception as e:
+                # Skip problematic properties
+                print(f"Warning: Could not set property '{prop_name}': {e}")
 
     return converted_object
+
+
+def convert_property_value(value: Any) -> Any:
+    """Convert property values to appropriate Python types."""
+    if isinstance(value, str):
+        # Handle boolean strings
+        lower_value = value.lower()
+        if lower_value == "yes" or lower_value == "true":
+            return True
+        elif lower_value == "no" or lower_value == "false":
+            return False
+        # Return string as-is
+        return value
+    elif isinstance(value, (int, float)):
+        # Return numeric values as-is
+        return value
+    elif isinstance(value, bool):
+        # Return boolean as-is
+        return value
+    else:
+        # Convert everything else to string
+        return str(value)
+
+
+def _traverse_properties(obj: Any, parent_name: str = "") -> Dict[str, Any]:
+    """Recursively traverse properties, collecting name/value pairs with duplicate handling."""
+    properties = {}
+    
+    if not isinstance(obj, dict):
+        return properties
+    
+    for key, value in obj.items():
+        # Skip excluded sections
+        if key == "Material Quantities":
+            continue
+        if key == "Composite Structure":
+            continue
+        if parent_name == "Type Parameters" and key == "Structure":
+            continue
+            
+        if isinstance(value, dict):
+            # Check if this is a complex property (has name and value)
+            if "name" in value and "value" in value:
+                # Extract only name and value, ignore other fields
+                prop_name = value.get("name", key)
+                prop_value = convert_property_value(value["value"])
+                
+                # Handle duplicates by adding parent suffix
+                final_name = prop_name
+                if final_name in properties:
+                    final_name = f"{prop_name}_{key}"  # Use the dict key as suffix
+                
+                properties[final_name] = prop_value
+            else:
+                # Recurse into nested structure
+                nested_props = _traverse_properties(value, key)
+                for nested_name, nested_value in nested_props.items():
+                    # Handle duplicates by adding parent suffix
+                    final_name = nested_name
+                    if final_name in properties:
+                        final_name = f"{nested_name}_{key}"
+                    
+                    properties[final_name] = nested_value
+        else:
+            # Simple property - store directly with key as name
+            final_name = key
+            if final_name in properties:
+                final_name = f"{key}_{parent_name}" if parent_name else key
+            
+            properties[final_name] = convert_property_value(value)
+    
+    return properties
+
+
+def extract_speckle_properties(speckle_object: Base) -> Dict[str, Any]:
+    """Extract properties from Speckle object properties field only."""
+    if not hasattr(speckle_object, "properties"):
+        return {}
+    
+    try:
+        properties = speckle_object.properties
+        if isinstance(properties, dict):
+            return _traverse_properties(properties)
+    except Exception as e:
+        # Silently handle any extraction errors
+        print(f"Warning: Failed to extract properties: {e}")
+    
+    return {}
 
 
 def display_value_to_native(
@@ -320,7 +417,9 @@ def _members_to_native(
 
     for item in others:
         try:
-            blender_object = convert_to_native(item, material_mapping, instance_loading_mode="INSTANCE_PROXIES")
+            blender_object = convert_to_native(
+                item, material_mapping, instance_loading_mode="INSTANCE_PROXIES"
+            )
             if blender_object:
                 # If the parent is a DataObject, override the name of the converted child
                 if is_data_object:
@@ -1219,7 +1318,7 @@ def instance_definition_proxy_to_native(
         "Must be 'INSTANCE_PROXIES' or 'LINKED_DUPLICATES'"
     )
     assert isinstance(material_mapping, dict), "material_mapping must be a dictionary"
-    
+
     processed_definitions = processed_definitions or {}
     definition_collections = {}
     converted_objects = {}
@@ -1240,7 +1339,7 @@ def instance_definition_proxy_to_native(
     sorted_components = sort_instance_components(definitions, [])
 
     for _, _, def_id, definition in sorted_components:
-        collection_name = getattr(definition, "name", f"Definition_{def_id[:8]}")
+        collection_name = getattr(definition, "name", f"Definition_{def_id}")
 
         if def_id in processed_definitions:
             definition_collections[def_id] = processed_definitions[def_id]
@@ -1272,10 +1371,10 @@ def instance_definition_proxy_to_native(
                             nested_def = definitions[found_obj.definitionId]
                             max_depth = getattr(nested_def, "maxDepth", 0)
                             if max_depth > 0:  # Only process if max_depth allows
-                                assert found_obj.definitionId in definition_collections, (
-                                    f"Definition collection not found for nested instance {found_obj.definitionId}"
-                                )
-                                
+                                assert (
+                                    found_obj.definitionId in definition_collections
+                                ), f"Definition collection not found for nested instance {found_obj.definitionId}"
+
                                 if instance_loading_mode == "LINKED_DUPLICATES":
                                     blender_obj = instance_proxy_to_linked_duplicates(
                                         found_obj,
@@ -1293,7 +1392,11 @@ def instance_definition_proxy_to_native(
                                 if blender_obj:
                                     converted_objects[obj_id] = blender_obj
                         else:
-                            blender_obj = convert_to_native(found_obj, material_mapping, instance_loading_mode="INSTANCE_PROXIES")
+                            blender_obj = convert_to_native(
+                                found_obj,
+                                material_mapping,
+                                instance_loading_mode="INSTANCE_PROXIES",
+                            )
                             if blender_obj:
                                 definition_collection.objects.link(blender_obj)
                                 converted_objects[obj_id] = blender_obj
@@ -1398,16 +1501,16 @@ def instance_proxy_to_linked_duplicates(
         @ mathutils.Matrix.Diagonal(scale_vector).to_4x4()
     )
 
-    instance_name = f"Instance_{speckle_instance.id[:8]}"
+    instance_name = f"Instance_{speckle_instance.id}"
     parent_empty = bpy.data.objects.new(instance_name, None)
-    parent_empty.empty_display_type = 'PLAIN_AXES'
+    parent_empty.empty_display_type = "PLAIN_AXES"
     parent_empty.empty_display_size = 0.1
-    
+
     parent_empty.matrix_world = final_matrix
-    
+
     # link parent to root collection
     root_collection.objects.link(parent_empty)
-    
+
     parent_empty["speckle_id"] = speckle_instance.id
     parent_empty["speckle_type"] = speckle_instance.speckle_type
     parent_empty["definition_id"] = speckle_instance.definitionId
@@ -1418,14 +1521,14 @@ def instance_proxy_to_linked_duplicates(
     for obj in definition_collection.objects:
         # create a copy of the object with linked data
         duplicate_obj = obj.copy()
-        
+
         duplicate_obj.name = f"{obj.name}_{speckle_instance.id[:8]}"
-        
+
         root_collection.objects.link(duplicate_obj)
-        
+
         # apply the instance transformation directly to each object
         duplicate_obj.matrix_world = final_matrix @ obj.matrix_world
-        
+
         duplicated_objects.append(duplicate_obj)
 
     return parent_empty
@@ -1492,7 +1595,7 @@ def instance_proxy_to_native(
 
     instance_obj.empty_display_size = 0
 
-    instance_name = f"Instance_{speckle_instance.id[:8]}"
+    instance_name = f"Instance_{speckle_instance.id}"
     instance_obj.name = instance_name
 
     if instance_obj.name not in root_collection.objects:
