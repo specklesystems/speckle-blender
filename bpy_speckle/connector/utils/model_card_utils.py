@@ -34,7 +34,6 @@ def get_object_by_application_id(app_id: str):
 def get_objects_by_application_ids(app_ids: list):
     """
     Find multiple Blender objects by their applicationIds
-    Returns a dictionary mapping applicationId to object
     """
     if not app_ids:
         return {}

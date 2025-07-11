@@ -29,12 +29,8 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
-        # store visibility settings before deleting objects
         store_visibility_settings(model_card)
-
-        # store modifier settings before deleting objects
         store_modifier_settings(model_card)
-
         delete_model_card_objects(model_card, context)
 
         # set wm
