@@ -187,8 +187,103 @@ def convert_to_native(
         converted_object["speckle_id"] = speckle_object.id
         if hasattr(speckle_object, "applicationId"):
             converted_object["applicationId"] = speckle_object.applicationId
+        
+        # Extract and store Speckle properties
+        speckle_properties = extract_speckle_properties(speckle_object)
+        for prop_name, prop_value in speckle_properties.items():
+            try:
+                converted_object[prop_name] = prop_value
+            except Exception as e:
+                # Skip problematic properties
+                print(f"Warning: Could not set property '{prop_name}': {e}")
 
     return converted_object
+
+
+def convert_property_value(value: Any) -> Any:
+    """Convert property values to appropriate Python types."""
+    if isinstance(value, str):
+        # Handle boolean strings
+        lower_value = value.lower()
+        if lower_value == "yes" or lower_value == "true":
+            return True
+        elif lower_value == "no" or lower_value == "false":
+            return False
+        # Return string as-is
+        return value
+    elif isinstance(value, (int, float)):
+        # Return numeric values as-is
+        return value
+    elif isinstance(value, bool):
+        # Return boolean as-is
+        return value
+    else:
+        # Convert everything else to string
+        return str(value)
+
+
+def _traverse_properties(obj: Any, parent_name: str = "") -> Dict[str, Any]:
+    """Recursively traverse properties, collecting name/value pairs with duplicate handling."""
+    properties = {}
+    
+    if not isinstance(obj, dict):
+        return properties
+    
+    for key, value in obj.items():
+        # Skip excluded sections
+        if key == "Material Quantities":
+            continue
+        if parent_name == "Type Parameters" and key == "Structure":
+            continue
+            
+        if isinstance(value, dict):
+            # Check if this is a complex property (has name and value)
+            if "name" in value and "value" in value:
+                # Extract only name and value, ignore other fields
+                prop_name = value.get("name", key)
+                prop_value = convert_property_value(value["value"])
+                
+                # Handle duplicates by adding parent suffix
+                final_name = prop_name
+                if final_name in properties:
+                    final_name = f"{prop_name}_{key}"  # Use the dict key as suffix
+                
+                properties[final_name] = prop_value
+            else:
+                # Recurse into nested structure
+                nested_props = _traverse_properties(value, key)
+                for nested_name, nested_value in nested_props.items():
+                    # Handle duplicates by adding parent suffix
+                    final_name = nested_name
+                    if final_name in properties:
+                        final_name = f"{nested_name}_{key}"
+                    
+                    properties[final_name] = nested_value
+        else:
+            # Simple property - store directly with key as name
+            final_name = key
+            if final_name in properties:
+                final_name = f"{key}_{parent_name}" if parent_name else key
+            
+            properties[final_name] = convert_property_value(value)
+    
+    return properties
+
+
+def extract_speckle_properties(speckle_object: Base) -> Dict[str, Any]:
+    """Extract properties from Speckle object properties field only."""
+    if not hasattr(speckle_object, "properties"):
+        return {}
+    
+    try:
+        properties = speckle_object.properties
+        if isinstance(properties, dict):
+            return _traverse_properties(properties)
+    except Exception as e:
+        # Silently handle any extraction errors
+        print(f"Warning: Failed to extract properties: {e}")
+    
+    return {}
 
 
 def display_value_to_native(
