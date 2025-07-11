@@ -18,13 +18,41 @@ def find_layer_collection(layer_collection, collection_name):
     return None
 
 
+def get_object_by_application_id(app_id: str):
+    """
+    Find a Blender object by its applicationId stored in custom property
+    """
+    if not app_id:
+        return None
+
+    for obj in bpy.data.objects:
+        if "applicationId" in obj and obj["applicationId"] == app_id:
+            return obj
+    return None
+
+
+def get_objects_by_application_ids(app_ids: list):
+    """
+    Find multiple Blender objects by their applicationIds
+    Returns a dictionary mapping applicationId to object
+    """
+    if not app_ids:
+        return {}
+
+    result = {}
+    for obj in bpy.data.objects:
+        if "applicationId" in obj and obj["applicationId"] in app_ids:
+            result[obj["applicationId"]] = obj
+    return result
+
+
 def store_visibility_settings(model_card: speckle_model_card):
     """
     Store current visibility settings of model card objects and collections
     This is used to restore the visibility settings of the loaded objects after loading a new version
     """
     for s_obj in model_card.objects:
-        blender_obj = bpy.data.objects.get(s_obj.name)
+        blender_obj = get_object_by_application_id(s_obj.applicationId)
         if blender_obj:
             s_obj.hide_get = blender_obj.hide_get()
             s_obj.hide_viewport = blender_obj.hide_viewport
@@ -60,17 +88,19 @@ def update_model_card_objects(
     # Store visibility settings from property group before clearing
     visibility_settings = {}
     for s_obj in model_card.objects:
-        visibility_settings[s_obj.name] = {
-            "hide_get": s_obj.hide_get,
-            "hide_viewport": s_obj.hide_viewport,
-            "hide_select": s_obj.hide_select,
-            "hide_render": s_obj.hide_render,
-        }
+        if s_obj.applicationId:
+            visibility_settings[s_obj.applicationId] = {
+                "hide_get": s_obj.hide_get,
+                "hide_viewport": s_obj.hide_viewport,
+                "hide_select": s_obj.hide_select,
+                "hide_render": s_obj.hide_render,
+            }
 
     # Store modifier settings from property group before clearing
     modifier_settings = {}
     for s_obj in model_card.objects:
-        modifier_settings[s_obj.name] = s_obj.modifiers
+        if s_obj.applicationId:
+            modifier_settings[s_obj.applicationId] = s_obj.modifiers
 
     # Store collection visibility settings from property group before clearing
     collection_visibility_settings = {}
@@ -143,24 +173,36 @@ def update_model_card_objects(
                 continue
             s_obj = model_card.objects.add()
             s_obj.name = obj.name
-
+            s_obj.applicationId = obj.get("applicationId", "")
             # Restore visibility settings if they exist
-            if obj.name in visibility_settings:
-                s_obj.hide_get = visibility_settings[obj.name]["hide_get"]
-                s_obj.hide_viewport = visibility_settings[obj.name]["hide_viewport"]
-                s_obj.hide_select = visibility_settings[obj.name]["hide_select"]
-                s_obj.hide_render = visibility_settings[obj.name]["hide_render"]
+            if s_obj.applicationId and s_obj.applicationId in visibility_settings:
+                s_obj.hide_get = visibility_settings[s_obj.applicationId]["hide_get"]
+                s_obj.hide_viewport = visibility_settings[s_obj.applicationId][
+                    "hide_viewport"
+                ]
+                s_obj.hide_select = visibility_settings[s_obj.applicationId][
+                    "hide_select"
+                ]
+                s_obj.hide_render = visibility_settings[s_obj.applicationId][
+                    "hide_render"
+                ]
 
                 # Apply the visibility settings to the new object
-                obj.hide_set(visibility_settings[obj.name]["hide_get"])
-                obj.hide_viewport = visibility_settings[obj.name]["hide_viewport"]
-                obj.hide_select = visibility_settings[obj.name]["hide_select"]
-                obj.hide_render = visibility_settings[obj.name]["hide_render"]
+                obj.hide_set(visibility_settings[s_obj.applicationId]["hide_get"])
+                obj.hide_viewport = visibility_settings[s_obj.applicationId][
+                    "hide_viewport"
+                ]
+                obj.hide_select = visibility_settings[s_obj.applicationId][
+                    "hide_select"
+                ]
+                obj.hide_render = visibility_settings[s_obj.applicationId][
+                    "hide_render"
+                ]
 
             # Restore modifier settings if they exist
-            if obj.name in modifier_settings:
-                s_obj.modifiers = modifier_settings[obj.name]
-                restore_modifier_settings(obj, modifier_settings[obj.name])
+            if s_obj.applicationId and s_obj.applicationId in modifier_settings:
+                s_obj.modifiers = modifier_settings[s_obj.applicationId]
+                restore_modifier_settings(obj, modifier_settings[s_obj.applicationId])
 
 
 def delete_model_card_objects(model_card: speckle_model_card, context: Context) -> None:
@@ -169,7 +211,7 @@ def delete_model_card_objects(model_card: speckle_model_card, context: Context) 
     """
     # Delete objects directly without requiring selection
     for obj in model_card.objects:
-        blender_obj = bpy.data.objects.get(obj.name)
+        blender_obj = get_object_by_application_id(obj.applicationId)
         if not blender_obj:
             continue
 
@@ -197,7 +239,7 @@ def select_model_card_objects(model_card, context: Context):
     bpy.ops.object.select_all(action="DESELECT")
     # select objects in model card
     for obj in model_card.objects:
-        blender_obj = bpy.data.objects.get(obj.name)
+        blender_obj = get_object_by_application_id(obj.applicationId)
         if not blender_obj:
             continue
         if blender_obj.name in context.view_layer.objects:
@@ -316,7 +358,7 @@ def store_modifier_settings(model_card: speckle_model_card):
     This is used to restore the modifier settings of the loaded objects after loading a new version
     """
     for s_obj in model_card.objects:
-        blender_obj = bpy.data.objects.get(s_obj.name)
+        blender_obj = get_object_by_application_id(s_obj.applicationId)
         if blender_obj and hasattr(blender_obj, "modifiers"):
             modifiers_data = []
             for modifier in blender_obj.modifiers:
