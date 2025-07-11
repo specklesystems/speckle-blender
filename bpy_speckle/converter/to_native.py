@@ -233,6 +233,8 @@ def _traverse_properties(obj: Any, parent_name: str = "") -> Dict[str, Any]:
         # Skip excluded sections
         if key == "Material Quantities":
             continue
+        if key == "Composite Structure":
+            continue
         if parent_name == "Type Parameters" and key == "Structure":
             continue
             
