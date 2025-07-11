@@ -186,7 +186,7 @@ def convert_to_native(
         # Store Speckle ID in custom property
         converted_object["speckle_id"] = speckle_object.id
         if hasattr(speckle_object, "applicationId"):
-            converted_object["applicationId"] = speckle_object.applicationId
+            converted_object["speckle_application_id"] = speckle_object.applicationId
 
     return converted_object
 
