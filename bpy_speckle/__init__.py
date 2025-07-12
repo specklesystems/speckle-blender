@@ -35,6 +35,7 @@ bl_info = {
 
 # UI
 from .connector.ui.main_panel import SPECKLE_PT_main_panel
+from .connector.ui.model_cards_panel import SPECKLE_PT_model_cards_panel
 from .connector.ui.project_selection_dialog import (
     SPECKLE_OT_project_selection_dialog,
     SPECKLE_UL_projects_list,
@@ -141,6 +142,7 @@ def invoke_window_manager_properties():
 # Classes to load
 classes = (
     SPECKLE_PT_main_panel,
+    SPECKLE_PT_model_cards_panel,
     SPECKLE_OT_publish,
     SPECKLE_OT_load,
     SPECKLE_OT_project_selection_dialog,
