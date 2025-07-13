@@ -87,7 +87,7 @@ def store_uv_mappings(model_card: speckle_model_card):
     This is used to restore the UV mappings after loading a new version
     """
     for s_obj in model_card.objects:
-        blender_obj = bpy.data.objects.get(s_obj.name)
+        blender_obj = get_object_by_application_id(s_obj.applicationId)
 
         if blender_obj and blender_obj.type == "MESH" and blender_obj.data:
             mesh = blender_obj.data
@@ -126,16 +126,21 @@ def restore_uv_mappings(
         if s_obj.uv_data_serialized:  # Only process objects that have UV data stored
             try:
                 uv_data = json.loads(s_obj.uv_data_serialized)
-                uv_mapping_data[s_obj.name] = uv_data
+                uv_mapping_data[s_obj.applicationId] = uv_data
             except (json.JSONDecodeError, ValueError):
                 # Skip invalid UV data
                 continue
 
     # Now restore UV mappings to the new objects
-    for obj_name, uv_data in uv_mapping_data.items():
-        if obj_name in converted_objects:
-            blender_obj = converted_objects[obj_name]
+    for app_id, uv_data in uv_mapping_data.items():
+        # Find the blender object by applicationId in converted_objects
+        blender_obj = None
+        for obj in converted_objects.values():
+            if isinstance(obj, bpy.types.Object) and obj.get("applicationId") == app_id:
+                blender_obj = obj
+                break
 
+        if blender_obj:
             # Only process mesh objects
             if (
                 isinstance(blender_obj, bpy.types.Object)
