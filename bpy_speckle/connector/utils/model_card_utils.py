@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import Context
-from typing import Dict
+from typing import Dict, Any, Optional
 import json
 from ..utils.property_groups import speckle_model_card
 
@@ -272,7 +272,7 @@ def model_card_exists(
     return False
 
 
-def serialize_modifier(modifier):
+def serialize_modifier(modifier: bpy.types.Modifier) -> Dict[str, Any]:
     """
     Serialize a Blender modifier to a dictionary
     """
@@ -316,7 +316,7 @@ def serialize_modifier(modifier):
     return modifier_data
 
 
-def deserialize_modifier(obj, modifier_data):
+def deserialize_modifier(obj: bpy.types.Object, modifier_data: Dict[str, Any]) -> Optional[bpy.types.Modifier]:
     """
     Recreate a modifier from serialized data
     """
@@ -351,7 +351,7 @@ def deserialize_modifier(obj, modifier_data):
         return None
 
 
-def store_modifier_settings(model_card: speckle_model_card):
+def store_modifier_settings(model_card: speckle_model_card) -> None:
     """
     Store current modifier settings of model card objects
     This is used to restore the modifier settings of the loaded objects after loading a new version
@@ -368,7 +368,7 @@ def store_modifier_settings(model_card: speckle_model_card):
             s_obj.modifiers = json.dumps(modifiers_data)
 
 
-def restore_modifier_settings(blender_obj, modifier_data_json):
+def restore_modifier_settings(blender_obj: bpy.types.Object, modifier_data_json: str) -> None:
     """
     Restore modifier settings to a Blender object
     """
