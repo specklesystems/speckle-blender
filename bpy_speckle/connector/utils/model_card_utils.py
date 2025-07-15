@@ -92,46 +92,112 @@ def capture_modifier_data(blender_obj: bpy.types.Object) -> list:
     return modifiers_data
 
 
+def has_visibility_modifications(obj: bpy.types.Object) -> bool:
+    """Check if object has non-default visibility settings"""
+    return obj.hide_viewport or obj.hide_select or obj.hide_render or obj.hide_get()
+
+
+def has_modifier_modifications(obj: bpy.types.Object) -> bool:
+    """Check if object has any modifiers applied"""
+    return hasattr(obj, "modifiers") and len(obj.modifiers) > 0
+
+
+def has_collection_visibility_modifications(layer_col, collection) -> bool:
+    """Check if collection has non-default visibility settings"""
+    return (
+        layer_col.hide_viewport
+        or collection.hide_select
+        or collection.hide_render
+        or layer_col.exclude
+    )
+
+
 def collect_objects_with_properties(
     model_card: speckle_model_card,
 ) -> Dict[str, Dict[str, Any]]:
     """
     Collect objects and collections with their current properties before deletion
+    Only stores data for objects that have been modified from defaults
     """
     collected_data = {"objects": {}, "collections": {}}
 
-    # Collect object properties
+    # Metrics for optimization tracking
+    total_objects = 0
+    objects_with_visibility_mods = 0
+    objects_with_modifier_mods = 0
+    total_collections = 0
+    collections_with_mods = 0
+
+    # Collect object properties (only for modified objects)
     for s_obj in model_card.objects:
         blender_obj = get_object_by_application_id(s_obj.applicationId)
         if blender_obj:
-            collected_data["objects"][s_obj.applicationId] = {
-                "visibility": {
+            total_objects += 1
+            obj_data = {}
+
+            # Only collect visibility if modified from defaults
+            if has_visibility_modifications(blender_obj):
+                objects_with_visibility_mods += 1
+                obj_data["visibility"] = {
                     "hide_get": blender_obj.hide_get(),
                     "hide_viewport": blender_obj.hide_viewport,
                     "hide_select": blender_obj.hide_select,
                     "hide_render": blender_obj.hide_render,
-                },
-                "modifiers": capture_modifier_data(blender_obj)
-                if hasattr(blender_obj, "modifiers")
-                else [],
-            }
+                }
 
-    # Collect collection properties
+            # Only collect modifiers if object has any
+            if has_modifier_modifications(blender_obj):
+                objects_with_modifier_mods += 1
+                obj_data["modifiers"] = capture_modifier_data(blender_obj)
+
+            # Only store object data if it has modifications
+            if obj_data:
+                collected_data["objects"][s_obj.applicationId] = obj_data
+
+    # Collect collection properties (only for modified collections)
     for s_col in model_card.collections:
         blender_col = bpy.data.collections.get(s_col.name)
         if blender_col:
+            total_collections += 1
             view_layer = bpy.context.view_layer
             if view_layer:
                 layer_col = find_layer_collection(
                     view_layer.layer_collection, blender_col.name
                 )
-                if layer_col:
+                if layer_col and has_collection_visibility_modifications(
+                    layer_col, blender_col
+                ):
+                    collections_with_mods += 1
                     collected_data["collections"][s_col.name] = {
                         "hide_viewport": layer_col.hide_viewport,
                         "hide_select": layer_col.collection.hide_select,
                         "hide_render": layer_col.collection.hide_render,
                         "exclude_from_view_layer": layer_col.exclude,
                     }
+
+    # Optional logging of optimization metrics
+    if total_objects > 0 or total_collections > 0:
+        stored_objects = len(collected_data["objects"])
+        stored_collections = len(collected_data["collections"])
+
+        print("Property collection optimization:")
+        print(
+            f"  Objects: {stored_objects}/{total_objects} stored "
+            f"({(stored_objects/total_objects)*100:.1f}% with modifications)"
+        )
+        print(
+            f"    - Visibility: {objects_with_visibility_mods}/{total_objects} "
+            f"({(objects_with_visibility_mods/total_objects)*100:.1f}%)"
+        )
+        print(
+            f"    - Modifiers: {objects_with_modifier_mods}/{total_objects} "
+            f"({(objects_with_modifier_mods/total_objects)*100:.1f}%)"
+        )
+        if total_collections > 0:
+            print(
+                f"  Collections: {stored_collections}/{total_collections} stored "
+                f"({(stored_collections/total_collections)*100:.1f}% with modifications)"
+            )
 
     return collected_data
 
@@ -141,17 +207,19 @@ def transfer_object_properties(
 ) -> None:
     """
     Transfer visibility and modifiers from old object data to new object
+    Handles sparse data gracefully - applies defaults when data is missing
     """
-    # Transfer visibility settings
-    visibility = old_obj_data.get("visibility", {})
+    # Transfer visibility settings (if any were modified)
+    visibility = old_obj_data.get("visibility")
     if visibility:
         new_obj.hide_set(visibility.get("hide_get", False))
         new_obj.hide_viewport = visibility.get("hide_viewport", False)
         new_obj.hide_select = visibility.get("hide_select", False)
         new_obj.hide_render = visibility.get("hide_render", False)
+    # If no visibility data, object keeps defaults (all False)
 
-    # Transfer modifiers
-    old_modifiers = old_obj_data.get("modifiers", [])
+    # Transfer modifiers (if any were present)
+    old_modifiers = old_obj_data.get("modifiers")
     if old_modifiers and hasattr(new_obj, "modifiers"):
         # Clear existing modifiers
         new_obj.modifiers.clear()
@@ -159,6 +227,7 @@ def transfer_object_properties(
         # Transfer each modifier
         for modifier_data in old_modifiers:
             recreate_modifier_from_data(new_obj, modifier_data)
+    # If no modifier data, object keeps default (no modifiers)
 
 
 def transfer_collection_properties(
@@ -166,11 +235,14 @@ def transfer_collection_properties(
 ) -> None:
     """
     Transfer visibility properties from old collection data to new collection
+    Handles sparse data gracefully - applies defaults when data is missing
     """
     view_layer = bpy.context.view_layer
     if view_layer:
         layer_col = find_layer_collection(view_layer.layer_collection, new_col.name)
         if layer_col:
+            # Only apply properties if collection had modifications
+            # (otherwise it keeps defaults: all False)
             layer_col.hide_viewport = old_col_data.get("hide_viewport", False)
             layer_col.collection.hide_select = old_col_data.get("hide_select", False)
             layer_col.collection.hide_render = old_col_data.get("hide_render", False)
