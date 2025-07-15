@@ -44,6 +44,41 @@ def get_objects_by_application_ids(app_ids: list):
     return result
 
 
+def get_collection_by_application_id(app_id: str):
+    """
+    Find a Blender collection by its applicationId stored in custom property
+    """
+    if not app_id:
+        return None
+
+    for collection in bpy.data.collections:
+        if "applicationId" in collection and collection["applicationId"] == app_id:
+            return collection
+    return None
+
+
+def get_collection_identifier(blender_col: bpy.types.Collection) -> str:
+    """
+    Get collection identifier: applicationId if exists, fallback to name
+    """
+    if "applicationId" in blender_col and blender_col["applicationId"]:
+        return blender_col["applicationId"]
+    return blender_col.name
+
+
+def find_collection_by_identifier(identifier: str):
+    """
+    Find collection by identifier: try applicationId first, then name
+    """
+    # first try to find by applicationId
+    collection = get_collection_by_application_id(identifier)
+    if collection:
+        return collection
+
+    # fallback to name-based lookup
+    return bpy.data.collections.get(identifier)
+
+
 def capture_modifier_data(blender_obj: bpy.types.Object) -> list:
     """
     Capture modifier data from a Blender object as dictionaries
@@ -146,7 +181,13 @@ def collect_objects_with_properties(
 
     # Collect collection properties (only for modified collections)
     for s_col in model_card.collections:
-        blender_col = bpy.data.collections.get(s_col.name)
+        # try to find collection by applicationId first, then fallback to name
+        blender_col = None
+        if s_col.applicationId:
+            blender_col = get_collection_by_application_id(s_col.applicationId)
+        if not blender_col:
+            blender_col = bpy.data.collections.get(s_col.name)
+
         if blender_col:
             view_layer = bpy.context.view_layer
             if view_layer:
@@ -156,7 +197,9 @@ def collect_objects_with_properties(
                 if layer_col and has_collection_visibility_modifications(
                     layer_col, blender_col
                 ):
-                    collected_data["collections"][s_col.name] = {
+                    # use collection identifier as key
+                    collection_id = get_collection_identifier(blender_col)
+                    collected_data["collections"][collection_id] = {
                         "hide_viewport": layer_col.hide_viewport,
                         "hide_select": layer_col.collection.hide_select,
                         "hide_render": layer_col.collection.hide_render,
@@ -280,11 +323,14 @@ def update_model_card_objects(
                 continue
             s_col = model_card.collections.add()
             s_col.name = obj.name
+            s_col.applicationId = obj.get("applicationId", "")
 
-            # Apply old collection properties if available
-            if old_properties and obj.name in old_properties.get("collections", {}):
-                old_col_data = old_properties["collections"][obj.name]
-                transfer_collection_properties(obj, old_col_data)
+            # apply old collection properties if available (use identifier-based lookup)
+            if old_properties:
+                collection_id = get_collection_identifier(obj)
+                if collection_id in old_properties.get("collections", {}):
+                    old_col_data = old_properties["collections"][collection_id]
+                    transfer_collection_properties(obj, old_col_data)
 
         # Handle objects
         elif isinstance(obj, bpy.types.Object):

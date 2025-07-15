@@ -153,6 +153,7 @@ def load_operation(
                 "id": speckle_obj.id,
                 "name": collection_name,
                 "parent_id": parent_id,
+                "applicationId": getattr(speckle_obj, "applicationId", ""),
                 "blender_collection": None,
                 "full_path": [collection_name],
             }
@@ -208,6 +209,8 @@ def load_operation(
             blender_collection = created_collections[collection_key]
         else:
             blender_collection = bpy.data.collections.new(coll_name)
+            if coll_info.get("applicationId"):
+                blender_collection["applicationId"] = coll_info["applicationId"]
             parent_collection.children.link(blender_collection)
             created_collections[collection_key] = blender_collection
 

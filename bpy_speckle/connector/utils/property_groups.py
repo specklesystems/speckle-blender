@@ -49,6 +49,7 @@ class speckle_collection(bpy.types.PropertyGroup):
     """
 
     name: bpy.props.StringProperty()  # type: ignore
+    applicationId: bpy.props.StringProperty(name="Application ID", default="")  # type: ignore
 
 
 class speckle_model_card(bpy.types.PropertyGroup):
