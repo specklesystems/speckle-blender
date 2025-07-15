@@ -121,23 +121,14 @@ def collect_objects_with_properties(
     """
     collected_data = {"objects": {}, "collections": {}}
 
-    # Metrics for optimization tracking
-    total_objects = 0
-    objects_with_visibility_mods = 0
-    objects_with_modifier_mods = 0
-    total_collections = 0
-    collections_with_mods = 0
-
     # Collect object properties (only for modified objects)
     for s_obj in model_card.objects:
         blender_obj = get_object_by_application_id(s_obj.applicationId)
         if blender_obj:
-            total_objects += 1
             obj_data = {}
 
             # Only collect visibility if modified from defaults
             if has_visibility_modifications(blender_obj):
-                objects_with_visibility_mods += 1
                 obj_data["visibility"] = {
                     "hide_get": blender_obj.hide_get(),
                     "hide_viewport": blender_obj.hide_viewport,
@@ -147,7 +138,6 @@ def collect_objects_with_properties(
 
             # Only collect modifiers if object has any
             if has_modifier_modifications(blender_obj):
-                objects_with_modifier_mods += 1
                 obj_data["modifiers"] = capture_modifier_data(blender_obj)
 
             # Only store object data if it has modifications
@@ -158,7 +148,6 @@ def collect_objects_with_properties(
     for s_col in model_card.collections:
         blender_col = bpy.data.collections.get(s_col.name)
         if blender_col:
-            total_collections += 1
             view_layer = bpy.context.view_layer
             if view_layer:
                 layer_col = find_layer_collection(
@@ -167,37 +156,12 @@ def collect_objects_with_properties(
                 if layer_col and has_collection_visibility_modifications(
                     layer_col, blender_col
                 ):
-                    collections_with_mods += 1
                     collected_data["collections"][s_col.name] = {
                         "hide_viewport": layer_col.hide_viewport,
                         "hide_select": layer_col.collection.hide_select,
                         "hide_render": layer_col.collection.hide_render,
                         "exclude_from_view_layer": layer_col.exclude,
                     }
-
-    # Optional logging of optimization metrics
-    if total_objects > 0 or total_collections > 0:
-        stored_objects = len(collected_data["objects"])
-        stored_collections = len(collected_data["collections"])
-
-        print("Property collection optimization:")
-        print(
-            f"  Objects: {stored_objects}/{total_objects} stored "
-            f"({(stored_objects/total_objects)*100:.1f}% with modifications)"
-        )
-        print(
-            f"    - Visibility: {objects_with_visibility_mods}/{total_objects} "
-            f"({(objects_with_visibility_mods/total_objects)*100:.1f}%)"
-        )
-        print(
-            f"    - Modifiers: {objects_with_modifier_mods}/{total_objects} "
-            f"({(objects_with_modifier_mods/total_objects)*100:.1f}%)"
-        )
-        if total_collections > 0:
-            print(
-                f"  Collections: {stored_collections}/{total_collections} stored "
-                f"({(stored_collections/total_collections)*100:.1f}% with modifications)"
-            )
 
     return collected_data
 
