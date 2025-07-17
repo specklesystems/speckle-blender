@@ -1,3 +1,7 @@
+"""
+All IFC-related imports are wrapped in try-except blocks to ensure the code only runs when Bonsai/ifcopenshell is available.
+"""
+
 from typing import Dict, Any
 from bpy.types import Object
 
@@ -25,28 +29,29 @@ def extract_ifc_properties(blender_object: Object) -> Dict[str, Any]:
         if not ifc_entity:
             return {}
 
-        # Initialize result dictionary
-        ifc_properties = {}
+        properties = {}
 
-        # Extract IFC attributes
-        ifc_properties["ifc_attributes"] = _extract_ifc_attributes(ifc_entity)
+        # extract element attributes
+        attributes = _get_attributes(ifc_entity)
+        if attributes:
+            properties["Attributes"] = attributes
 
-        # Extract property sets
-        ifc_properties["ifc_property_sets"] = _extract_property_sets(ifc_entity)
+        # extract element property sets
+        property_sets = _get_ifc_object_properties(ifc_entity)
+        if property_sets:
+            properties["Property Sets"] = property_sets
 
-        # Extract type information
-        ifc_properties["ifc_type_info"] = _extract_type_info(ifc_entity)
+        # extract element type property sets
+        type_property_sets = _get_ifc_element_type_properties(ifc_entity)
+        if type_property_sets:
+            properties["Element Type Property Sets"] = type_property_sets
 
-        # Extract spatial information
-        ifc_properties["ifc_spatial_info"] = _extract_spatial_info(ifc_entity)
+        # extract element type attributes
+        type_attributes = _get_element_type_attributes(ifc_entity)
+        if type_attributes:
+            properties["Element Type Attributes"] = type_attributes
 
-        # Extract material information
-        ifc_properties["ifc_materials"] = _extract_material_info(ifc_entity)
-
-        # Remove empty sections to keep output clean
-        ifc_properties = {k: v for k, v in ifc_properties.items() if v}
-
-        return ifc_properties
+        return properties
 
     except ImportError:
         # Bonsai/ifcopenshell not available, silently return empty dict
@@ -57,216 +62,172 @@ def extract_ifc_properties(blender_object: Object) -> Dict[str, Any]:
         return {}
 
 
-def _extract_ifc_attributes(ifc_entity) -> Dict[str, Any]:
-    """Extract basic IFC attributes from an entity."""
+def _get_attributes(element) -> Dict[str, Any]:
+    """
+    Extract direct attributes from IFC element.
+    """
     try:
-        attributes = {}
-
-        # Get all attributes
-        entity_info = ifc_entity.get_info()
-
-        # Filter out None values and complex types
-        for attr_name, attr_value in entity_info.items():
-            if attr_value is not None and not hasattr(attr_value, "is_a"):
-                # Only include simple types that can be serialized
-                if isinstance(attr_value, (str, int, float, bool)):
-                    attributes[attr_name] = attr_value
-                elif isinstance(attr_value, (list, tuple)):
-                    # Handle simple lists
-                    if all(
-                        isinstance(item, (str, int, float, bool)) for item in attr_value
-                    ):
-                        attributes[attr_name] = list(attr_value)
-
-        return attributes
-
+        # Use scalar_only=True for performance as per documentation
+        return element.get_info(True, False, scalar_only=True)
     except Exception as e:
-        print(f"Error extracting IFC attributes: {e}")
+        print(f"Error extracting attributes: {e}")
         return {}
 
 
-def _extract_property_sets(ifc_entity) -> Dict[str, Dict[str, Any]]:
-    """Extract property sets from an IFC entity."""
+def _get_ifc_object_properties(element) -> Dict[str, Dict[str, Any]]:
+    """
+    Extract properties from element's direct property relationships.
+    """
     try:
-        import ifcopenshell.util.pset
+        properties = {}
 
-        # Get all property sets
-        psets = ifcopenshell.util.pset.get_psets(ifc_entity)
+        # Process IsDefinedBy relationships
+        if hasattr(element, "IsDefinedBy"):
+            for relationship in element.IsDefinedBy:
+                # Filter for IfcRelDefinesByProperties
+                if relationship.is_a("IfcRelDefinesByProperties"):
+                    relating_property_definition = (
+                        relationship.RelatingPropertyDefinition
+                    )
+                    # Filter for IfcPropertySet definitions
+                    if relating_property_definition.is_a("IfcPropertySet"):
+                        pset_name = relating_property_definition.Name
+                        if pset_name and hasattr(
+                            relating_property_definition, "HasProperties"
+                        ):
+                            pset_properties = _get_properties(
+                                relating_property_definition
+                            )
+                            if pset_properties:
+                                properties[pset_name] = pset_properties
 
-        # Filter out None values and ensure serializable types
-        filtered_psets = {}
-        for pset_name, properties in psets.items():
-            if properties:
-                filtered_props = {}
-                for prop_name, prop_value in properties.items():
-                    if prop_value is not None:
-                        if isinstance(prop_value, (str, int, float, bool)):
-                            filtered_props[prop_name] = prop_value
-                        elif isinstance(prop_value, (list, tuple)):
-                            if all(
-                                isinstance(item, (str, int, float, bool))
-                                for item in prop_value
-                            ):
-                                filtered_props[prop_name] = list(prop_value)
-
-                if filtered_props:
-                    filtered_psets[pset_name] = filtered_props
-
-        return filtered_psets
+        return properties
 
     except Exception as e:
-        print(f"Error extracting property sets: {e}")
+        print(f"Error extracting object properties: {e}")
         return {}
 
 
-def _extract_type_info(ifc_entity) -> Dict[str, Any]:
-    """Extract type information from an IFC entity."""
+def _get_ifc_element_type_properties(element) -> Dict[str, Dict[str, Any]]:
+    """
+    Extract properties from element type's property sets.
+    """
     try:
         import ifcopenshell.util.element
-        import ifcopenshell.util.pset
+
+        properties = {}
 
         # Get relating type
-        relating_type = ifcopenshell.util.element.get_type(ifc_entity)
-
+        relating_type = ifcopenshell.util.element.get_type(element)
         if not relating_type:
             return {}
 
-        type_info = {}
+        # Iterate through HasPropertySets relationship
+        if hasattr(relating_type, "HasPropertySets"):
+            for property_set in relating_type.HasPropertySets:
+                # Filter for IfcPropertySet types only
+                if property_set.is_a("IfcPropertySet"):
+                    pset_name = property_set.Name
+                    if pset_name and hasattr(property_set, "HasProperties"):
+                        pset_properties = _get_properties(property_set)
+                        if pset_properties:
+                            properties[pset_name] = pset_properties
 
-        # Basic type information
-        type_info["name"] = relating_type.Name
-        type_info["class"] = relating_type.is_a()
-        type_info["description"] = relating_type.Description
-
-        # Type properties
-        type_psets = ifcopenshell.util.pset.get_psets(relating_type)
-        if type_psets:
-            filtered_type_psets = {}
-            for pset_name, properties in type_psets.items():
-                if properties:
-                    filtered_props = {}
-                    for prop_name, prop_value in properties.items():
-                        if prop_value is not None:
-                            if isinstance(prop_value, (str, int, float, bool)):
-                                filtered_props[prop_name] = prop_value
-                            elif isinstance(prop_value, (list, tuple)):
-                                if all(
-                                    isinstance(item, (str, int, float, bool))
-                                    for item in prop_value
-                                ):
-                                    filtered_props[prop_name] = list(prop_value)
-
-                    if filtered_props:
-                        filtered_type_psets[pset_name] = filtered_props
-
-            if filtered_type_psets:
-                type_info["properties"] = filtered_type_psets
-
-        return type_info
+        return properties
 
     except Exception as e:
-        print(f"Error extracting type info: {e}")
+        print(f"Error extracting element type properties: {e}")
         return {}
 
 
-def _extract_spatial_info(ifc_entity) -> Dict[str, Any]:
-    """Extract spatial container and hierarchy information."""
+def _get_element_type_attributes(element) -> Dict[str, Any]:
+    """
+    Extract attributes from element type definition.
+    """
     try:
         import ifcopenshell.util.element
 
-        # Get spatial container
-        container = ifcopenshell.util.element.get_container(ifc_entity)
-
-        if not container:
+        # Get relating type
+        relating_type = ifcopenshell.util.element.get_type(element)
+        if not relating_type:
             return {}
 
-        spatial_info = {}
-
-        # Container information
-        spatial_info["container_name"] = container.Name
-        spatial_info["container_class"] = container.is_a()
-        spatial_info["container_description"] = container.Description
-
-        # Build spatial hierarchy
-        hierarchy = []
-        current = container
-
-        while current:
-            hierarchy.append(
-                {
-                    "name": current.Name,
-                    "class": current.is_a(),
-                    "description": current.Description,
-                }
-            )
-            current = ifcopenshell.util.element.get_container(current)
-
-        if hierarchy:
-            spatial_info["hierarchy"] = hierarchy
-
-        return spatial_info
+        # Extract attributes using scalar_only=True
+        return relating_type.get_info(True, False, scalar_only=True)
 
     except Exception as e:
-        print(f"Error extracting spatial info: {e}")
+        print(f"Error extracting element type attributes: {e}")
         return {}
 
 
-def _extract_material_info(ifc_entity) -> Dict[str, Any]:
-    """Extract material information from an IFC entity."""
+def _get_properties(properties_container) -> Dict[str, Any]:
+    """
+    core property value extraction function.
+
+    Handles 3 IFC property types:
+    - IfcPropertySingleValue: Single property values
+    - IfcPropertyListValue: List of property values
+    - IfcPropertyEnumeratedValue: Enumerated property values
+    """
     try:
-        import ifcopenshell.util.element
-        import ifcopenshell.util.pset
+        properties = {}
 
-        # Get material information
-        materials = ifcopenshell.util.element.get_materials(ifc_entity)
-
-        if not materials:
+        if not hasattr(properties_container, "HasProperties"):
             return {}
 
-        material_info = {}
+        for prop in properties_container.HasProperties:
+            prop_name = prop.Name
+            if not prop_name:
+                continue
 
-        for i, material in enumerate(materials):
-            material_data = {
-                "name": material.Name,
-                "description": getattr(material, "Description", None),
-                "category": getattr(material, "Category", None),
-            }
+            prop_value = None
 
-            # Get material properties
-            material_psets = ifcopenshell.util.pset.get_psets(material)
-            if material_psets:
-                filtered_material_psets = {}
-                for pset_name, properties in material_psets.items():
-                    if properties:
-                        filtered_props = {}
-                        for prop_name, prop_value in properties.items():
-                            if prop_value is not None:
-                                if isinstance(prop_value, (str, int, float, bool)):
-                                    filtered_props[prop_name] = prop_value
-                                elif isinstance(prop_value, (list, tuple)):
-                                    if all(
-                                        isinstance(item, (str, int, float, bool))
-                                        for item in prop_value
-                                    ):
-                                        filtered_props[prop_name] = list(prop_value)
+            # Handle IfcPropertySingleValue
+            if prop.is_a("IfcPropertySingleValue"):
+                if hasattr(prop, "NominalValue") and prop.NominalValue is not None:
+                    prop_value = prop.NominalValue
+                    # Unwrap wrappedValue if present
+                    if hasattr(prop_value, "wrappedValue"):
+                        prop_value = prop_value.wrappedValue
 
-                        if filtered_props:
-                            filtered_material_psets[pset_name] = filtered_props
+            # Handle IfcPropertyListValue
+            elif prop.is_a("IfcPropertyListValue"):
+                if hasattr(prop, "ListValues") and prop.ListValues:
+                    list_values = []
+                    for list_item in prop.ListValues:
+                        item_value = list_item
+                        # Unwrap wrappedValue if present
+                        if hasattr(item_value, "wrappedValue"):
+                            item_value = item_value.wrappedValue
+                        if item_value is not None:
+                            list_values.append(item_value)
+                    if list_values:
+                        prop_value = list_values
 
-                if filtered_material_psets:
-                    material_data["properties"] = filtered_material_psets
+            # Handle IfcPropertyEnumeratedValue
+            elif prop.is_a("IfcPropertyEnumeratedValue"):
+                if hasattr(prop, "EnumerationValues") and prop.EnumerationValues:
+                    enum_values = []
+                    for enum_item in prop.EnumerationValues:
+                        item_value = enum_item
+                        # Unwrap wrappedValue if present
+                        if hasattr(item_value, "wrappedValue"):
+                            item_value = item_value.wrappedValue
+                        if item_value is not None:
+                            enum_values.append(item_value)
+                    if enum_values:
+                        prop_value = (
+                            enum_values if len(enum_values) > 1 else enum_values[0]
+                        )
 
-            # Remove None values
-            material_data = {k: v for k, v in material_data.items() if v is not None}
+            # Add property if value was successfully extracted
+            if prop_value is not None:
+                properties[prop_name] = prop_value
 
-            if material_data:
-                material_key = f"material_{i}" if len(materials) > 1 else "material"
-                material_info[material_key] = material_data
-
-        return material_info
+        return properties
 
     except Exception as e:
-        print(f"Error extracting material info: {e}")
+        print(f"Error extracting properties from container: {e}")
         return {}
 
 
