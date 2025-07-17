@@ -42,6 +42,9 @@ def mesh_to_speckle_meshes(
 
     submeshes = []
 
+    # Extract custom properties once for all submeshes (shared mesh data)
+    mesh_properties = extract_custom_properties(data)
+
     # sort material indices to ensure consistent ordering
     for material_index in sorted(submesh_data.keys()):
         mesh_area = 0
@@ -108,7 +111,6 @@ def mesh_to_speckle_meshes(
         speckle_mesh.applicationId = get_submesh_id(blender_object, material_index)
 
         # Add custom properties from the mesh data
-        mesh_properties = extract_custom_properties(data)
         if mesh_properties:
             speckle_mesh.properties = mesh_properties
 
