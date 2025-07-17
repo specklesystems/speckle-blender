@@ -3,7 +3,7 @@ from typing import Optional
 from specklepy.objects.data_objects import BlenderObject
 from .curve_to_speckle import curve_to_speckle
 from .mesh_to_speckle import mesh_to_speckle_meshes
-from .utils import get_object_id, get_curve_element_id, extract_custom_properties
+from .utils import get_object_id, get_curve_element_id, extract_all_properties
 
 
 def convert_to_speckle(
@@ -13,7 +13,7 @@ def convert_to_speckle(
     apply_modifiers: bool = True,
 ) -> Optional[BlenderObject]:
     display_value = []
-    properties = extract_custom_properties(blender_object)
+    properties = extract_all_properties(blender_object)
 
     if blender_object.type == "CURVE":
         # handle curve modifiers apply_modifiers is True

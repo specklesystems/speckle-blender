@@ -288,6 +288,23 @@ def extract_custom_properties(blender_id: ID) -> dict:
     return properties
 
 
+def extract_all_properties(blender_object: Object) -> dict:
+    """
+    Extract all properties from a Blender object including custom properties and IFC properties.
+    """
+    from .ifc_properties import extract_ifc_properties
+
+    # Start with Blender custom properties
+    properties = extract_custom_properties(blender_object)
+
+    # Add IFC properties if available
+    ifc_properties = extract_ifc_properties(blender_object)
+    if ifc_properties:
+        properties.update(ifc_properties)
+
+    return properties
+
+
 def apply_custom_properties(speckle_obj, blender_data: ID) -> None:
     """Apply custom properties to a Speckle object if they exist."""
     properties = extract_custom_properties(blender_data)
@@ -295,7 +312,14 @@ def apply_custom_properties(speckle_obj, blender_data: ID) -> None:
         speckle_obj.properties = properties
 
 
-def apply_cached_properties(speckle_obj, properties: dict ) -> None:
-    """Apply pre-extracted custom properties to a Speckle object if they exist."""
+def apply_all_properties(speckle_obj, blender_object: Object) -> None:
+    """Apply all properties (custom and IFC) to a Speckle object if they exist."""
+    properties = extract_all_properties(blender_object)
+    if properties:
+        speckle_obj.properties = properties
+
+
+def apply_cached_properties(speckle_obj, properties: dict) -> None:
+    """Apply pre-extracted properties to a Speckle object if they exist."""
     if properties:
         speckle_obj.properties = properties
