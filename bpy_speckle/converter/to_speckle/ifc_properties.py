@@ -2,8 +2,35 @@
 All IFC-related imports are wrapped in try-except blocks to ensure the code only runs when Bonsai/ifcopenshell is available.
 """
 
+from functools import lru_cache
 from typing import Dict, Any
 from bpy.types import Object
+
+
+@lru_cache(maxsize=1)
+def get_ifc_tool():
+    """
+    Get the Bonsai IFC tool with caching to improve performance.
+    """
+    try:
+        import bonsai.tool as tool
+
+        return tool
+    except ImportError:
+        return None
+
+
+@lru_cache(maxsize=1)
+def get_ifcopenshell_util_element():
+    """
+    Get the ifcopenshell.util.element module with caching to improve performance.
+    """
+    try:
+        import ifcopenshell.util.element
+
+        return ifcopenshell.util.element
+    except ImportError:
+        return None
 
 
 def extract_ifc_properties(blender_object: Object) -> Dict[str, Any]:
@@ -11,7 +38,9 @@ def extract_ifc_properties(blender_object: Object) -> Dict[str, Any]:
     Extract IFC properties from a Blender object if it has IFC data.
     """
     try:
-        import bonsai.tool as tool
+        tool = get_ifc_tool()
+        if not tool:
+            return {}
 
         # Check if object has IFC data
         if not hasattr(blender_object, "BIMObjectProperties"):
@@ -53,9 +82,6 @@ def extract_ifc_properties(blender_object: Object) -> Dict[str, Any]:
 
         return properties
 
-    except ImportError:
-        # Bonsai/ifcopenshell not available, silently return empty dict
-        return {}
     except Exception as e:
         # Other errors, log and return empty dict
         print(f"Error extracting IFC properties: {e}")
@@ -113,12 +139,14 @@ def _get_ifc_element_type_properties(element) -> Dict[str, Dict[str, Any]]:
     Extract properties from element type's property sets.
     """
     try:
-        import ifcopenshell.util.element
+        ifcopenshell_util_element = get_ifcopenshell_util_element()
+        if not ifcopenshell_util_element:
+            return {}
 
         properties = {}
 
         # Get relating type
-        relating_type = ifcopenshell.util.element.get_type(element)
+        relating_type = ifcopenshell_util_element.get_type(element)
         if not relating_type:
             return {}
 
@@ -145,10 +173,12 @@ def _get_element_type_attributes(element) -> Dict[str, Any]:
     Extract attributes from element type definition.
     """
     try:
-        import ifcopenshell.util.element
+        ifcopenshell_util_element = get_ifcopenshell_util_element()
+        if not ifcopenshell_util_element:
+            return {}
 
         # Get relating type
-        relating_type = ifcopenshell.util.element.get_type(element)
+        relating_type = ifcopenshell_util_element.get_type(element)
         if not relating_type:
             return {}
 
@@ -236,7 +266,9 @@ def validate_ifc_object(blender_object: Object) -> tuple[bool, str]:
     Validate that a Blender object is a valid IFC element.
     """
     try:
-        import bonsai.tool as tool
+        tool = get_ifc_tool()
+        if not tool:
+            return False, "Bonsai addon not available"
 
         if not blender_object:
             return False, "No object provided"
@@ -256,7 +288,5 @@ def validate_ifc_object(blender_object: Object) -> tuple[bool, str]:
 
         return True, "Valid IFC object"
 
-    except ImportError:
-        return False, "Bonsai addon not available"
     except Exception as e:
         return False, f"Validation error: {e}"
