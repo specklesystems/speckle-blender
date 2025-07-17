@@ -294,15 +294,22 @@ def extract_all_properties(blender_object: Object) -> dict:
     """
     from .ifc_properties import extract_ifc_properties
 
-    # Start with Blender custom properties
-    properties = extract_custom_properties(blender_object)
+    # Extract Blender custom properties
+    custom_properties = extract_custom_properties(blender_object)
 
-    # Add IFC properties if available
+    # Extract IFC properties if available
     ifc_properties = extract_ifc_properties(blender_object)
-    if ifc_properties:
-        properties.update(ifc_properties)
 
-    return properties
+    # Organize properties under two main sections
+    organized_properties = {}
+
+    if custom_properties:
+        organized_properties["Custom Properties"] = custom_properties
+
+    if ifc_properties:
+        organized_properties["IFC Properties"] = ifc_properties
+
+    return organized_properties
 
 
 def apply_custom_properties(speckle_obj, blender_data: ID) -> None:
