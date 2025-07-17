@@ -286,3 +286,16 @@ def extract_custom_properties(blender_id: ID) -> dict:
             continue
 
     return properties
+
+
+def apply_custom_properties(speckle_obj, blender_data: ID) -> None:
+    """Apply custom properties to a Speckle object if they exist."""
+    properties = extract_custom_properties(blender_data)
+    if properties:
+        speckle_obj.properties = properties
+
+
+def apply_cached_properties(speckle_obj, properties: dict ) -> None:
+    """Apply pre-extracted custom properties to a Speckle object if they exist."""
+    if properties:
+        speckle_obj.properties = properties
