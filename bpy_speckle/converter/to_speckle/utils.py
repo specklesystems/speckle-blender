@@ -240,3 +240,49 @@ def get_curve_element_id(blender_object: Object, curve_index: int = 0) -> str:
 
 def get_object_id(blender_object: Object) -> str:
     return get_unique_id(blender_object)
+
+
+def extract_custom_properties(blender_id: ID) -> dict:
+    """
+    Extract custom user-defined properties from a Blender ID datablock.
+    """
+    properties = {}
+
+    # Get all custom property keys
+    for key in blender_id.keys():
+        # Skip system properties that start with underscore
+        if key.startswith("_"):
+            continue
+
+        try:
+            value = blender_id[key]
+
+            # Handle basic data types that Speckle can handle
+            if isinstance(value, (str, int, float, bool)):
+                properties[key] = value
+            elif isinstance(value, (list, tuple)):
+                # Handle arrays of basic types
+                if all(isinstance(item, (str, int, float, bool)) for item in value):
+                    properties[key] = list(value)
+            elif type(value).__name__ == "IDPropertyArray":
+                # Handle Blender IDPropertyArray types (BoolArray, IntArray, FloatArray)
+                try:
+                    # Convert to list using to_list() method if available, otherwise use list()
+                    if hasattr(value, "to_list"):
+                        array_list = value.to_list()
+                    else:
+                        array_list = list(value)
+
+                    # Verify all items are basic types
+                    if all(
+                        isinstance(item, (str, int, float, bool)) for item in array_list
+                    ):
+                        properties[key] = array_list
+                except (TypeError, ValueError):
+                    # Skip arrays that can't be converted
+                    continue
+        except (KeyError, TypeError):
+            # Skip properties that can't be accessed or have unsupported types
+            continue
+
+    return properties

@@ -8,7 +8,7 @@ from mathutils import Vector as MVector
 
 from specklepy.objects.base import Base
 from specklepy.objects.geometry.mesh import Mesh
-from .utils import get_submesh_id
+from .utils import get_submesh_id, extract_custom_properties
 
 
 def mesh_to_speckle(
@@ -106,6 +106,11 @@ def mesh_to_speckle_meshes(
             speckle_mesh.area = mesh_area
 
         speckle_mesh.applicationId = get_submesh_id(blender_object, material_index)
+
+        # Add custom properties from the mesh data
+        mesh_properties = extract_custom_properties(data)
+        if mesh_properties:
+            speckle_mesh.properties = mesh_properties
 
         submeshes.append(speckle_mesh)
 
