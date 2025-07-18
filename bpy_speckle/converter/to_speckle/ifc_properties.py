@@ -3,7 +3,7 @@ All IFC-related imports are wrapped in try-except blocks to ensure the code only
 """
 
 from functools import lru_cache
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 from bpy.types import Object
 
 
@@ -261,7 +261,7 @@ def _get_properties(properties_container) -> Dict[str, Any]:
         return {}
 
 
-def validate_ifc_object(blender_object: Object) -> tuple[bool, str]:
+def validate_ifc_object(blender_object: Object) -> Tuple[bool, str]:
     """
     Validate that a Blender object is a valid IFC element.
     """
