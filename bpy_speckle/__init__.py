@@ -109,6 +109,14 @@ from .connector.ui.account_selection_dialog import (
 )
 
 
+def delayed_version_check():
+    """Timer function to check for updates after addon startup"""
+    try:
+        bpy.ops.speckle.version_check()
+    except Exception as e:
+        print(f"[Speckle] Failed to check for updates: {e}")
+
+
 def invoke_window_manager_properties():
     # Accounts
     WindowManager.speckle_accounts = bpy.props.CollectionProperty(type=speckle_account)
@@ -214,18 +222,15 @@ def register():
     except Exception as e:
         print(f"[Speckle] Failed to pre-warm client: {e}")
 
-    # Schedule version check to run after a short delay to ensure all dependencies are loaded
-    def delayed_version_check():
-        try:
-            bpy.ops.speckle.version_check()
-        except Exception as e:
-            print(f"[Speckle] Failed to check for updates: {e}")
-
     # Use a timer to delay the version check
     bpy.app.timers.register(delayed_version_check, first_interval=2.0)
 
 
 def unregister():
+    # Clear any pending timers to prevent duplicate calls
+    if bpy.app.timers.is_registered(delayed_version_check):
+        bpy.app.timers.unregister(delayed_version_check)
+    
     icons.unload_icons()
     unregister_speckle_state()  # Unregister SpeckleState
     _client_cache.clear()
