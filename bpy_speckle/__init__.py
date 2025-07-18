@@ -21,14 +21,14 @@ from .installer import ensure_dependencies
 ensure_dependencies(f"Blender {bpy.app.version[0]}.{bpy.app.version[1]}")
 
 bl_info = {
-    "name": "Speckle Blender ",
-    "author": "Speckle Systems",
+    "name": "Speckle Connector",
+    "author": "Speckle",
     "version": (3, 999, 999),
     "blender": (4, 2, 0),
     "location": "3d viewport toolbar (N), under the Speckle tab.",
-    "description": "The Speckle Connector using specklepy 3.x!",
-    "warning": "This add-on is WIP and should be used with caution",
-    "wiki_url": "https://github.com/specklesystems/speckle-blender",
+    "description": """Publish and load models from/to other AEC apps to boost design coordination workflows. Speckle has connectors for: 
+    Revit, Archicad, Rhino, Grasshopper, Tekla, Navisworks, AutoCAD, Civil3D, ETABS and Power BI.""",
+    "wiki_url": "https://speckle.systems/connectors/blender",
     "category": "Scene",
 }
 
