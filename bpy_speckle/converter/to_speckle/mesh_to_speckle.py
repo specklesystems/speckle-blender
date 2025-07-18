@@ -11,7 +11,7 @@ from specklepy.objects.geometry.mesh import Mesh
 from .utils import (
     get_submesh_id,
     apply_cached_properties,
-    extract_all_properties,
+    extract_custom_properties,
 )
 
 
@@ -46,9 +46,7 @@ def mesh_to_speckle_meshes(
 
     submeshes = []
 
-    # Extract properties from the object (including IFC properties)
-    # Note: IFC properties belong to the object (building element), not mesh geometry
-    object_properties = extract_all_properties(blender_object)
+    mesh_properties = extract_custom_properties(data)
 
     # sort material indices to ensure consistent ordering
     for material_index in sorted(submesh_data.keys()):
@@ -115,8 +113,8 @@ def mesh_to_speckle_meshes(
 
         speckle_mesh.applicationId = get_submesh_id(blender_object, material_index)
 
-        # Add object properties (including IFC properties) to submesh
-        apply_cached_properties(speckle_mesh, object_properties)
+        if mesh_properties:
+            apply_cached_properties(speckle_mesh, mesh_properties)
 
         submeshes.append(speckle_mesh)
 
