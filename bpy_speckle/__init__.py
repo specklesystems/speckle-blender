@@ -26,8 +26,7 @@ bl_info = {
     "version": (3, 999, 999),
     "blender": (4, 2, 0),
     "location": "3d viewport toolbar (N), under the Speckle tab.",
-    "description": """Publish and load models from/to other AEC apps to boost design coordination workflows. Speckle has connectors for: 
-    Revit, Archicad, Rhino, Grasshopper, Tekla, Navisworks, AutoCAD, Civil3D, ETABS and Power BI.""",
+    "description": "Publish models to and load models from other AEC apps.",
     "wiki_url": "https://speckle.systems/connectors/blender",
     "category": "Scene",
 }
