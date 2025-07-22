@@ -1,10 +1,10 @@
 from specklepy.core.api.client import SpeckleClient
-from specklepy.core.api.credentials import get_local_accounts
 from specklepy.core.api.resources.current.workspace_resource import WorkspaceResource
 from specklepy.core.api.inputs.project_inputs import WorksaceProjectsFilter
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
 from .misc import format_relative_time, format_role, strip_non_ascii
+from .account_manager import _client_cache
 
 
 def get_projects_for_account(
@@ -14,18 +14,23 @@ def get_projects_for_account(
     fetches projects for a given account from the Speckle server
     """
     try:
-        accounts: List[Account] = get_local_accounts()
+        # Get cached client
+        client = _client_cache.get_client(account_id)
+        if not client:
+            print(f"Error: Could not get client for account: {account_id}")
+            return []
+        
+        # Get account for workspace operations that still need it
+        from specklepy.core.api.credentials import get_local_accounts
         account: Optional[Account] = next(
-            (acc for acc in accounts if acc.id == account_id), None
+            (acc for acc in get_local_accounts() if acc.id == account_id), None
         )
         if not account:
+            print(f"Error: Could not find account with ID: {account_id}")
             return []
 
-        client = SpeckleClient(host=account.serverInfo.url)
-        client.authenticate_with_account(account)
-
         if workspace_id == "personal":
-            return _get_personal_projects_with_permissions(client, account, search)
+            return _get_personal_projects_with_permissions(client, search)
 
         try:
             workspace_resource = WorkspaceResource(
@@ -75,7 +80,7 @@ def get_projects_for_account(
                 f"WorkspaceResource failed, falling back to old method: {workspace_error}"
             )
             return _get_projects_with_individual_permissions(
-                client, account, workspace_id, search
+                client, workspace_id, search
             )
 
     except Exception as e:
@@ -84,11 +89,13 @@ def get_projects_for_account(
         error_msg = f"Error: {str(e)}\n"
         error_msg += f"Traceback:\n{''.join(traceback.format_tb(e.__traceback__))}"
         print(error_msg)
+        # Clear cache on error to prevent stale clients
+        _client_cache.clear()
         return []
 
 
 def _get_personal_projects_with_permissions(
-    client: SpeckleClient, account: Account, search: Optional[str] = None
+    client: SpeckleClient, search: Optional[str] = None
 ) -> List[Tuple[str, str, str, str, bool]]:
     """
     helper function to get personal projects with permissions using the old method
@@ -126,7 +133,6 @@ def _get_personal_projects_with_permissions(
 
 def _get_projects_with_individual_permissions(
     client: SpeckleClient,
-    account: Account,
     workspace_id: str,
     search: Optional[str] = None,
 ) -> List[Tuple[str, str, str, str, bool]]:
