@@ -19,12 +19,12 @@ def convert_to_speckle(
         # handle curve modifiers apply_modifiers is True
         if apply_modifiers and blender_object.modifiers:
             import bpy
-            
+
             # Convert curve with modifiers to mesh
             depsgraph = bpy.context.evaluated_depsgraph_get()
             evaluated_obj = blender_object.evaluated_get(depsgraph)
             evaluated_mesh = evaluated_obj.to_mesh()
-            
+
             if evaluated_mesh:
                 meshes = mesh_to_speckle_meshes(
                     blender_object, evaluated_mesh, scale_factor, units
@@ -50,20 +50,22 @@ def convert_to_speckle(
         mesh_data = blender_object.data
         if apply_modifiers and blender_object.modifiers:
             import bpy
-            
+
             # use evaluated object to get mesh with modifiers applied
             depsgraph = bpy.context.evaluated_depsgraph_get()
             evaluated_obj = blender_object.evaluated_get(depsgraph)
             evaluated_mesh = evaluated_obj.to_mesh()
             mesh_data = evaluated_mesh
-        
-        meshes = mesh_to_speckle_meshes(
-            blender_object, mesh_data, scale_factor, units
-        )
-        
-        if apply_modifiers and blender_object.modifiers and mesh_data != blender_object.data:
+
+        meshes = mesh_to_speckle_meshes(blender_object, mesh_data, scale_factor, units)
+
+        if (
+            apply_modifiers
+            and blender_object.modifiers
+            and mesh_data != blender_object.data
+        ):
             blender_object.to_mesh_clear()
-        
+
         if meshes:
             display_value = meshes
 

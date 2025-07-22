@@ -50,6 +50,7 @@ def load_operation(
 
     # Get account for metrics tracking
     from specklepy.core.api.credentials import get_local_accounts
+
     account = next(
         (
             acc
@@ -58,7 +59,7 @@ def load_operation(
         ),
         None,
     )
-    
+
     if account:
         metrics.track(
             metrics.RECEIVE,
@@ -71,7 +72,9 @@ def load_operation(
                     version.source_application
                 ).slug,
                 "isMultiplayer": version.author_user.id != account.userInfo.id,
-                "workspace_id": get_project_workspace_id(client, wm.selected_project_id),
+                "workspace_id": get_project_workspace_id(
+                    client, wm.selected_project_id
+                ),
             },
         )
 
