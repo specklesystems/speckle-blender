@@ -5,10 +5,8 @@ from typing import List, Optional, Dict, Tuple
 from specklepy.objects import Base
 from specklepy.objects.models.collections.collection import Collection
 from specklepy.core.api import operations
-from specklepy.core.api.client import SpeckleClient
 from specklepy.transports.server import ServerTransport
 from specklepy.core.api.inputs.version_inputs import CreateVersionInput
-from specklepy.core.api.credentials import get_local_accounts
 from specklepy.objects.models.units import Units
 
 from ...converter.to_speckle import convert_to_speckle
@@ -16,6 +14,7 @@ from ...converter.to_speckle.material_to_speckle import (
     add_render_material_proxies_to_base,
 )
 from ...converter.utils import get_project_workspace_id
+from ..utils.account_manager import _client_cache
 from specklepy.logging import metrics
 from ... import bl_info
 
@@ -32,17 +31,10 @@ def publish_operation(
     wm = context.window_manager
 
     try:
-        # get account and authenticate
-        account = next(
-            (acc for acc in get_local_accounts() if acc.id == wm.selected_account_id),
-            None,
-        )
-
-        if account is None:
-            return False, "No Speckle account found", None
-
-        client = SpeckleClient(host=account.serverInfo.url)
-        client.authenticate_with_account(account)
+        # get cached client
+        client = _client_cache.get_client(wm.selected_account_id)
+        if not client:
+            return False, "No Speckle client found", None
 
         transport = ServerTransport(stream_id=wm.selected_project_id, client=client)
 
@@ -68,20 +60,28 @@ def publish_operation(
         version = client.version.create(version_input)
         version_id = version.id
 
-        # track metrics
-        metrics.set_host_app("blender")
-        metrics.track(
-            metrics.SEND,
-            account,
-            {
-                "ui": "dui3",
-                "hostAppVersion": ".".join(map(str, bl_info["blender"])),
-                "core_version": ".".join(map(str, bl_info["version"])),
-                "workspace_id": get_project_workspace_id(
-                    client, wm.selected_project_id
-                ),
-            },
+        # Get account for metrics tracking
+        from specklepy.core.api.credentials import get_local_accounts
+        account = next(
+            (acc for acc in get_local_accounts() if acc.id == wm.selected_account_id),
+            None,
         )
+        
+        if account:
+            # track metrics
+            metrics.set_host_app("blender")
+            metrics.track(
+                metrics.SEND,
+                account,
+                {
+                    "ui": "dui3",
+                    "hostAppVersion": ".".join(map(str, bl_info["blender"])),
+                    "core_version": ".".join(map(str, bl_info["version"])),
+                    "workspace_id": get_project_workspace_id(
+                        client, wm.selected_project_id
+                    ),
+                },
+            )
 
         # count total objects for success message
         total_objects = count_objects_in_collection(root_collection)
@@ -96,6 +96,8 @@ def publish_operation(
         import traceback
 
         traceback.print_exc()
+        # Clear cache on error to prevent stale clients
+        _client_cache.clear()
         return False, f"Failed to publish: {str(e)}", None
 
 
