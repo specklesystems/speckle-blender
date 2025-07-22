@@ -36,18 +36,20 @@ class speckle_version(bpy.types.PropertyGroup):
 
 class speckle_object(bpy.types.PropertyGroup):
     """
-    PropertyGroup for storing object names
+    PropertyGroup for storing object names and applicationIds
     """
 
     name: bpy.props.StringProperty()  # type: ignore
+    applicationId: bpy.props.StringProperty(name="Application ID", default="")  # type: ignore
 
 
 class speckle_collection(bpy.types.PropertyGroup):
     """
-    PropertyGroup for storing collection information
+    PropertyGroup for storing collections
     """
 
     name: bpy.props.StringProperty()  # type: ignore
+    applicationId: bpy.props.StringProperty(name="Application ID", default="")  # type: ignore
 
 
 class speckle_model_card(bpy.types.PropertyGroup):

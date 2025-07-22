@@ -6,6 +6,7 @@ from ..operations.load_operation import load_operation
 from ..utils.model_card_utils import (
     delete_model_card_objects,
     update_model_card_objects,
+    collect_objects_with_properties,
 )
 
 
@@ -27,6 +28,7 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
+        old_properties = collect_objects_with_properties(model_card)
         delete_model_card_objects(model_card, context)
 
         # set wm
@@ -48,7 +50,7 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
                 context, model_card.instance_loading_mode
             )
             # update model card details
-            update_model_card_objects(model_card, converted_objects)
+            update_model_card_objects(model_card, converted_objects, old_properties)
             model_card.version_id = latest_version_id
 
         else:
@@ -63,7 +65,7 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
                 self.report({"ERROR"}, "Load operation failed")
                 return {"CANCELLED"}
             # update model card details
-            update_model_card_objects(model_card, converted_objects)
+            update_model_card_objects(model_card, converted_objects, old_properties)
 
         # Clear selected model details from Window Manager
         wm.selected_account_id = ""

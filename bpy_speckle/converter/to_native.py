@@ -186,7 +186,7 @@ def convert_to_native(
         # Store Speckle ID in custom property
         converted_object["speckle_id"] = speckle_object.id
         if hasattr(speckle_object, "applicationId"):
-            converted_object["speckle_application_id"] = speckle_object.applicationId
+            converted_object["applicationId"] = speckle_object.applicationId
 
     return converted_object
 
@@ -1242,7 +1242,7 @@ def instance_definition_proxy_to_native(
     sorted_components = sort_instance_components(definitions, [])
 
     for _, _, def_id, definition in sorted_components:
-        collection_name = getattr(definition, "name", f"Definition_{def_id[:8]}")
+        collection_name = getattr(definition, "name", f"Definition_{def_id}")
 
         if def_id in processed_definitions:
             definition_collections[def_id] = processed_definitions[def_id]
@@ -1404,7 +1404,7 @@ def instance_proxy_to_linked_duplicates(
         @ mathutils.Matrix.Diagonal(scale_vector).to_4x4()
     )
 
-    instance_name = f"Instance_{speckle_instance.id[:8]}"
+    instance_name = f"Instance_{speckle_instance.id}"
     parent_empty = bpy.data.objects.new(instance_name, None)
     parent_empty.empty_display_type = "PLAIN_AXES"
     parent_empty.empty_display_size = 0.1
@@ -1498,7 +1498,7 @@ def instance_proxy_to_native(
 
     instance_obj.empty_display_size = 0
 
-    instance_name = f"Instance_{speckle_instance.id[:8]}"
+    instance_name = f"Instance_{speckle_instance.id}"
     instance_obj.name = instance_name
 
     if instance_obj.name not in root_collection.objects:
