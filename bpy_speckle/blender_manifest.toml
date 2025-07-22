@@ -11,7 +11,7 @@ maintainer = "Speckle"
 type = "add-on"
 
 # Optional link to documentation, support, source files, etc
-website = "https://app.speckle.systems/connectors"
+website = "https://speckle.systems/connectors/blender"
 
 # Optional list defined by Blender and server, see:
 # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
@@ -24,13 +24,9 @@ blender_version_min = "4.2.0"
 
 # License conforming to https://spdx.org/licenses/ (use "SPDX: prefix)
 # https://docs.blender.org/manual/en/dev/advanced/extensions/licenses.html
-license = [
-  "SPDX:Apache-2.0",
-]
+license = ["SPDX:Apache-2.0"]
 # Optional: required by some licenses.
-copyright = [
-  "2022-2025 AEC SYSTEMS LTD",
-]
+copyright = ["2022-2025 AEC SYSTEMS LTD"]
 
 # Optional list of supported platforms. If omitted, the extension will be available in all operating systems.
 # platforms = ["windows-x64", "macos-arm64", "linux-x64"]
@@ -67,8 +63,4 @@ clipboard = "Copy and paste URLs and Names (UI)"
 # Optional: build settings.
 # https://docs.blender.org/manual/en/dev/advanced/extensions/command_line_arguments.html#command-line-args-extension-build
 [build]
-paths_exclude_pattern = [
-  "__pycache__/",
-  "/.vscode",
-  "*.code-workspace",
-]
+paths_exclude_pattern = ["__pycache__/", "/.vscode", "*.code-workspace"]
