@@ -35,10 +35,10 @@ bl_info = {
 # UI
 from .connector.ui.main_panel import SPECKLE_PT_main_panel
 from .connector.ui.update_panel import SPECKLE_PT_update_panel
+from .connector.utils.account_manager import speckle_workspace
 from .connector.ui.project_selection_dialog import (
     SPECKLE_OT_project_selection_dialog,
     SPECKLE_UL_projects_list,
-    speckle_workspace,
 )
 from .connector.ui.model_selection_dialog import (
     SPECKLE_OT_model_selection_dialog,
