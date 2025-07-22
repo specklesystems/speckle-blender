@@ -186,5 +186,3 @@ def find_object_by_id(root_object: Base, target_id: str) -> Optional[Base]:
         return None
 
     return deep_search(root_object)
-
-
