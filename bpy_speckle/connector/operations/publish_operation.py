@@ -39,7 +39,9 @@ def publish_operation(
         transport = ServerTransport(stream_id=wm.selected_project_id, client=client)
 
         # build collection hierarchy and convert objects
-        root_collection = build_collection_hierarchy(context, objects_to_convert, apply_modifiers)
+        root_collection = build_collection_hierarchy(
+            context, objects_to_convert, apply_modifiers
+        )
 
         if not root_collection:
             return False, "No objects could be converted to Speckle format", None
@@ -62,11 +64,12 @@ def publish_operation(
 
         # Get account for metrics tracking
         from specklepy.core.api.credentials import get_local_accounts
+
         account = next(
             (acc for acc in get_local_accounts() if acc.id == wm.selected_account_id),
             None,
         )
-        
+
         if account:
             # track metrics
             metrics.set_host_app("blender")
@@ -116,7 +119,9 @@ def build_collection_hierarchy(
     if not collection_data["objects"] and not collection_data["collections"]:
         return None
 
-    converted_objects = convert_selected_objects(context, objects_to_convert, apply_modifiers)
+    converted_objects = convert_selected_objects(
+        context, objects_to_convert, apply_modifiers
+    )
     if not converted_objects:
         return None
 
@@ -278,7 +283,9 @@ def convert_selected_objects(
             speckle_objects.append(None)
             continue
 
-        speckle_obj = convert_to_speckle(obj, scale_factor, units.value, apply_modifiers)
+        speckle_obj = convert_to_speckle(
+            obj, scale_factor, units.value, apply_modifiers
+        )
         speckle_objects.append(speckle_obj)
 
     return speckle_objects

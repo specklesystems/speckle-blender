@@ -19,9 +19,10 @@ def get_projects_for_account(
         if not client:
             print(f"Error: Could not get client for account: {account_id}")
             return []
-        
+
         # Get account for workspace operations that still need it
         from specklepy.core.api.credentials import get_local_accounts
+
         account: Optional[Account] = next(
             (acc for acc in get_local_accounts() if acc.id == account_id), None
         )

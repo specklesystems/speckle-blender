@@ -60,7 +60,6 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         """
         wm = context.window_manager
 
-
         wm.can_create_project_in_workspace = can_create_project_in_workspace(
             wm.selected_account_id, wm.selected_workspace.id
         )
@@ -122,7 +121,9 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             wm.selected_account_id = get_default_account_id()
 
         wm.selected_workspace.id = get_active_workspace(wm.selected_account_id)["id"]
-        wm.selected_workspace.name = get_active_workspace(wm.selected_account_id)["name"]
+        wm.selected_workspace.name = get_active_workspace(wm.selected_account_id)[
+            "name"
+        ]
 
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(
