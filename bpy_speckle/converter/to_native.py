@@ -1276,9 +1276,7 @@ def instance_definition_proxy_to_native(
                             if max_depth > 0:  # Only process if max_depth allows
                                 assert (
                                     found_obj.definitionId in definition_collections
-                                ), (
-                                    f"Definition collection not found for nested instance {found_obj.definitionId}"
-                                )
+                                ), f"Definition collection not found for nested instance {found_obj.definitionId}"
 
                                 if instance_loading_mode == "LINKED_DUPLICATES":
                                     blender_obj = instance_proxy_to_linked_duplicates(
