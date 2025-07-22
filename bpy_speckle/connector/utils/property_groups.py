@@ -1,5 +1,4 @@
 import bpy
-from typing import Dict, Any
 
 
 class speckle_project(bpy.types.PropertyGroup):

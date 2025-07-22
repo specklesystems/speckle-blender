@@ -1,8 +1,10 @@
+from typing import List, Optional, Tuple
+
 from specklepy.core.api.inputs.project_inputs import ProjectModelsFilter
 from specklepy.core.api.models.current import Model
-from typing import List, Tuple, Optional
-from .misc import format_relative_time, strip_non_ascii
+
 from .account_manager import _client_cache
+from .misc import format_relative_time, strip_non_ascii
 
 
 def get_models_for_project(
@@ -18,17 +20,9 @@ def get_models_for_project(
             )
             return []
 
-        # Get cached client
         client = _client_cache.get_client(account_id)
-        if not client:
-            print(f"Error: Could not get client for account: {account_id}")
-            return []
 
-        try:
-            client.project.get(project_id)
-        except Exception as e:
-            print(f"Error: Project with ID {project_id} not found: {str(e)}")
-            return []
+        client.project.get(project_id)
 
         filter = ProjectModelsFilter(search=search) if search else None
 

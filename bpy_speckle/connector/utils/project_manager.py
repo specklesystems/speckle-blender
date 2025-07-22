@@ -1,14 +1,16 @@
+from typing import List, Optional, Tuple
+
 from specklepy.core.api.client import SpeckleClient
-from specklepy.core.api.resources.current.workspace_resource import WorkspaceResource
-from specklepy.core.api.inputs.project_inputs import WorksaceProjectsFilter
-from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
-from .misc import format_relative_time, format_role, strip_non_ascii
+from specklepy.core.api.inputs.project_inputs import WorksaceProjectsFilter
+from specklepy.core.api.resources.current.workspace_resource import WorkspaceResource
+
 from .account_manager import _client_cache
+from .misc import format_relative_time, format_role, strip_non_ascii
 
 
 def get_projects_for_account(
-    account_id: str, workspace_id: str = None, search: Optional[str] = None
+    account_id: str, workspace_id: str, search: Optional[str] = None
 ) -> List[Tuple[str, str, str, str, bool]]:
     """
     fetches projects for a given account from the Speckle server
@@ -19,9 +21,10 @@ def get_projects_for_account(
         if not client:
             print(f"Error: Could not get client for account: {account_id}")
             return []
-        
+
         # Get account for workspace operations that still need it
         from specklepy.core.api.credentials import get_local_accounts
+
         account: Optional[Account] = next(
             (acc for acc in get_local_accounts() if acc.id == account_id), None
         )
@@ -101,12 +104,13 @@ def _get_personal_projects_with_permissions(
     helper function to get personal projects with permissions using the old method
     """
     from specklepy.core.api.inputs.user_inputs import UserProjectsFilter
+
     from .account_manager import can_load
 
     filter = UserProjectsFilter(
         search=search,
-        workspaceId=None,
-        personalOnly=True,
+        workspace_id=None,
+        personal_only=True,
         include_implicit_access=True,
     )
 
@@ -140,12 +144,13 @@ def _get_projects_with_individual_permissions(
     Fallback helper function to get projects with permissions using individual API calls
     """
     from specklepy.core.api.inputs.user_inputs import UserProjectsFilter
+
     from .account_manager import can_load
 
     filter = UserProjectsFilter(
         search=search,
-        workspaceId=workspace_id,
-        personalOnly=False,
+        workspace_id=workspace_id,
+        personal_only=False,
         include_implicit_access=True,
     )
 

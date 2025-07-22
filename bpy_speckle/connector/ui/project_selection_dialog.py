@@ -2,10 +2,6 @@ import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from typing import List, Tuple
 from ..utils.account_manager import (
-    get_account_enum_items,
-    speckle_account,
-    get_workspaces,
-    speckle_workspace,
     can_create_project_in_workspace,
     get_active_workspace,
     get_default_account_id,

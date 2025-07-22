@@ -1,9 +1,10 @@
+from typing import Dict, List, Optional, Tuple
+
 import bpy
-from specklepy.core.api.credentials import get_local_accounts
-from typing import List, Tuple, Optional, Dict
-from specklepy.core.api.credentials import Account
 from specklepy.core.api.client import SpeckleClient
+from specklepy.core.api.credentials import Account, get_local_accounts
 from specklepy.core.api.wrapper import StreamWrapper
+
 from .misc import strip_non_ascii
 
 
@@ -23,7 +24,11 @@ class SpeckleClientCache:
         if not account:
             raise ValueError(f"No account found for ID: {account_id}")
 
-        client = SpeckleClient(host=account.serverInfo.url)
+        assert account.serverInfo.url
+        client = SpeckleClient(
+            host=account.serverInfo.url,
+            use_ssl=account.serverInfo.url.startswith("https"),
+        )
         client.authenticate_with_account(account)
         self._clients[account_id] = client
         return client
@@ -179,6 +184,7 @@ def get_project_from_url(
     try:
         wrapper = StreamWrapper(url)
         account = wrapper.get_account()
+        assert account.id
         client = _client_cache.get_client(account.id)
 
         # get the stream_id (project_id) from the wrapper

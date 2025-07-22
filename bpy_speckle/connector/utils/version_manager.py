@@ -1,9 +1,10 @@
-from specklepy.core.api.client import SpeckleClient
-from .account_manager import _client_cache
 from typing import List, Tuple
-from .misc import format_relative_time
-from specklepy.core.api.inputs.model_inputs import ModelVersionsFilter
+
+from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.models.current import Version
+
+from .account_manager import _client_cache
+from .misc import format_relative_time
 
 
 def get_versions_for_model(
@@ -20,17 +21,11 @@ def get_versions_for_model(
             )
             return []
 
-        # Get cached client
         client: SpeckleClient = _client_cache.get_client(account_id)
-        if not client:
-            print(f"Error: Could not get client for account: {account_id}")
-            return []
-
-        filter: ModelVersionsFilter = ModelVersionsFilter(priorityIds=[])
 
         # Get versions
-        versions: List[Version] = client.version.get_versions(
-            project_id=project_id, model_id=model_id, limit=10, filter=filter
+        versions = client.version.get_versions(
+            project_id=project_id, model_id=model_id, limit=10
         )
         versions_list: List[Tuple[str, str, str]] = []
         for version in versions.items:
@@ -66,9 +61,6 @@ def get_latest_version(
 
         # Get cached client
         client: SpeckleClient = _client_cache.get_client(account_id)
-        if not client:
-            print(f"Error: Could not get client for account: {account_id}")
-            return ("", "", "")
 
         # Get versions (limit to 1 since we only need the latest)
         versions: List[Version] = client.version.get_versions(

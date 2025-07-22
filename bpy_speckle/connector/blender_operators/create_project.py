@@ -1,10 +1,11 @@
+from typing import Optional
+
 import bpy
 from bpy.types import Context, Event, UILayout
-
+from specklepy.core.api.enums import ProjectVisibility
 from specklepy.core.api.inputs import ProjectCreateInput
 from specklepy.core.api.inputs.project_inputs import WorkspaceProjectCreateInput
-from specklepy.core.api.enums import ProjectVisibility
-from typing import Tuple, Optional
+from specklepy.core.api.models import Project
 
 from ..utils.account_manager import _client_cache
 
@@ -22,16 +23,16 @@ class SPECKLE_OT_create_project(bpy.types.Operator):
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
-        project_id, project_name = create_project(
+        project = _create_project(
             wm.selected_account_id,
             self.project_name,
             None
             if wm.selected_workspace.id == "personal"
             else wm.selected_workspace.id,
         )
-        wm.selected_project_id = project_id
-        wm.selected_project_name = project_name
-        self.report({"INFO"}, f"Created project: {project_name} -> ID: {project_id}")
+        wm.selected_project_id = project.id
+        wm.selected_project_name = project.name
+        self.report({"INFO"}, f"Created project: {project.name} -> ID: {project.id}")
         # Force redraw
         context.window.screen = context.window.screen
         context.area.tag_redraw()
@@ -53,20 +54,19 @@ def unregister() -> None:
     bpy.utils.unregister_class(SPECKLE_OT_create_project)
 
 
-def create_project(
+def _create_project(
     account_id: str, project_name: str, workspace_id: Optional[str]
-) -> Tuple[str, str]:
+) -> Project:
     try:
         # Get cached client
         client = _client_cache.get_client(account_id)
-        if not client:
-            raise Exception(f"Could not get client for account: {account_id}")
+
         if workspace_id:
             project = client.project.create_in_workspace(
                 input=WorkspaceProjectCreateInput(
                     name=project_name,
                     description="",
-                    visibility=ProjectVisibility("PUBLIC"),
+                    visibility=ProjectVisibility.PUBLIC,
                     workspaceId=workspace_id,
                 )
             )
@@ -75,11 +75,11 @@ def create_project(
                 input=ProjectCreateInput(
                     name=project_name,
                     description="",
-                    visibility=ProjectVisibility("PUBLIC"),
+                    visibility=ProjectVisibility.PUBLIC,
                 )
             )
 
-        return (project.id, project.name)
+        return project
     except Exception as e:
         print(f"Failed to create project: {str(e)}")
         # Clear cache on error to prevent stale clients

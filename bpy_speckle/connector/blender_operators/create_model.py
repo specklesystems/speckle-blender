@@ -1,7 +1,7 @@
 import bpy
 from bpy.types import Context, Event, UILayout
 from specklepy.core.api.inputs import CreateModelInput
-from typing import Tuple
+from specklepy.core.api.models import Model
 
 from ..utils.account_manager import _client_cache
 
@@ -19,14 +19,14 @@ class SPECKLE_OT_create_model(bpy.types.Operator):
         if not self.model_name.strip():
             self.report({"ERROR"}, "Model name cannot be empty")
             return {"CANCELLED"}
-        
+
         try:
-            model_id, model_name = create_model(
+            model = _create_model(
                 wm.selected_account_id, wm.selected_project_id, self.model_name
             )
-            wm.selected_model_id = model_id
-            wm.selected_model_name = model_name
-            self.report({"INFO"}, f"Created model: {model_name} -> ID: {model_id}")
+            wm.selected_model_id = model.id
+            wm.selected_model_name = model.name
+            self.report({"INFO"}, f"Created model: {model.name} -> ID: {model.id}")
             # Force redraw
             context.window.screen = context.window.screen
             context.area.tag_redraw()
@@ -51,17 +51,17 @@ def unregister() -> None:
     bpy.utils.unregister_class(SPECKLE_OT_create_model)
 
 
-def create_model(account_id: str, project_id: str, model_name: str) -> Tuple[str, str]:
+def _create_model(account_id: str, project_id: str, model_name: str) -> Model:
     try:
         # Get cached client
         client = _client_cache.get_client(account_id)
-        if not client:
-            raise ValueError(f"Could not get client for account: {account_id}")
 
         model = client.model.create(
-            input=CreateModelInput(name=model_name, description="", project_id=project_id)
+            input=CreateModelInput(
+                name=model_name, description="", project_id=project_id
+            )
         )
-        return (model.id, model.name)
+        return model
     except Exception as e:
         # Clear cache on error to prevent stale clients
         _client_cache.clear()

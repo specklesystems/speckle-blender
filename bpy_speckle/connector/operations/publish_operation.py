@@ -1,22 +1,22 @@
-import bpy
-from bpy.types import Context, Collection as BlenderCollection
-from typing import List, Optional, Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 
+import bpy
+from bpy.types import Collection as BlenderCollection
+from bpy.types import Context
+from specklepy.core.api import operations
+from specklepy.core.api.inputs.version_inputs import CreateVersionInput
+from specklepy.logging import metrics
 from specklepy.objects import Base
 from specklepy.objects.models.collections.collection import Collection
-from specklepy.core.api import operations
-from specklepy.transports.server import ServerTransport
-from specklepy.core.api.inputs.version_inputs import CreateVersionInput
 from specklepy.objects.models.units import Units
+from specklepy.transports.server import ServerTransport
 
+from ... import bl_info
 from ...converter.to_speckle import convert_to_speckle
 from ...converter.to_speckle.material_to_speckle import (
     add_render_material_proxies_to_base,
 )
-from ...converter.utils import get_project_workspace_id
 from ..utils.account_manager import _client_cache
-from specklepy.logging import metrics
-from ... import bl_info
 
 
 def publish_operation(
@@ -33,13 +33,13 @@ def publish_operation(
     try:
         # get cached client
         client = _client_cache.get_client(wm.selected_account_id)
-        if not client:
-            return False, "No Speckle client found", None
 
         transport = ServerTransport(stream_id=wm.selected_project_id, client=client)
 
         # build collection hierarchy and convert objects
-        root_collection = build_collection_hierarchy(context, objects_to_convert, apply_modifiers)
+        root_collection = build_collection_hierarchy(
+            context, objects_to_convert, apply_modifiers
+        )
 
         if not root_collection:
             return False, "No objects could be converted to Speckle format", None
@@ -50,38 +50,28 @@ def publish_operation(
         obj_id = operations.send(root_collection, [transport])
 
         version_input = CreateVersionInput(
-            objectId=obj_id,
-            modelId=wm.selected_model_id,
-            projectId=wm.selected_project_id,
+            object_id=obj_id,
+            model_id=wm.selected_model_id,
+            project_id=wm.selected_project_id,
             message=version_message,
-            sourceApplication="blender",
+            source_application="blender",
         )
 
         version = client.version.create(version_input)
         version_id = version.id
 
-        # Get account for metrics tracking
-        from specklepy.core.api.credentials import get_local_accounts
-        account = next(
-            (acc for acc in get_local_accounts() if acc.id == wm.selected_account_id),
-            None,
+        # track metrics
+        metrics.set_host_app("blender")
+        metrics.track(
+            metrics.SEND,
+            client.account,
+            {
+                "ui": "dui3",
+                "hostAppVersion": ".".join(map(str, bl_info["blender"])),
+                "core_version": ".".join(map(str, bl_info["version"])),
+                "workspace_id": client.project.get(wm.selected_project_id).workspace_id,
+            },
         )
-        
-        if account:
-            # track metrics
-            metrics.set_host_app("blender")
-            metrics.track(
-                metrics.SEND,
-                account,
-                {
-                    "ui": "dui3",
-                    "hostAppVersion": ".".join(map(str, bl_info["blender"])),
-                    "core_version": ".".join(map(str, bl_info["version"])),
-                    "workspace_id": get_project_workspace_id(
-                        client, wm.selected_project_id
-                    ),
-                },
-            )
 
         # count total objects for success message
         total_objects = count_objects_in_collection(root_collection)
@@ -116,7 +106,9 @@ def build_collection_hierarchy(
     if not collection_data["objects"] and not collection_data["collections"]:
         return None
 
-    converted_objects = convert_selected_objects(context, objects_to_convert, apply_modifiers)
+    converted_objects = convert_selected_objects(
+        context, objects_to_convert, apply_modifiers
+    )
     if not converted_objects:
         return None
 
@@ -278,7 +270,9 @@ def convert_selected_objects(
             speckle_objects.append(None)
             continue
 
-        speckle_obj = convert_to_speckle(obj, scale_factor, units.value, apply_modifiers)
+        speckle_obj = convert_to_speckle(
+            obj, scale_factor, units.value, apply_modifiers
+        )
         speckle_objects.append(speckle_obj)
 
     return speckle_objects
