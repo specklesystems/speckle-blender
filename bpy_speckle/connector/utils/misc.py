@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import re
 
+
 def format_relative_time(timestamp) -> str:
     """
     convert UTC timestamp to local timezone and return relative time string
@@ -46,6 +47,7 @@ def format_role(role: str) -> str:
     split_role = role.split(":")
     return f"{split_role[1]}"
 
+
 def strip_non_ascii(text):
     # Keep English letters, digits, spaces and basic punctuation
-    return re.sub(r'[^a-zA-Z0-9\s.,!?]', '', text)
+    return re.sub(r"[^a-zA-Z0-9\s.,!?]", "", text)
