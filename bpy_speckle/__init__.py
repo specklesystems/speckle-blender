@@ -21,14 +21,13 @@ from .installer import ensure_dependencies
 ensure_dependencies(f"Blender {bpy.app.version[0]}.{bpy.app.version[1]}")
 
 bl_info = {
-    "name": "Speckle Blender ",
-    "author": "Speckle Systems",
+    "name": "Speckle Connector",
+    "author": "Speckle",
     "version": (3, 999, 999),
     "blender": (4, 2, 0),
     "location": "3d viewport toolbar (N), under the Speckle tab.",
-    "description": "The Speckle Connector using specklepy 3.x!",
-    "warning": "This add-on is WIP and should be used with caution",
-    "wiki_url": "https://github.com/specklesystems/speckle-blender",
+    "description": "Publish models to and load models from other AEC apps.",
+    "wiki_url": "https://speckle.systems/connectors/blender",
     "category": "Scene",
 }
 
