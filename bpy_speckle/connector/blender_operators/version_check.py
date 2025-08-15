@@ -1,5 +1,9 @@
 import bpy
 from bpy.types import Context
+from specklepy.core.api.connector_versions import get_latest_version
+
+# Get current version from bl_info
+from ... import bl_info
 
 
 class SPECKLE_OT_version_check(bpy.types.Operator):
@@ -20,11 +24,6 @@ class SPECKLE_OT_version_check(bpy.types.Operator):
         wm.update_url = ""
 
         try:
-            from specklepy.core.api.connector_versions import get_latest_version
-
-            # Get current version from bl_info
-            from ... import bl_info
-
             current_version = bl_info["version"]
             current_version_str = (
                 f"{current_version[0]}.{current_version[1]}.{current_version[2]}"
@@ -45,9 +44,6 @@ class SPECKLE_OT_version_check(bpy.types.Operator):
             else:
                 self.report({"INFO"}, "You have the latest version")
 
-        except ImportError:
-            error_msg = "specklepy not available for version checking"
-            self.report({"ERROR"}, error_msg)
         except Exception as e:
             error_msg = f"Failed to check for updates: {str(e)}"
             self.report({"ERROR"}, error_msg)
