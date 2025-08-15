@@ -1,7 +1,7 @@
 import bpy
 from bpy.types import ID, Object
 import math
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict, Any
 
 OBJECT_NAME_SPECKLE_SEPARATOR = " -- "
 SPECKLE_ID_LENGTH = 32
@@ -242,7 +242,7 @@ def get_object_id(blender_object: Object) -> str:
     return get_unique_id(blender_object)
 
 
-def extract_custom_properties(blender_id: ID) -> dict:
+def extract_custom_properties(blender_id: ID) -> Dict[str, Any]:
     """
     Extract custom user-defined properties from a Blender ID datablock.
     """
@@ -295,7 +295,7 @@ def apply_custom_properties(speckle_obj, blender_data: ID) -> None:
         speckle_obj.properties = properties
 
 
-def apply_cached_properties(speckle_obj, properties: dict ) -> None:
+def apply_cached_properties(speckle_obj, properties: Dict[str, Any]) -> None:
     """Apply pre-extracted custom properties to a Speckle object if they exist."""
     if properties:
         speckle_obj.properties = properties

@@ -1,5 +1,5 @@
 import bpy
-from typing import List
+from typing import List, Dict
 from bpy.types import Operator, Context, Object
 from bpy.props import EnumProperty
 from ..utils.model_card_utils import update_model_card_objects
@@ -89,7 +89,7 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         row.label(text="Selection Summary", icon="OUTLINER_OB_GROUP_INSTANCE")
         row.label(text=f"Total: {total_selected}", icon="OBJECT_DATA")
 
-        object_types: dict[str, int] = {}
+        object_types: Dict[str, int] = {}
         for obj in selected_objects:
             if obj.type not in object_types:
                 object_types[obj.type] = 1
@@ -113,7 +113,7 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
             )
 
     def get_icon_for_type(self, obj_type: str) -> str:
-        icon_map: dict[str, str] = {
+        icon_map: Dict[str, str] = {
             "MESH": "OUTLINER_OB_MESH",
             "CURVE": "OUTLINER_OB_CURVE",
             "SURFACE": "OUTLINER_OB_SURFACE",
