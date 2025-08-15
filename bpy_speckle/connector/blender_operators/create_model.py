@@ -19,7 +19,7 @@ class SPECKLE_OT_create_model(bpy.types.Operator):
         if not self.model_name.strip():
             self.report({"ERROR"}, "Model name cannot be empty")
             return {"CANCELLED"}
-        
+
         try:
             model_id, model_name = create_model(
                 wm.selected_account_id, wm.selected_project_id, self.model_name
@@ -59,7 +59,9 @@ def create_model(account_id: str, project_id: str, model_name: str) -> Tuple[str
             raise ValueError(f"Could not get client for account: {account_id}")
 
         model = client.model.create(
-            input=CreateModelInput(name=model_name, description="", project_id=project_id)
+            input=CreateModelInput(
+                name=model_name, description="", project_id=project_id
+            )
         )
         return (model.id, model.name)
     except Exception as e:
