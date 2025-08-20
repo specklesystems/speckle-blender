@@ -87,7 +87,7 @@ def load_operation(
 
     traversal_function = create_default_traversal_function()
 
-    root_collection_name = f"{wm.selected_model_name} - {wm.selected_version_id[:8]}"
+    root_collection_name = f"{wm.selected_model_name} - {wm.selected_version_id}"
     root_collection = bpy.data.collections.new(root_collection_name)
     context.scene.collection.children.link(root_collection)
 
@@ -124,7 +124,7 @@ def load_operation(
                 speckle_root_id = speckle_obj.id
 
             collection_name = getattr(
-                speckle_obj, "name", f"Collection_{speckle_obj.id[:8]}"
+                speckle_obj, "name", f"Collection_{speckle_obj.id}"
             )
 
             parent_id = None
@@ -137,6 +137,7 @@ def load_operation(
                 "id": speckle_obj.id,
                 "name": collection_name,
                 "parent_id": parent_id,
+                "applicationId": getattr(speckle_obj, "applicationId", ""),
                 "blender_collection": None,
                 "full_path": [collection_name],
             }
@@ -192,6 +193,8 @@ def load_operation(
             blender_collection = created_collections[collection_key]
         else:
             blender_collection = bpy.data.collections.new(coll_name)
+            if coll_info.get("applicationId"):
+                blender_collection["applicationId"] = coll_info["applicationId"]
             parent_collection.children.link(blender_collection)
             created_collections[collection_key] = blender_collection
 
