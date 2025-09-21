@@ -50,6 +50,7 @@ def load_operation(
 
     # Get account for metrics tracking
     from specklepy.core.api.credentials import get_local_accounts
+
     account = next(
         (
             acc
@@ -58,7 +59,7 @@ def load_operation(
         ),
         None,
     )
-    
+
     if account:
         metrics.track(
             metrics.RECEIVE,
@@ -71,7 +72,9 @@ def load_operation(
                     version.source_application
                 ).slug,
                 "isMultiplayer": version.author_user.id != account.userInfo.id,
-                "workspace_id": get_project_workspace_id(client, wm.selected_project_id),
+                "workspace_id": get_project_workspace_id(
+                    client, wm.selected_project_id
+                ),
             },
         )
 
@@ -152,6 +155,7 @@ def load_operation(
                 "id": speckle_obj.id,
                 "name": collection_name,
                 "parent_id": parent_id,
+                "applicationId": getattr(speckle_obj, "applicationId", ""),
                 "blender_collection": None,
                 "full_path": [collection_name],
             }
@@ -207,6 +211,8 @@ def load_operation(
             blender_collection = created_collections[collection_key]
         else:
             blender_collection = bpy.data.collections.new(coll_name)
+            if coll_info.get("applicationId"):
+                blender_collection["applicationId"] = coll_info["applicationId"]
             parent_collection.children.link(blender_collection)
             created_collections[collection_key] = blender_collection
 

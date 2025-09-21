@@ -123,7 +123,11 @@ def update_workspaces_list(context: Context) -> None:
         workspace: speckle_workspace = wm.speckle_workspaces.add()
         workspace.id = id
         workspace.name = name
-    wm.selected_workspace.id = get_active_workspace(wm.selected_account_id)["id"]
+    active_workspace = get_active_workspace(wm.selected_account_id)
+    if active_workspace:
+        wm.selected_workspace.id = active_workspace["id"]
+    else:
+        wm.selected_workspace.id = "personal"
     print("Updated Workspaces List!")
 
 

@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import Context, Event, UILayout, WindowManager
+from bpy.types import Context, Event, UILayout
 from ..utils.account_manager import (
     get_model_details_by_wrapper,
     get_project_from_url,
