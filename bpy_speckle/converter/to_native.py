@@ -85,7 +85,7 @@ def convert_to_native(
     material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
     definition_collections: Optional[Dict[str, bpy.types.Collection]] = None,
     root_collection: Optional[bpy.types.Collection] = None,
-    instance_loading_mode: str = "INSTANCE_PROXIES",
+    instance_loading_mode: str = "COLLECTION_INSTANCES",
 ) -> Optional[Object]:
     """
     converts a speckle object to blender object with material support
@@ -114,7 +114,7 @@ def convert_to_native(
                         converted_object = instance_proxy_to_linked_duplicates(
                             speckle_object, coll, root_collection, scale
                         )
-                    else:  # INSTANCE_PROXIES (default)
+                    else:  # COLLECTION_INSTANCES (default)
                         converted_object = instance_proxy_to_native(
                             speckle_object, coll, root_collection, scale
                         )
@@ -407,7 +407,7 @@ def _members_to_native(
     for item in others:
         try:
             blender_object = convert_to_native(
-                item, material_mapping, instance_loading_mode="INSTANCE_PROXIES"
+                item, material_mapping, instance_loading_mode="COLLECTION_INSTANCES"
             )
             if blender_object:
                 # If the parent is a DataObject, override the name of the converted child
@@ -1296,13 +1296,13 @@ def instance_definition_proxy_to_native(
     root_object: Base,
     material_mapping: Dict[str, Any],
     processed_definitions: Dict[str, Any] = None,
-    instance_loading_mode: str = "INSTANCE_PROXIES",
+    instance_loading_mode: str = "COLLECTION_INSTANCES",
 ) -> Tuple[Dict[str, bpy.types.Collection], Dict[str, Any]]:
     """
     converts instance definition proxies to Blender collections recursively
     """
     # Validate instance loading mode
-    assert instance_loading_mode in ["INSTANCE_PROXIES", "LINKED_DUPLICATES"], (
+    assert instance_loading_mode in ["COLLECTION_INSTANCES", "LINKED_DUPLICATES"], (
         f"Invalid instance_loading_mode: {instance_loading_mode}. "
         "Must be 'INSTANCE_PROXIES' or 'LINKED_DUPLICATES'"
     )
@@ -1371,7 +1371,7 @@ def instance_definition_proxy_to_native(
                                         definition_collection,
                                         scale=1.0,
                                     )
-                                else:  # INSTANCE_PROXIES (default)
+                                else:  # COLLECTION_INSTANCES (default)
                                     blender_obj = instance_proxy_to_native(
                                         found_obj,
                                         definition_collections[found_obj.definitionId],
@@ -1384,7 +1384,7 @@ def instance_definition_proxy_to_native(
                             blender_obj = convert_to_native(
                                 found_obj,
                                 material_mapping,
-                                instance_loading_mode="INSTANCE_PROXIES",
+                                instance_loading_mode="COLLECTION_INSTANCES",
                             )
                             if blender_obj:
                                 definition_collection.objects.link(blender_obj)

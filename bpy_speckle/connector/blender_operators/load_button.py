@@ -20,7 +20,7 @@ class SPECKLE_OT_load(bpy.types.Operator):
         description="Choose how to load instances",
         items=[
             (
-                "INSTANCE_PROXIES",
+                "COLLECTION_INSTANCES",
                 "Collection Instances",
                 "Load objects as collection instances",
             ),
@@ -30,7 +30,7 @@ class SPECKLE_OT_load(bpy.types.Operator):
                 "Get objects as linked duplicates",
             ),
         ],
-        default="INSTANCE_PROXIES",
+        default="COLLECTION_INSTANCES",
     )
 
     def draw(self, context: Context) -> None:

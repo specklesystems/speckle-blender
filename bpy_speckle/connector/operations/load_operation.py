@@ -23,7 +23,7 @@ from typing import Dict, Union
 
 
 def load_operation(
-    context: Context, instance_loading_mode: str = "INSTANCE_PROXIES"
+    context: Context, instance_loading_mode: str = "COLLECTION_INSTANCES"
 ) -> Dict[str, Union[bpy.types.Collection, bpy.types.Object]]:
     """
     load objects from Speckle and maintain hierarchy.

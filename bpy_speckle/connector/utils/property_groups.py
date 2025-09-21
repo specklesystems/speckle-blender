@@ -106,7 +106,7 @@ class speckle_model_card(bpy.types.PropertyGroup):
     instance_loading_mode: bpy.props.StringProperty(
         name="Instance Loading Mode",
         description="Mode of loading instances",
-        default="INSTANCE_PROXIES",
+        default="COLLECTION_INSTANCES",
     )  # type: ignore
     apply_modifiers: bpy.props.BoolProperty(
         name="Apply Modifiers",
