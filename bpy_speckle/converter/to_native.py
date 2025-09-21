@@ -187,7 +187,7 @@ def convert_to_native(
         converted_object["speckle_id"] = speckle_object.id
         if hasattr(speckle_object, "applicationId"):
             converted_object["applicationId"] = speckle_object.applicationId
-        
+
         # Extract and store Speckle properties
         speckle_properties = extract_speckle_properties(speckle_object)
         for prop_name, prop_value in speckle_properties.items():
@@ -219,10 +219,7 @@ def convert_property_value(value: Any) -> Any:
 def _traverse_properties(obj: Any, parent_name: str = "") -> Dict[str, Any]:
     """Recursively traverse properties, collecting name/value pairs with duplicate handling."""
     properties = {}
-    
-    if not isinstance(obj, dict):
-        return properties
-    
+
     for key, value in obj.items():
         # Skip excluded sections
         if key == "Material Quantities":
@@ -231,19 +228,19 @@ def _traverse_properties(obj: Any, parent_name: str = "") -> Dict[str, Any]:
             continue
         if parent_name == "Type Parameters" and key == "Structure":
             continue
-            
+
         if isinstance(value, dict):
             # Check if this is a complex property (has name and value)
             if "name" in value and "value" in value:
                 # Extract only name and value, ignore other fields
                 prop_name = value.get("name", key)
                 prop_value = convert_property_value(value["value"])
-                
+
                 # Handle duplicates by adding parent suffix
                 final_name = prop_name
                 if final_name in properties:
                     final_name = f"{prop_name}_{key}"  # Use the dict key as suffix
-                
+
                 properties[final_name] = prop_value
             else:
                 # Recurse into nested structure
@@ -253,32 +250,30 @@ def _traverse_properties(obj: Any, parent_name: str = "") -> Dict[str, Any]:
                     final_name = nested_name
                     if final_name in properties:
                         final_name = f"{nested_name}_{key}"
-                    
+
                     properties[final_name] = nested_value
         else:
             # Simple property - store directly with key as name
             final_name = key
             if final_name in properties:
                 final_name = f"{key}_{parent_name}" if parent_name else key
-            
+
             properties[final_name] = convert_property_value(value)
-    
+
     return properties
 
 
 def extract_speckle_properties(speckle_object: Base) -> Dict[str, Any]:
     """Extract properties from Speckle object properties field only."""
-    if not hasattr(speckle_object, "properties"):
+    if not isinstance(speckle_object, DataObject):
         return {}
-    
+
     try:
-        properties = speckle_object.properties
-        if isinstance(properties, dict):
-            return _traverse_properties(properties)
+        return _traverse_properties(speckle_object.properties)
     except Exception as e:
         # Silently handle any extraction errors
         print(f"Warning: Failed to extract properties: {e}")
-    
+
     return {}
 
 
