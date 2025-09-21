@@ -203,12 +203,6 @@ def convert_to_native(
 def convert_property_value(value: Any) -> Any:
     """Convert property values to appropriate Python types."""
     if isinstance(value, str):
-        # Handle boolean strings
-        lower_value = value.lower()
-        if lower_value == "yes" or lower_value == "true":
-            return True
-        elif lower_value == "no" or lower_value == "false":
-            return False
         # Return string as-is
         return value
     elif isinstance(value, (int, float)):
