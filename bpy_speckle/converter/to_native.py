@@ -159,7 +159,14 @@ def convert_to_native(
     else:
         # Fallback to display value if direct conversion not supported
         mesh, children = display_value_to_native(
-            speckle_object, object_name, data_block_name, scale, material_mapping
+            speckle_object,
+            object_name,
+            data_block_name,
+            scale,
+            material_mapping,
+            definition_collections,
+            root_collection,
+            instance_loading_mode,
         )
         if mesh:
             # Create a mesh object with the object_name (simple name) and mesh data
@@ -176,7 +183,11 @@ def convert_to_native(
             # Ensure the converted object has the correct name (especially for DataObjects)
             if isinstance(speckle_object, DataObject):
                 converted_object.name = object_name
-                data_block_name = converted_object.data.name
+                if (
+                    hasattr(converted_object, "data")
+                    and converted_object.data is not None
+                ):
+                    data_block_name = converted_object.data.name
 
             # If there are multiple objects, parent remaining ones to the first
             for child in children[1:]:
@@ -197,6 +208,9 @@ def display_value_to_native(
     data_block_name: str,
     scale: float,
     material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
+    definition_collections: Optional[Dict[str, bpy.types.Collection]] = None,
+    root_collection: Optional[bpy.types.Collection] = None,
+    instance_loading_mode: str = "INSTANCE_PROXIES",
 ) -> Tuple[Optional[bpy.types.Mesh], List[Object]]:
     """
     fallback conversion mechanism using displayValue if present
@@ -215,6 +229,9 @@ def display_value_to_native(
         DISPLAY_VALUE_PROPERTY_ALIASES,
         True,
         material_mapping,
+        definition_collections,
+        root_collection,
+        instance_loading_mode,
     )
 
     # If the parent had an applicationId and we created a mesh, apply the material
@@ -247,6 +264,9 @@ def elements_to_native(
     data_block_name: str,
     scale: float,
     material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
+    definition_collections: Optional[Dict[str, bpy.types.Collection]] = None,
+    root_collection: Optional[bpy.types.Collection] = None,
+    instance_loading_mode: str = "INSTANCE_PROXIES",
 ) -> List[Object]:
     """
     convert elements collection of a speckle object
@@ -259,6 +279,9 @@ def elements_to_native(
         ELEMENTS_PROPERTY_ALIASES,
         False,
         material_mapping,
+        definition_collections,
+        root_collection,
+        instance_loading_mode,
     )
     return elements
 
@@ -271,12 +294,16 @@ def _members_to_native(
     members: Iterable[str],
     combineMeshes: bool,
     material_mapping: Optional[Dict[str, bpy.types.Material]] = None,
+    definition_collections: Optional[Dict[str, bpy.types.Collection]] = None,
+    root_collection: Optional[bpy.types.Collection] = None,
+    instance_loading_mode: str = "INSTANCE_PROXIES",
 ) -> Tuple[Optional[bpy.types.Mesh], List[Object]]:
     """
     converts a given speckle_object by converting specified members
     """
     meshes: List[Mesh] = []
     others: List[Base] = []
+    instance_proxies: List[InstanceProxy] = []
 
     for alias in members:
         display = getattr(speckle_object, alias, None)
@@ -285,10 +312,13 @@ def _members_to_native(
         MAX_DEPTH = 255  # some large value, to prevent infinite recursion
 
         def separate(value: Any) -> bool:
-            nonlocal meshes, others, count, MAX_DEPTH
+            nonlocal meshes, others, instance_proxies, count, MAX_DEPTH
 
             if combineMeshes and isinstance(value, Mesh):
                 meshes.append(value)
+            elif isinstance(value, InstanceProxy):
+                # Handle InstanceProxy objects separately - they need definition_collections
+                instance_proxies.append(value)
             elif isinstance(value, Base):
                 others.append(value)
             elif isinstance(value, list):
@@ -318,10 +348,30 @@ def _members_to_native(
     # Check if the original object is a DataObject
     is_data_object = isinstance(speckle_object, DataObject)
 
+    # Process InstanceProxy objects first with proper definition collections
+    for item in instance_proxies:
+        try:
+            blender_object = convert_to_native(
+                item,
+                material_mapping,
+                definition_collections=definition_collections,
+                root_collection=root_collection,
+                instance_loading_mode=instance_loading_mode,
+            )
+            if blender_object:
+                children.append(blender_object)
+        except Exception as ex:
+            print(f"Failed to convert instance proxy in display value {item}: {ex}")
+
+    # Process other objects
     for item in others:
         try:
             blender_object = convert_to_native(
-                item, material_mapping, instance_loading_mode="INSTANCE_PROXIES"
+                item,
+                material_mapping,
+                definition_collections=definition_collections,
+                root_collection=root_collection,
+                instance_loading_mode=instance_loading_mode,
             )
             if blender_object:
                 # If the parent is a DataObject, override the name of the converted child
@@ -987,7 +1037,14 @@ def curve_to_native(
     ):
         print("curve_to_native: degree 2 curve, falling back to displayValue")
         mesh, children = display_value_to_native(
-            speckle_curve, object_name, data_block_name, scale
+            speckle_curve,
+            object_name,
+            data_block_name,
+            scale,
+            None,
+            None,
+            None,
+            "INSTANCE_PROXIES",
         )
         if mesh:
             curve_obj = bpy.data.objects.new(object_name, mesh)
@@ -1059,7 +1116,14 @@ def polycurve_to_native(
             and speckle_polycurve.displayValue
         ):
             mesh, children = display_value_to_native(
-                speckle_polycurve, object_name, data_block_name, scale
+                speckle_polycurve,
+                object_name,
+                data_block_name,
+                scale,
+                None,
+                None,
+                None,
+                "INSTANCE_PROXIES",
             )
             if mesh:
                 curve_obj = bpy.data.objects.new(object_name, mesh)
@@ -1486,32 +1550,24 @@ def instance_proxy_to_native(
 
     location = location * unit_scale
 
-    bpy.ops.object.collection_instance_add(
-        collection=definition_collection.name,
-        align="WORLD",
-        location=(0, 0, 0),
-        rotation=(0, 0, 0),
-        scale=(1, 1, 1),
-    )
-
-    instance_obj = bpy.context.active_object
-
+    # Create collection instance directly
+    instance_name = f"Instance_{speckle_instance.id}"
+    instance_obj = bpy.data.objects.new(instance_name, None)
+    instance_obj.instance_type = "COLLECTION"
+    instance_obj.instance_collection = definition_collection
     instance_obj.empty_display_size = 0
 
-    instance_name = f"Instance_{speckle_instance.id}"
-    instance_obj.name = instance_name
+    # Link to root collection
+    root_collection.objects.link(instance_obj)
 
-    if instance_obj.name not in root_collection.objects:
-        for coll in instance_obj.users_collection:
-            coll.objects.unlink(instance_obj)
-        root_collection.objects.link(instance_obj)
-
+    # Store metadata
     instance_obj["speckle_id"] = speckle_instance.id
     instance_obj["speckle_type"] = speckle_instance.speckle_type
     instance_obj["definition_id"] = speckle_instance.definitionId
     if hasattr(speckle_instance, "maxDepth"):
         instance_obj["max_depth"] = speckle_instance.maxDepth
 
+    # Apply transformation
     final_matrix = (
         mathutils.Matrix.Translation(location)
         @ rotation.to_matrix().to_4x4()
