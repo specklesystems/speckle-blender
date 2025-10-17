@@ -1,6 +1,8 @@
+from typing import Any, Dict, Optional
+
 import bpy
 from bpy.types import Context
-from typing import Dict, Any, Optional
+
 from ..utils.property_groups import speckle_model_card
 
 
@@ -316,11 +318,17 @@ def update_model_card_objects(
     if isinstance(converted_objects, list):
         converted_objects = {obj.name: obj for obj in converted_objects}
 
+    # Using a set keeps lookup O(1)
+    object_names = set()
+    collection_names = set()
+
     for obj in converted_objects.values():
         # Handle collections
         if isinstance(obj, bpy.types.Collection):
-            if obj.name in (o.name for o in model_card.collections):
+            if obj.name in collection_names:
                 continue
+            collection_names.add(obj.name)
+
             s_col = model_card.collections.add()
             s_col.name = obj.name
             s_col.applicationId = obj.get("applicationId", "")
@@ -334,8 +342,10 @@ def update_model_card_objects(
 
         # Handle objects
         elif isinstance(obj, bpy.types.Object):
-            if obj.name in (o.name for o in model_card.objects):
+            if obj.name in object_names:
                 continue
+            object_names.add(obj.name)
+
             s_obj = model_card.objects.add()
             s_obj.name = obj.name
             s_obj.applicationId = obj.get("applicationId", "")
