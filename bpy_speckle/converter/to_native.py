@@ -356,7 +356,7 @@ def _members_to_native(
                 material_mapping,
                 definition_collections=definition_collections,
                 root_collection=root_collection,
-                instance_loading_mode=instance_loading_mode,
+                instance_loading_mode="LINKED_DUPLICATES",  # always use Linked Duplicates for displayValue proxies
             )
             if blender_object:
                 children.append(blender_object)
