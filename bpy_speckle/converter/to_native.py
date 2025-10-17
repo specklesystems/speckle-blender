@@ -1275,6 +1275,7 @@ def instance_definition_proxy_to_native(
     material_mapping: Dict[str, Any],
     processed_definitions: Dict[str, Any] = None,
     instance_loading_mode: str = "INSTANCE_PROXIES",
+    object_id_map: Optional[Dict[str, Base]] = None,
 ) -> Tuple[Dict[str, bpy.types.Collection], Dict[str, Any]]:
     """
     converts instance definition proxies to Blender collections recursively
@@ -1326,7 +1327,8 @@ def instance_definition_proxy_to_native(
         # Process objects, including nested instances
         if hasattr(definition, "objects") and isinstance(definition.objects, list):
             for obj_id in definition.objects:
-                found_obj = find_object_by_id(root_object, obj_id)
+                # Use the ID map for lookup
+                found_obj = object_id_map.get(obj_id) if object_id_map else None
 
                 if found_obj:
                     try:

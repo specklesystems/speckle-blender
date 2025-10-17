@@ -10,7 +10,11 @@ from specklepy.core.api import host_applications
 
 from ..utils.get_ascendants import get_ascendants
 from ..utils.account_manager import _client_cache
-from ...converter.utils import find_object_by_id, get_project_workspace_id
+from ...converter.utils import (
+    find_object_by_id,
+    get_project_workspace_id,
+    build_object_id_map,
+)
 from ...converter.to_native import (
     convert_to_native,
     render_material_proxy_to_native,
@@ -78,11 +82,17 @@ def load_operation(
             },
         )
 
+    # Build object ID map once
+    object_id_map = build_object_id_map(version_data)
+
     # Create material mapping first
     material_mapping = render_material_proxy_to_native(version_data)
 
     definition_collections, definition_objects = instance_definition_proxy_to_native(
-        version_data, material_mapping, instance_loading_mode=instance_loading_mode
+        version_data,
+        material_mapping,
+        instance_loading_mode=instance_loading_mode,
+        object_id_map=object_id_map,
     )
 
     definitions_root_collection = None
@@ -96,7 +106,8 @@ def load_operation(
     for definition in find_instance_definitions(version_data).values():
         definition_object_ids.update(definition.objects)
         for obj_id in definition.objects:
-            found_obj = find_object_by_id(version_data, obj_id)
+            # Use ID map
+            found_obj = object_id_map.get(obj_id)
             if found_obj:
                 if hasattr(found_obj, "id"):
                     definition_object_ids.add(found_obj.id)
