@@ -348,18 +348,16 @@ def _members_to_native(
     # Check if the original object is a DataObject
     is_data_object = isinstance(speckle_object, DataObject)
 
-    # Process InstanceProxy objects first with proper definition collections
+    # Process InstanceProxy objects - do not add to children list as they are already
     for item in instance_proxies:
         try:
-            blender_object = convert_to_native(
+            convert_to_native(
                 item,
                 material_mapping,
                 definition_collections=definition_collections,
                 root_collection=root_collection,
                 instance_loading_mode="LINKED_DUPLICATES",  # always use Linked Duplicates for displayValue proxies
             )
-            if blender_object:
-                children.append(blender_object)
         except Exception as ex:
             print(f"Failed to convert instance proxy in display value {item}: {ex}")
 
@@ -1428,7 +1426,8 @@ def instance_proxy_to_linked_duplicates(
         print(f"Definition collection not found for instance {speckle_instance.id}")
         return None
 
-    unit_scale = proxy_scale(speckle_instance)
+    # Use the scale from the parent context
+    unit_scale = scale
 
     # convert transformation matrix
     matrix = mathutils.Matrix(
@@ -1463,7 +1462,6 @@ def instance_proxy_to_linked_duplicates(
     location, rotation, scale_vector = matrix.decompose()
     location = location * unit_scale
 
-    # create transformation matrix
     final_matrix = (
         mathutils.Matrix.Translation(location)
         @ rotation.to_matrix().to_4x4()
@@ -1475,10 +1473,8 @@ def instance_proxy_to_linked_duplicates(
     parent_empty.empty_display_type = "PLAIN_AXES"
     parent_empty.empty_display_size = 0.1
 
-    parent_empty.matrix_world = final_matrix
-
-    # link parent to root collection
     root_collection.objects.link(parent_empty)
+    parent_empty.matrix_world = final_matrix
 
     parent_empty["speckle_id"] = speckle_instance.id
     parent_empty["speckle_type"] = speckle_instance.speckle_type
@@ -1488,15 +1484,14 @@ def instance_proxy_to_linked_duplicates(
 
     duplicated_objects = []
     for obj in definition_collection.objects:
-        # create a copy of the object with linked data
         duplicate_obj = obj.copy()
-
         duplicate_obj.name = f"{obj.name}_{speckle_instance.id[:8]}"
 
         root_collection.objects.link(duplicate_obj)
 
-        # apply the instance transformation directly to each object
-        duplicate_obj.matrix_world = final_matrix @ obj.matrix_world
+        duplicate_obj.parent = parent_empty
+        duplicate_obj.matrix_parent_inverse.identity()
+        duplicate_obj.matrix_basis = obj.matrix_world
 
         duplicated_objects.append(duplicate_obj)
 
@@ -1516,7 +1511,8 @@ def instance_proxy_to_native(
         print(f"Definition collection not found for instance {speckle_instance.id}")
         return None
 
-    unit_scale = proxy_scale(speckle_instance)
+    # Use the scale from the parent context
+    unit_scale = scale
 
     # convert transformation matrix
     matrix = mathutils.Matrix(
@@ -1549,10 +1545,7 @@ def instance_proxy_to_native(
     )
 
     location, rotation, scale_vector = matrix.decompose()
-
     location = location * unit_scale
-
-    # Create collection instance directly
     instance_name = f"Instance_{speckle_instance.id}"
     instance_obj = bpy.data.objects.new(instance_name, None)
     instance_obj.instance_type = "COLLECTION"
