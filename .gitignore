@@ -15,3 +15,7 @@ modules/
 requirements.txt
 SEMVER
 dui3/
+
+#claude
+.claude/
+claude.md

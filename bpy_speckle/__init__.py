@@ -205,6 +205,10 @@ def register():
 
 
 def unregister():
+    # Clean up authentication server
+    from .connector.blender_operators.add_account_button import cleanup_auth_server
+    cleanup_auth_server()
+    
     icons.unload_icons()
     unregister_speckle_state()  # Unregister SpeckleState
     _client_cache.clear()
