@@ -1,4 +1,4 @@
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 import bpy
 import mathutils
 from specklepy.objects import Base
@@ -116,6 +116,25 @@ def transform_matrix(transform: List[float]) -> mathutils.Matrix:
             (transform[3], transform[7], transform[11], transform[15]),
         )
     )
+
+
+def build_object_id_map(root_object: Base) -> Dict[str, Base]:
+    """
+    Builds a dictionary mapping object IDs (both id and applicationId) to objects.
+    """
+    id_map = {}
+    traversal_function = create_default_traversal_function()
+
+    for traversal_item in traversal_function.traverse(root_object):
+        obj = traversal_item.current
+
+        if hasattr(obj, "id") and obj.id:
+            id_map[obj.id] = obj
+
+        if hasattr(obj, "applicationId") and obj.applicationId:
+            id_map[obj.applicationId] = obj
+
+    return id_map
 
 
 def find_object_by_id(root_object: Base, target_id: str) -> Optional[Base]:
