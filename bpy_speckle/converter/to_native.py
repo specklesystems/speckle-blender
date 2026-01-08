@@ -695,7 +695,7 @@ def render_material_proxy_to_native(
             continue
 
         render_material = proxy.value
-        material_name = getattr(render_material, "name", "Material")
+        material_name = getattr(render_material, "name", None) or "Material"
 
         # create or get existing material
         blender_material = create_material_from_proxy(render_material, material_name)
