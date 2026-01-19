@@ -34,6 +34,7 @@ bl_info = {
 
 # UI
 from .connector.ui.main_panel import SPECKLE_PT_main_panel
+from .connector.ui.update_panel import SPECKLE_PT_update_panel
 from .connector.ui.model_cards_panel import SPECKLE_PT_model_cards_panel
 from .connector.utils.account_manager import speckle_workspace
 from .connector.ui.project_selection_dialog import (
@@ -81,6 +82,8 @@ from .connector.blender_operators.add_project_by_url import (
 
 from .connector.blender_operators.create_project import SPECKLE_OT_create_project
 from .connector.blender_operators.create_model import SPECKLE_OT_create_model
+from .connector.blender_operators.version_check import SPECKLE_OT_version_check
+from .connector.blender_operators.update_button import SPECKLE_OT_update_button
 from .connector.utils.account_manager import (
     speckle_account,
     get_default_account_id,
@@ -104,6 +107,14 @@ from .connector.ui.account_selection_dialog import (
     SPECKLE_OT_account_selection_dialog,
     SPECKLE_UL_accounts_list,
 )
+
+
+def delayed_version_check():
+    """Timer function to check for updates after addon startup"""
+    try:
+        bpy.ops.speckle.version_check()
+    except Exception as e:
+        print(f"[Speckle] Failed to check for updates: {e}")
 
 
 def invoke_window_manager_properties():
@@ -140,10 +151,15 @@ def invoke_window_manager_properties():
     )
     # Objects
     WindowManager.speckle_objects = bpy.props.CollectionProperty(type=speckle_object)
+    # Update checking
+    WindowManager.update_available = bpy.props.BoolProperty(default=False)
+    WindowManager.latest_version = bpy.props.StringProperty(default="")
+    WindowManager.update_url = bpy.props.StringProperty(default="")
 
 
 # Classes to load
 classes = (
+    SPECKLE_PT_update_panel,
     SPECKLE_PT_main_panel,
     SPECKLE_PT_model_cards_panel,
     SPECKLE_OT_publish,
@@ -173,6 +189,8 @@ classes = (
     SPECKLE_OT_add_project_by_url,
     SPECKLE_OT_create_project,
     SPECKLE_OT_create_model,
+    SPECKLE_OT_version_check,
+    SPECKLE_OT_update_button,
     speckle_account,
     SPECKLE_UL_workspaces_list,
     SPECKLE_OT_workspace_selection_dialog,
@@ -205,8 +223,15 @@ def register():
     except Exception as e:
         print(f"[Speckle] Failed to pre-warm client: {e}")
 
+    # Use a timer to delay the version check
+    bpy.app.timers.register(delayed_version_check, first_interval=2.0)
+
 
 def unregister():
+    # Clear any pending timers to prevent duplicate calls
+    if bpy.app.timers.is_registered(delayed_version_check):
+        bpy.app.timers.unregister(delayed_version_check)
+    
     icons.unload_icons()
     unregister_speckle_state()  # Unregister SpeckleState
     _client_cache.clear()
