@@ -1,6 +1,7 @@
 import bpy
 from specklepy.core.api.credentials import get_local_accounts
 from typing import List, Tuple, Optional, Dict
+from urllib.parse import urlparse
 from specklepy.core.api.credentials import Account
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.wrapper import StreamWrapper
@@ -23,7 +24,9 @@ class SpeckleClientCache:
         if not account:
             raise ValueError(f"No account found for ID: {account_id}")
 
-        client = SpeckleClient(host=account.serverInfo.url)
+        url = account.serverInfo.url
+        use_ssl = urlparse(url).scheme.lower() != "http"
+        client = SpeckleClient(host=url, use_ssl=use_ssl)
         client.authenticate_with_account(account)
         self._clients[account_id] = client
         return client
