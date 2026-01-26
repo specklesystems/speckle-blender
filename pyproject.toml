@@ -11,6 +11,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "fake-bpy-module-latest>=20260126",
-    "ruff==0.9.2",
+    "ruff==0.14.14",
     "pre-commit>=4.0.1",
 ]
