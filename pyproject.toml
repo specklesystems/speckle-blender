@@ -9,4 +9,8 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["fake-bpy-module-latest>=20240524,<20240525", "ruff>=0.4.4,<0.5"]
+dev = [
+    "fake-bpy-module-latest>=20260126",
+    "ruff==0.14.14",
+    "pre-commit>=4.0.1",
+]

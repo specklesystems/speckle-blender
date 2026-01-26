@@ -231,7 +231,7 @@ def unregister():
     # Clear any pending timers to prevent duplicate calls
     if bpy.app.timers.is_registered(delayed_version_check):
         bpy.app.timers.unregister(delayed_version_check)
-    
+
     icons.unload_icons()
     unregister_speckle_state()  # Unregister SpeckleState
     _client_cache.clear()
