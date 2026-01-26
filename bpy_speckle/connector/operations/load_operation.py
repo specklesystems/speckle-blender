@@ -1,29 +1,28 @@
+from typing import Dict, Union
+
 import bpy
 from bpy.types import Context
-from specklepy.transports.server import ServerTransport
-from specklepy.core.api import operations
-from specklepy.objects.models.collections.collection import Collection as SCollection
+from specklepy.core.api import host_applications, operations
+from specklepy.logging import metrics
 from specklepy.objects.graph_traversal.default_traversal import (
     create_default_traversal_function,
 )
-from specklepy.core.api import host_applications
+from specklepy.objects.models.collections.collection import Collection as SCollection
+from specklepy.transports.server import ServerTransport
 
-from ..utils.get_ascendants import get_ascendants
-from ..utils.account_manager import _client_cache
-from ...converter.utils import (
-    find_object_by_id,
-    get_project_workspace_id,
-    build_object_id_map,
-)
+from ... import bl_info
 from ...converter.to_native import (
     convert_to_native,
-    render_material_proxy_to_native,
-    instance_definition_proxy_to_native,
     find_instance_definitions,
+    instance_definition_proxy_to_native,
+    render_material_proxy_to_native,
 )
-from specklepy.logging import metrics
-from ... import bl_info
-from typing import Dict, Union
+from ...converter.utils import (
+    build_object_id_map,
+    get_project_workspace_id,
+)
+from ..utils.account_manager import _client_cache
+from ..utils.get_ascendants import get_ascendants
 
 
 def load_operation(
