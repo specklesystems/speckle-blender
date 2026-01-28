@@ -1,4 +1,5 @@
 import bpy
+import textwrap
 from bpy.types import Event, Context
 from typing import Optional
 from ..utils.authentication import (
@@ -244,23 +245,14 @@ class SPECKLE_OT_show_auth_error(bpy.types.Operator):
         error_details = context.window_manager.get("speckle_auth_error", "Unknown error")
         col = layout.column(align=True)
         
-        # Split long error messages with word wrap
+        # Wrap long error messages
+        wrapper = textwrap.TextWrapper(width=60)
         for line in error_details.split('\n'):
-            if len(line) > 60:
-                # Word wrap long lines
-                words = line.split(' ')
-                current_line = ""
-                for word in words:
-                    if len(current_line + word) < 60:
-                        current_line += word + " "
-                    else:
-                        if current_line.strip():
-                            col.label(text=current_line.strip())
-                        current_line = word + " "
-                if current_line.strip():
-                    col.label(text=current_line.strip())
+            if line:
+                for wrapped_line in wrapper.wrap(line):
+                    col.label(text=wrapped_line)
             else:
-                col.label(text=line)
+                col.label(text="")
         
         layout.separator()
         
