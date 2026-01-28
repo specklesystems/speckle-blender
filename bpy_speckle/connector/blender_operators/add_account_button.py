@@ -38,13 +38,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
         print(f"[Add Account] Starting authentication for server: {self.server_url}")
         
         # Clean up any previous auth server
-        if _auth_server is not None:
-            try:
-                print("[Add Account] Cleaning up previous auth server")
-                _auth_server.shutdown()
-            except Exception as e:
-                print(f"[Add Account] Error shutting down previous server: {e}")
-            _auth_server = None
+        cleanup_auth_server()
         
         # Create and start the auth server
         _auth_server = AuthenticationServer(port=SPECKLE_AUTH_PORT)
@@ -67,8 +61,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
         except Exception as e:
             print(f"[Add Account] Failed to open browser: {e}")
             self.report({"ERROR"}, f"Failed to open browser: {e}")
-            _auth_server.shutdown()
-            _auth_server = None
+            cleanup_auth_server()
             return {"CANCELLED"}
         
         # Start timer to poll for completion
@@ -168,13 +161,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
             self._timer = None
         
         # Shutdown auth server
-        if _auth_server is not None:
-            try:
-                _auth_server.shutdown()
-            except Exception as e:
-                print(f"[Add Account] Error during cleanup: {e}")
-                print(f"[Add Account] Port {SPECKLE_AUTH_PORT} may still be occupied")
-            _auth_server = None
+        cleanup_auth_server()
 
 
 def cleanup_auth_server():
