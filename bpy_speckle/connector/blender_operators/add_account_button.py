@@ -145,17 +145,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
         return self._handle_auth_complete(context, is_successful, error_msg)
     
     def _handle_auth_complete(self, context: Context, is_successful: bool, error_msg: Optional[str]) -> set[str]:
-        """
-        Handle authentication completion (success or failure).
-        
-        Args:
-            context: Blender context
-            is_successful: Whether authentication succeeded
-            error_msg: Error message if authentication failed
-        
-        Returns:
-            set[str]: Blender operator return status
-        """
+        """Handle authentication completion and update UI state."""
         if is_successful:
             print("[Add Account] Account added successfully - refreshing UI")
             
@@ -199,7 +189,6 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
             return {"CANCELLED"}
     
     def _cleanup(self, context: Context):
-        """Clean up timer and auth server/authenticator."""
         # Remove timer
         if self._timer is not None:
             context.window_manager.event_timer_remove(self._timer)
@@ -210,10 +199,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
 
 
 def cleanup_auth_server():
-    """
-    Global cleanup function to shutdown auth server/authenticator.
-    Should be called when Blender exits or the addon is unloaded.
-    """
+    """Shutdown auth server/authenticator on addon unload."""
     global _auth_server, _desktop_authenticator
     
     if _auth_server is not None:
