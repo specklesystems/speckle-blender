@@ -24,50 +24,6 @@ SPECKLE_APP_ID = "sdas"  # App ID for Speckle Desktop Auth Service protocol
 SPECKLE_AUTH_PORT = 29364  # Default port for local auth callback server
 
 
-def is_port_in_use(port: int) -> bool:
-    """Check if a port is currently in use."""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(0.5)
-            # Try to bind to the port
-            result = sock.connect_ex(('127.0.0.1', port))
-            return result == 0
-    except Exception as e:
-        print(f"[Port Check] Error checking port {port}: {e}")
-        return False
-
-
-def is_desktop_service_running(port: int = SPECKLE_AUTH_PORT) -> bool:
-    """Check if Speckle Desktop Service is running by testing port and HTTP response."""
-    # First check if port is in use
-    if not is_port_in_use(port):
-        return False
-    
-    # Port is in use, verify it's actually Desktop Service by making a test request
-    try:
-        test_url = f"http://127.0.0.1:{port}/auth/add-account?serverUrl=test"
-        request = Request(test_url, headers={'User-Agent': get_user_agent()})
-        
-        # We don't care about the response content, just that we get a valid HTTP response
-        # Desktop Service will return a 302 redirect
-        with urlopen(request, timeout=2) as response:
-            # If we get any response (200, 302, etc.), Desktop Service is running
-            return True
-    except HTTPError as e:
-        # 302 redirects might raise HTTPError in some cases, but that's still valid
-        if e.code in (302, 301):
-            return True
-        print(f"[Desktop Service Check] HTTP error: {e.code}")
-        return False
-    except URLError as e:
-        # Connection refused or timeout - port is in use but not responding like Desktop Service
-        print(f"[Desktop Service Check] URL error: {e.reason}")
-        return False
-    except Exception as e:
-        print(f"[Desktop Service Check] Unexpected error: {e}")
-        return False
-
-
 def get_user_agent() -> str:
     """Get User-Agent string identifying the Blender connector to prevent Cloudflare blocking."""
     try:

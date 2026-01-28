@@ -4,7 +4,6 @@ from typing import Optional
 from ..utils.authentication import (
     AuthenticationServer,
     DesktopServiceAuthenticator,
-    is_desktop_service_running,
     SPECKLE_AUTH_PORT
 )
 
