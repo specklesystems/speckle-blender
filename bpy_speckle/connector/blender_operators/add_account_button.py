@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import Event, Context
-from ..utils.authentication import AuthenticationServer
+from ..utils.authentication import AuthenticationServer, SPECKLE_AUTH_PORT
 
 
 # Global auth server instance
@@ -47,13 +47,13 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
             _auth_server = None
         
         # Create and start the auth server
-        _auth_server = AuthenticationServer(port=29364)
+        _auth_server = AuthenticationServer(port=SPECKLE_AUTH_PORT)
         
         if not _auth_server.start():
             print("[Add Account] Failed to start authentication server")
             self.report(
                 {"ERROR"},
-                "Failed to start authentication server. Port 29364 may be in use. "
+                f"Failed to start authentication server. Port {SPECKLE_AUTH_PORT} may be in use. "
                 "Please close Speckle Desktop Service if running."
             )
             _auth_server = None

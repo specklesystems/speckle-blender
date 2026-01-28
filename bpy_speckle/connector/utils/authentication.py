@@ -18,6 +18,21 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 
+# Speckle Desktop Authentication Service protocol constants
+SPECKLE_APP_ID = "sdas"
+"""
+Application identifier for Speckle Desktop Authentication Service.
+
+Used as both appId and appSecret in the token exchange flow as per
+Speckle's authentication protocol specification.
+"""
+
+SPECKLE_AUTH_PORT = 29364
+"""
+Default port for local authentication callback server.
+"""
+
+
 def get_user_agent() -> str:
     """
     Get User-Agent string for HTTP requests.
@@ -197,7 +212,7 @@ class SpeckleAuthHandler(BaseHTTPRequestHandler):
         self.server.set_challenge(generate_challenge())
         
         # Construct redirect URL
-        auth_url = f"{self.server.get_server_url()}/authn/verify/sdas/{self.server.get_challenge()}"
+        auth_url = f"{self.server.get_server_url()}/authn/verify/{SPECKLE_APP_ID}/{self.server.get_challenge()}"
         
         print(f"[Auth Server] Redirecting to: {auth_url}")
         
@@ -298,8 +313,8 @@ def exchange_access_code_for_tokens(
     
     # Prepare request body
     body = {
-        'appId': 'sdas',
-        'appSecret': 'sdas',
+        'appId': SPECKLE_APP_ID,
+        'appSecret': SPECKLE_APP_ID,
         'accessCode': access_code,
         'challenge': challenge
     }
@@ -537,12 +552,12 @@ class AuthenticationServer:
     check status and shutdown.
     """
     
-    def __init__(self, port: int = 29364):
+    def __init__(self, port: int = SPECKLE_AUTH_PORT):
         """
         Initialize the authentication server.
         
         Args:
-            port: Port to run the server on (default: 29364)
+            port: Port to run the server on (default: SPECKLE_AUTH_PORT)
         """
         self.port = port
         self.server: Optional[ThreadSafeAuthServer] = None
