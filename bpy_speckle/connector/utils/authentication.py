@@ -398,42 +398,41 @@ def save_account_to_storage(
         os.makedirs(speckle_folder, exist_ok=True)
         
         # Connect to database and save account
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        
-        # Create table if it doesn't exist
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS objects (
-                hash TEXT PRIMARY KEY,
-                content TEXT
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Create table if it doesn't exist
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS objects (
+                    hash TEXT PRIMARY KEY,
+                    content TEXT
+                )
+            ''')
+            
+            # If setting as default, remove default flag from other accounts
+            if account_data['isDefault']:
+                cursor.execute('SELECT hash, content FROM objects')
+                for row in cursor.fetchall():
+                    existing_id, existing_content = row
+                    try:
+                        existing_account = json.loads(existing_content)
+                        if existing_account.get('isDefault', False):
+                            existing_account['isDefault'] = False
+                            cursor.execute(
+                                'UPDATE objects SET content = ? WHERE hash = ?',
+                                (json.dumps(existing_account), existing_id)
+                            )
+                    except json.JSONDecodeError:
+                        # Skip malformed accounts
+                        continue
+            
+            # Insert or replace the account
+            cursor.execute(
+                'INSERT OR REPLACE INTO objects (hash, content) VALUES (?, ?)',
+                (account_id, json.dumps(account_data))
             )
-        ''')
-        
-        # If setting as default, remove default flag from other accounts
-        if account_data['isDefault']:
-            cursor.execute('SELECT hash, content FROM objects')
-            for row in cursor.fetchall():
-                existing_id, existing_content = row
-                try:
-                    existing_account = json.loads(existing_content)
-                    if existing_account.get('isDefault', False):
-                        existing_account['isDefault'] = False
-                        cursor.execute(
-                            'UPDATE objects SET content = ? WHERE hash = ?',
-                            (json.dumps(existing_account), existing_id)
-                        )
-                except json.JSONDecodeError:
-                    # Skip malformed accounts
-                    continue
-        
-        # Insert or replace the account
-        cursor.execute(
-            'INSERT OR REPLACE INTO objects (hash, content) VALUES (?, ?)',
-            (account_id, json.dumps(account_data))
-        )
-        
-        conn.commit()
-        conn.close()
+            
+            conn.commit()
         
         print(f"[Auth] Successfully saved account: {user_info['email']} @ {server_info['url']} (ID: {account_id})")
         
