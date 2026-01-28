@@ -29,8 +29,6 @@ def get_user_agent() -> str:
         str: User-Agent string in format "Speckle-Blender-Connector/version (Python/x.y)"
     """
     try:
-        # Try to import bpy to get version from bl_info
-        import bpy
         from pathlib import Path
         
         # Get the extension directory
@@ -72,21 +70,101 @@ def generate_challenge() -> str:
     return ''.join(secrets.choice(chars) for _ in range(12))
 
 
+class ThreadSafeAuthServer(HTTPServer):
+    """
+    Thread-safe HTTP server for Speckle authentication.
+    
+    Stores authentication state as instance variables protected by a lock
+    to prevent race conditions between the server thread and main thread.
+    """
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._lock = threading.Lock()
+        self._server_url: Optional[str] = None
+        self._challenge: Optional[str] = None
+        self._auth_complete: bool = False
+        self._auth_success: bool = False
+        self._error_message: Optional[str] = None
+        self._request_count: int = 0
+    
+    def get_server_url(self) -> Optional[str]:
+        """Get server URL (thread-safe)."""
+        with self._lock:
+            return self._server_url
+    
+    def set_server_url(self, url: str) -> None:
+        """Set server URL (thread-safe)."""
+        with self._lock:
+            self._server_url = url
+    
+    def get_challenge(self) -> Optional[str]:
+        """Get challenge string (thread-safe)."""
+        with self._lock:
+            return self._challenge
+    
+    def set_challenge(self, challenge: str) -> None:
+        """Set challenge string (thread-safe)."""
+        with self._lock:
+            self._challenge = challenge
+    
+    def is_auth_complete(self) -> bool:
+        """Check if authentication is complete (thread-safe)."""
+        with self._lock:
+            return self._auth_complete
+    
+    def is_auth_successful(self) -> bool:
+        """Check if authentication was successful (thread-safe)."""
+        with self._lock:
+            return self._auth_success
+    
+    def get_error_message(self) -> Optional[str]:
+        """Get error message if authentication failed (thread-safe)."""
+        with self._lock:
+            return self._error_message
+    
+    def set_auth_success(self) -> None:
+        """
+        Mark authentication as successful (thread-safe).
+        Sets auth_complete LAST to ensure atomic state update.
+        """
+        with self._lock:
+            self._auth_success = True
+            self._error_message = None
+            self._auth_complete = True  # Set LAST to prevent partial reads
+    
+    def set_auth_failure(self, error_message: str) -> None:
+        """
+        Mark authentication as failed (thread-safe).
+        Sets auth_complete LAST to ensure atomic state update.
+        """
+        with self._lock:
+            self._auth_success = False
+            self._error_message = error_message
+            self._auth_complete = True  # Set LAST to prevent partial reads
+    
+    def increment_request_count(self) -> int:
+        """Increment and return request count (thread-safe)."""
+        with self._lock:
+            self._request_count += 1
+            return self._request_count
+    
+    def get_request_count(self) -> int:
+        """Get current request count (thread-safe)."""
+        with self._lock:
+            return self._request_count
+
+
 class SpeckleAuthHandler(BaseHTTPRequestHandler):
     """
     HTTP request handler for Speckle authentication flow.
     Handles two routes:
     - /auth/add-account?serverUrl=... : Initiates auth flow
     - / with ?access_code=... : Handles callback from Speckle
-    """
     
-    # Class variables to store state across requests
-    server_url: Optional[str] = None
-    challenge: Optional[str] = None
-    auth_complete: bool = False
-    auth_success: bool = False
-    error_message: Optional[str] = None
-    request_count: int = 0  # Track number of requests handled
+    Note: All state is stored on the ThreadSafeAuthServer instance (self.server)
+    instead of class variables to ensure thread safety.
+    """
     
     def log_message(self, format, *args):
         """Override to suppress default logging."""
@@ -94,7 +172,7 @@ class SpeckleAuthHandler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         """Handle GET requests."""
-        SpeckleAuthHandler.request_count += 1
+        self.server.increment_request_count()
         
         parsed_path = urlparse(self.path)
         query_params = parse_qs(parsed_path.query)
@@ -113,13 +191,13 @@ class SpeckleAuthHandler(BaseHTTPRequestHandler):
         """
         # Get server URL from query params
         server_url = query_params.get('serverUrl', ['https://app.speckle.systems'])[0]
-        SpeckleAuthHandler.server_url = server_url.rstrip('/')
+        self.server.set_server_url(server_url.rstrip('/'))
         
         # Generate challenge
-        SpeckleAuthHandler.challenge = generate_challenge()
+        self.server.set_challenge(generate_challenge())
         
         # Construct redirect URL
-        auth_url = f"{SpeckleAuthHandler.server_url}/authn/verify/sdas/{SpeckleAuthHandler.challenge}"
+        auth_url = f"{self.server.get_server_url()}/authn/verify/sdas/{self.server.get_challenge()}"
         
         print(f"[Auth Server] Redirecting to: {auth_url}")
         
@@ -146,14 +224,14 @@ class SpeckleAuthHandler(BaseHTTPRequestHandler):
             # Exchange access code for tokens
             tokens = exchange_access_code_for_tokens(
                 access_code,
-                SpeckleAuthHandler.challenge,
-                SpeckleAuthHandler.server_url
+                self.server.get_challenge(),
+                self.server.get_server_url()
             )
             
             # Get user and server info
             user_info, server_info = get_user_and_server_info(
                 tokens['token'],
-                SpeckleAuthHandler.server_url
+                self.server.get_server_url()
             )
             
             # Save account
@@ -164,18 +242,16 @@ class SpeckleAuthHandler(BaseHTTPRequestHandler):
                 server_info
             )
             
-            # Mark as successful
-            SpeckleAuthHandler.auth_success = True
-            SpeckleAuthHandler.auth_complete = True
+            # Mark as successful (sets auth_complete LAST atomically)
+            self.server.set_auth_success()
             
             # Redirect to success page
             self._redirect_to_success()
             
         except Exception as e:
             print(f"[Auth Server] Error during authentication: {e}")
-            SpeckleAuthHandler.error_message = str(e)
-            SpeckleAuthHandler.auth_complete = True
-            SpeckleAuthHandler.auth_success = False
+            # Mark as failed (sets auth_complete LAST atomically)
+            self.server.set_auth_failure(str(e))
             self._redirect_to_failure("fail")
     
     def _redirect_to_success(self):
@@ -469,7 +545,7 @@ class AuthenticationServer:
             port: Port to run the server on (default: 29364)
         """
         self.port = port
-        self.server: Optional[HTTPServer] = None
+        self.server: Optional[ThreadSafeAuthServer] = None
         self.thread: Optional[threading.Thread] = None
         self.shutdown_event = threading.Event()
     
@@ -481,16 +557,8 @@ class AuthenticationServer:
             bool: True if server started successfully, False otherwise
         """
         try:
-            # Reset handler state
-            SpeckleAuthHandler.server_url = None
-            SpeckleAuthHandler.challenge = None
-            SpeckleAuthHandler.auth_complete = False
-            SpeckleAuthHandler.auth_success = False
-            SpeckleAuthHandler.error_message = None
-            SpeckleAuthHandler.request_count = 0
-            
-            # Create server
-            self.server = HTTPServer(('127.0.0.1', self.port), SpeckleAuthHandler)
+            # Create thread-safe server (state initialized in constructor)
+            self.server = ThreadSafeAuthServer(('127.0.0.1', self.port), SpeckleAuthHandler)
             
             # Start server in background thread
             self.thread = threading.Thread(target=self._run_server, daemon=True)
@@ -522,19 +590,17 @@ class AuthenticationServer:
             # After that or when shutdown is signaled, stop
             max_requests = 5  # Allow a few extra for browser quirks
             
-            while not self.shutdown_event.is_set() and SpeckleAuthHandler.request_count < max_requests:
+            while not self.shutdown_event.is_set() and self.server.get_request_count() < max_requests:
                 self.server.handle_request()
                 
                 # If auth is complete, we can stop serving
-                if SpeckleAuthHandler.auth_complete:
+                if self.server.is_auth_complete():
                     print("[Auth Server] Authentication complete, stopping server")
                     break
                     
         except Exception as e:
             print(f"[Auth Server] Error in server thread: {e}")
-            SpeckleAuthHandler.auth_complete = True
-            SpeckleAuthHandler.auth_success = False
-            SpeckleAuthHandler.error_message = f"Server thread crashed: {e}"
+            self.server.set_auth_failure(f"Server thread crashed: {e}")
     
     def shutdown(self):
         """Shutdown the server and cleanup."""
@@ -555,15 +621,15 @@ class AuthenticationServer:
     
     def is_complete(self) -> bool:
         """Check if authentication is complete."""
-        return SpeckleAuthHandler.auth_complete
+        return self.server.is_auth_complete() if self.server else False
     
     def is_successful(self) -> bool:
         """Check if authentication was successful."""
-        return SpeckleAuthHandler.auth_success
+        return self.server.is_auth_successful() if self.server else False
     
     def get_error_message(self) -> Optional[str]:
         """Get error message if authentication failed."""
-        return SpeckleAuthHandler.error_message
+        return self.server.get_error_message() if self.server else None
     
     def open_auth_url(self, server_url: str = "https://app.speckle.systems"):
         """
@@ -575,5 +641,5 @@ class AuthenticationServer:
         # Trigger the add-account endpoint
         url = f"http://127.0.0.1:{self.port}/auth/add-account?serverUrl={server_url}"
         webbrowser.open(url)
-        print(f"[Auth Server] Opening browser to initiate authentication...")
+        print("[Auth Server] Opening browser to initiate authentication...")
 
