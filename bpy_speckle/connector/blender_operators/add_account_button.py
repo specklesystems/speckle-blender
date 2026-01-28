@@ -114,11 +114,33 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
             self._cleanup(context)
             
             if is_successful:
-                print("[Add Account] Account added successfully - prompting user to restart")
-                self.report({"INFO"}, "Account added successfully! Please restart Blender to use the new account.")
+                print("[Add Account] Account added successfully - refreshing UI")
                 
-                # Show a persistent popup dialog prompting restart
-                bpy.ops.speckle.show_restart_prompt('INVOKE_DEFAULT')
+                # Import account management functions
+                from ..utils.account_manager import get_account_enum_items, _client_cache
+                from ..ui.account_selection_dialog import update_workspaces_list, update_projects_list
+                
+                # Get the newly added account (most recent one)
+                accounts = get_account_enum_items()
+                if accounts and accounts[0][0] != "NO_ACCOUNTS":
+                    new_account_id = accounts[-1][0]  # Last account added
+                    
+                    # Set as selected account
+                    context.window_manager.selected_account_id = new_account_id
+                    
+                    # Clear client cache to force re-authentication
+                    _client_cache.clear()
+                    
+                    # Refresh UI state
+                    try:
+                        update_workspaces_list(context)
+                        update_projects_list(context)
+                    except Exception as e:
+                        print(f"[Add Account] Error refreshing UI state: {e}")
+                    
+                    self.report({"INFO"}, "Account added successfully and is now active!")
+                else:
+                    self.report({"INFO"}, "Account added successfully!")
                 
                 return {"FINISHED"}
             else:
@@ -166,41 +188,6 @@ def cleanup_auth_server():
         except Exception:
             pass
         _auth_server = None
-
-
-class SPECKLE_OT_show_restart_prompt(bpy.types.Operator):
-    """Show persistent restart prompt after successful account addition."""
-    
-    bl_idname = "speckle.show_restart_prompt"
-    bl_label = "Restart Required"
-    bl_options = {'INTERNAL'}
-    
-    def execute(self, context: Context) -> set[str]:
-        return {"FINISHED"}
-    
-    def invoke(self, context: Context, event: Event) -> set[str]:
-        return context.window_manager.invoke_popup(self, width=400)
-    
-    def draw(self, context: Context):
-        layout = self.layout
-        
-        # Success icon and message
-        box = layout.box()
-        row = box.row()
-        row.label(text="", icon='CHECKMARK')
-        row.label(text="Account Added Successfully!", icon='NONE')
-        
-        layout.separator()
-        
-        # Restart instruction
-        col = layout.column(align=True)
-        col.label(text="Your Speckle account has been added to the database.")
-        col.label(text="Please restart Blender to use your new account.")
-        
-        layout.separator()
-        
-        # OK button
-        layout.operator("speckle.dismiss_popup", text="OK", icon='CHECKMARK')
 
 
 class SPECKLE_OT_show_auth_error(bpy.types.Operator):
