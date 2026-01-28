@@ -8,6 +8,7 @@ eliminating the dependency on the desktop service.
 import json
 import random
 import string
+import sys
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -15,6 +16,44 @@ from typing import Optional, Dict, Any, Tuple
 from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
+
+
+def get_user_agent() -> str:
+    """
+    Get User-Agent string for HTTP requests.
+    
+    Returns a User-Agent that identifies the Blender connector as a legitimate
+    application to prevent Cloudflare from blocking requests with error 1010.
+    
+    Returns:
+        str: User-Agent string in format "Speckle-Blender-Connector/version (Python/x.y)"
+    """
+    try:
+        # Try to import bpy to get version from bl_info
+        import bpy
+        from pathlib import Path
+        
+        # Get the extension directory
+        addon_dir = Path(__file__).parent.parent.parent
+        
+        # Try to read version from blender_manifest.toml
+        manifest_path = addon_dir / "blender_manifest.toml"
+        if manifest_path.exists():
+            with open(manifest_path, 'r') as f:
+                for line in f:
+                    if line.startswith('version = '):
+                        version = line.split('=')[1].strip().strip('"')
+                        break
+                else:
+                    version = "3.0.0"
+        else:
+            version = "3.0.0"
+    except Exception:
+        # Fallback if we can't determine version
+        version = "3.0.0"
+    
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    return f"Speckle-Blender-Connector/{version} (Python/{python_version})"
 
 
 class AuthenticationError(Exception):
@@ -193,7 +232,8 @@ def exchange_access_code_for_tokens(
     url = f"{server_url}/auth/token"
     data = json.dumps(body).encode('utf-8')
     headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'User-Agent': get_user_agent()
     }
     
     try:
@@ -262,7 +302,8 @@ def get_user_and_server_info(
     data = json.dumps(body).encode('utf-8')
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {token}'
+        'Authorization': f'Bearer {token}',
+        'User-Agent': get_user_agent()
     }
     
     try:
