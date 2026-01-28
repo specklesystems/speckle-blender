@@ -41,114 +41,53 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
 
     def execute(self, context: Context) -> set[str]:
         print(f"[Add Account] Starting authentication for server: {self.server_url}")
-        
-        # Clean up any previous auth server/authenticator
         cleanup_auth_server()
         
-        # Import port check function
-        from ..utils.authentication import is_port_in_use
-        
-        # Step 1: Check if port 29364 is in use (Desktop Service running)
-        if is_port_in_use(SPECKLE_AUTH_PORT):
-            print(f"[Add Account] Port {SPECKLE_AUTH_PORT} is in use, assuming Desktop Service is running")
-            self.report({"INFO"}, "Authenticating via Speckle Desktop Service...")
-            return self._use_desktop_service(context)
-        
-        # Step 2: Port is available, start our own server
-        print("[Add Account] Port available, starting own auth server")
-        self.report({"INFO"}, f"Starting authentication server on port {SPECKLE_AUTH_PORT}...")
-        return self._use_own_auth_server(context)
-    
-    def _use_desktop_service(self, context: Context) -> set[str]:
-        """
-        Use Speckle Desktop Service for authentication.
-        
-        Args:
-            context: Blender context
-        
-        Returns:
-            set[str]: Blender operator return status
-        """
-        global _desktop_authenticator
-        
-        # Create Desktop Service authenticator
-        _desktop_authenticator = DesktopServiceAuthenticator(self.server_url)
-        
-        # Start authentication by opening browser
-        if not _desktop_authenticator.start():
-            error_msg = _desktop_authenticator.get_error_message()
-            print(f"[Add Account] Failed to start Desktop Service auth: {error_msg}")
-            self.report(
-                {"ERROR"},
-                error_msg if error_msg else "Failed to open browser. Please try again."
-            )
-            _desktop_authenticator = None
-            return {"CANCELLED"}
-        
-        # Start timer to poll for completion
-        self._timeout_counter = 0
-        wm = context.window_manager
-        self._timer = wm.event_timer_add(1.0, window=context.window)
-        wm.modal_handler_add(self)
-        
-        print("[Add Account] Desktop Service authentication initiated, waiting for completion...")
-        return {"RUNNING_MODAL"}
-    
-    def _use_own_auth_server(self, context: Context) -> set[str]:
-        """
-        Use our own authentication server.
-        
-        Args:
-            context: Blender context
-        
-        Returns:
-            set[str]: Blender operator return status
-        """
+        # Try to start own auth server first - it will fail gracefully if port is in use
         global _auth_server
-        
-        # Create and start the auth server
         _auth_server = AuthenticationServer(port=SPECKLE_AUTH_PORT)
         
-        if not _auth_server.start():
-            print("[Add Account] Failed to start authentication server - port may be in use")
-            
-            # Import port check function
-            from ..utils.authentication import is_port_in_use
-            
-            # Check if port is now in use (Desktop Service may have just started)
-            if is_port_in_use(SPECKLE_AUTH_PORT):
-                print("[Add Account] Port is in use, switching to Desktop Service")
-                _auth_server = None
-                return self._use_desktop_service(context)
-            
-            # Port is blocked by something else or there's another issue
-            self.report(
-                {"ERROR"},
-                f"Failed to start authentication server on port {SPECKLE_AUTH_PORT}. "
-                "Please check if another application is using this port."
-            )
-            _auth_server = None
-            return {"CANCELLED"}
+        if _auth_server.start():
+            return self._initiate_own_server_flow(context)
         
-        # Open browser to initiate auth flow
+        # Server failed to start - assume Desktop Service is running
+        _auth_server = None
+        print(f"[Add Account] Port {SPECKLE_AUTH_PORT} in use, using Desktop Service")
+        self.report({"INFO"}, "Authenticating via Speckle Desktop Service...")
+        return self._initiate_desktop_service_flow(context)
+    
+    def _initiate_own_server_flow(self, context: Context) -> set[str]:
+        """Start auth flow with our own server."""
         try:
-            print("[Add Account] Opening browser for authentication")
             _auth_server.open_auth_url(self.server_url)
-            self.report({"INFO"}, f"Opening browser to authenticate with {self.server_url}")
+            self._start_modal_timer(context)
+            return {"RUNNING_MODAL"}
         except Exception as e:
             print(f"[Add Account] Failed to open browser: {e}")
             self.report({"ERROR"}, f"Failed to open browser: {e}")
             cleanup_auth_server()
             return {"CANCELLED"}
+    
+    def _initiate_desktop_service_flow(self, context: Context) -> set[str]:
+        """Start auth flow with Desktop Service."""
+        global _desktop_authenticator
+        _desktop_authenticator = DesktopServiceAuthenticator(self.server_url)
         
-        # Start timer to poll for completion
+        if not _desktop_authenticator.start():
+            error_msg = _desktop_authenticator.get_error_message()
+            self.report({"ERROR"}, error_msg or "Failed to open browser. Please try again.")
+            _desktop_authenticator = None
+            return {"CANCELLED"}
+        
+        self._start_modal_timer(context)
+        return {"RUNNING_MODAL"}
+    
+    def _start_modal_timer(self, context: Context):
+        """Start modal timer for auth polling."""
         self._timeout_counter = 0
         wm = context.window_manager
         self._timer = wm.event_timer_add(1.0, window=context.window)
         wm.modal_handler_add(self)
-        
-        print("[Add Account] Authentication flow initiated, waiting for completion...")
-        return {"RUNNING_MODAL"}
 
     def modal(self, context: Context, event: Event) -> set[str]:
         global _auth_server, _desktop_authenticator
