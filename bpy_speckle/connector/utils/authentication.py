@@ -167,38 +167,45 @@ class ThreadSafeAuthServer(HTTPServer):
         self._error_message: Optional[str] = None
         self._request_count: int = 0
     
-    def get_server_url(self) -> Optional[str]:
-        """Get server URL (thread-safe)."""
+    @property
+    def server_url(self) -> Optional[str]:
+        """Get server URL."""
         with self._lock:
             return self._server_url
     
-    def set_server_url(self, url: str) -> None:
-        """Set server URL (thread-safe)."""
+    @server_url.setter
+    def server_url(self, value: str) -> None:
+        """Set server URL."""
         with self._lock:
-            self._server_url = url
+            self._server_url = value
     
-    def get_challenge(self) -> Optional[str]:
-        """Get challenge string (thread-safe)."""
+    @property
+    def challenge(self) -> Optional[str]:
+        """Get challenge string."""
         with self._lock:
             return self._challenge
     
-    def set_challenge(self, challenge: str) -> None:
-        """Set challenge string (thread-safe)."""
+    @challenge.setter
+    def challenge(self, value: str) -> None:
+        """Set challenge string."""
         with self._lock:
-            self._challenge = challenge
+            self._challenge = value
     
-    def is_auth_complete(self) -> bool:
-        """Check if authentication is complete (thread-safe)."""
+    @property
+    def is_complete(self) -> bool:
+        """Check if authentication is complete."""
         with self._lock:
             return self._auth_complete
     
-    def is_auth_successful(self) -> bool:
-        """Check if authentication was successful (thread-safe)."""
+    @property
+    def is_successful(self) -> bool:
+        """Check if authentication was successful."""
         with self._lock:
             return self._auth_success
     
-    def get_error_message(self) -> Optional[str]:
-        """Get error message if authentication failed (thread-safe)."""
+    @property
+    def error_message(self) -> Optional[str]:
+        """Get error message if authentication failed."""
         with self._lock:
             return self._error_message
     
@@ -228,8 +235,9 @@ class ThreadSafeAuthServer(HTTPServer):
             self._request_count += 1
             return self._request_count
     
-    def get_request_count(self) -> int:
-        """Get current request count (thread-safe)."""
+    @property
+    def request_count(self) -> int:
+        """Get current request count."""
         with self._lock:
             return self._request_count
 
@@ -270,13 +278,13 @@ class SpeckleAuthHandler(BaseHTTPRequestHandler):
         """
         # Get server URL from query params
         server_url = query_params.get('serverUrl', ['https://app.speckle.systems'])[0]
-        self.server.set_server_url(server_url.rstrip('/'))
+        self.server.server_url = server_url.rstrip('/')
         
         # Generate challenge
-        self.server.set_challenge(generate_challenge())
+        self.server.challenge = generate_challenge()
         
         # Construct redirect URL
-        auth_url = f"{self.server.get_server_url()}/authn/verify/{SPECKLE_APP_ID}/{self.server.get_challenge()}"
+        auth_url = f"{self.server.server_url}/authn/verify/{SPECKLE_APP_ID}/{self.server.challenge}"
         
         print(f"[Auth Server] Redirecting to: {auth_url}")
         
@@ -303,14 +311,14 @@ class SpeckleAuthHandler(BaseHTTPRequestHandler):
             # Exchange access code for tokens
             tokens = exchange_access_code_for_tokens(
                 access_code,
-                self.server.get_challenge(),
-                self.server.get_server_url()
+                self.server.challenge,
+                self.server.server_url
             )
             
             # Get user and server info
             user_info, server_info = get_user_and_server_info(
                 tokens['token'],
-                self.server.get_server_url()
+                self.server.server_url
             )
             
             # Save account
@@ -839,11 +847,11 @@ class AuthenticationServer:
             # After that or when shutdown is signaled, stop
             max_requests = 5  # Allow a few extra for browser quirks
             
-            while not self.shutdown_event.is_set() and self.server.get_request_count() < max_requests:
+            while not self.shutdown_event.is_set() and self.server.request_count < max_requests:
                 self.server.handle_request()
                 
                 # If auth is complete, we can stop serving
-                if self.server.is_auth_complete():
+                if self.server.is_complete:
                     print("[Auth Server] Authentication complete, stopping server")
                     break
                     
@@ -870,15 +878,15 @@ class AuthenticationServer:
     
     def is_complete(self) -> bool:
         """Check if authentication is complete."""
-        return self.server.is_auth_complete() if self.server else False
+        return self.server.is_complete if self.server else False
     
     def is_successful(self) -> bool:
         """Check if authentication was successful."""
-        return self.server.is_auth_successful() if self.server else False
+        return self.server.is_successful if self.server else False
     
     def get_error_message(self) -> Optional[str]:
         """Get error message if authentication failed."""
-        return self.server.get_error_message() if self.server else None
+        return self.server.error_message if self.server else None
     
     def open_auth_url(self, server_url: str = "https://app.speckle.systems"):
         """
