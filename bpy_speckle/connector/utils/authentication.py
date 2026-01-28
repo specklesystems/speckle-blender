@@ -622,7 +622,9 @@ def save_account_to_storage(
         os.makedirs(speckle_folder, exist_ok=True)
         
         # Connect to database and save account
-        conn = sqlite3.connect(db_path)
+        # Use IMMEDIATE isolation level to acquire write lock immediately,
+        # preventing race conditions in concurrent account additions
+        conn = sqlite3.connect(db_path, isolation_level='IMMEDIATE')
         try:
             with conn:
                 cursor = conn.cursor()
@@ -636,21 +638,29 @@ def save_account_to_storage(
                 ''')
                 
                 # If setting as default, remove default flag from other accounts
+                # Use batch update to make the operation more atomic
                 if account_data['isDefault']:
                     cursor.execute('SELECT hash, content FROM objects')
-                    for row in cursor.fetchall():
-                        existing_id, existing_content = row
+                    rows = cursor.fetchall()
+                    
+                    # Build list of updates to execute in batch
+                    updates = []
+                    for existing_id, existing_content in rows:
                         try:
                             existing_account = json.loads(existing_content)
                             if existing_account.get('isDefault', False):
                                 existing_account['isDefault'] = False
-                                cursor.execute(
-                                    'UPDATE objects SET content = ? WHERE hash = ?',
-                                    (json.dumps(existing_account), existing_id)
-                                )
+                                updates.append((json.dumps(existing_account), existing_id))
                         except json.JSONDecodeError:
                             # Skip malformed accounts
                             continue
+                    
+                    # Execute all updates in batch for better atomicity
+                    if updates:
+                        cursor.executemany(
+                            'UPDATE objects SET content = ? WHERE hash = ?',
+                            updates
+                        )
                 
                 # Insert or replace the account
                 cursor.execute(
