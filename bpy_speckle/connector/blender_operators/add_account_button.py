@@ -173,6 +173,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
                 _auth_server.shutdown()
             except Exception as e:
                 print(f"[Add Account] Error during cleanup: {e}")
+                print(f"[Add Account] Port {SPECKLE_AUTH_PORT} may still be occupied")
             _auth_server = None
 
 
@@ -185,8 +186,9 @@ def cleanup_auth_server():
     if _auth_server is not None:
         try:
             _auth_server.shutdown()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[Add Account] Failed to cleanup auth server: {e}")
+            print(f"[Add Account] Port {SPECKLE_AUTH_PORT} may still be occupied")
         _auth_server = None
 
 
