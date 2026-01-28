@@ -546,11 +546,15 @@ def get_account_count() -> int:
             return 0
         
         # Count accounts in database
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT COUNT(*) FROM objects')
-            result = cursor.fetchone()
-            return result[0] if result else 0
+        conn = sqlite3.connect(db_path)
+        try:
+            with conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT COUNT(*) FROM objects')
+                result = cursor.fetchone()
+                return result[0] if result else 0
+        finally:
+            conn.close()
     except Exception as e:
         print(f"[Account Count] Error counting accounts: {e}")
         return 0
@@ -618,41 +622,45 @@ def save_account_to_storage(
         os.makedirs(speckle_folder, exist_ok=True)
         
         # Connect to database and save account
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Create table if it doesn't exist
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS objects (
-                    hash TEXT PRIMARY KEY,
-                    content TEXT
+        conn = sqlite3.connect(db_path)
+        try:
+            with conn:
+                cursor = conn.cursor()
+                
+                # Create table if it doesn't exist
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS objects (
+                        hash TEXT PRIMARY KEY,
+                        content TEXT
+                    )
+                ''')
+                
+                # If setting as default, remove default flag from other accounts
+                if account_data['isDefault']:
+                    cursor.execute('SELECT hash, content FROM objects')
+                    for row in cursor.fetchall():
+                        existing_id, existing_content = row
+                        try:
+                            existing_account = json.loads(existing_content)
+                            if existing_account.get('isDefault', False):
+                                existing_account['isDefault'] = False
+                                cursor.execute(
+                                    'UPDATE objects SET content = ? WHERE hash = ?',
+                                    (json.dumps(existing_account), existing_id)
+                                )
+                        except json.JSONDecodeError:
+                            # Skip malformed accounts
+                            continue
+                
+                # Insert or replace the account
+                cursor.execute(
+                    'INSERT OR REPLACE INTO objects (hash, content) VALUES (?, ?)',
+                    (account_id, json.dumps(account_data))
                 )
-            ''')
-            
-            # If setting as default, remove default flag from other accounts
-            if account_data['isDefault']:
-                cursor.execute('SELECT hash, content FROM objects')
-                for row in cursor.fetchall():
-                    existing_id, existing_content = row
-                    try:
-                        existing_account = json.loads(existing_content)
-                        if existing_account.get('isDefault', False):
-                            existing_account['isDefault'] = False
-                            cursor.execute(
-                                'UPDATE objects SET content = ? WHERE hash = ?',
-                                (json.dumps(existing_account), existing_id)
-                            )
-                    except json.JSONDecodeError:
-                        # Skip malformed accounts
-                        continue
-            
-            # Insert or replace the account
-            cursor.execute(
-                'INSERT OR REPLACE INTO objects (hash, content) VALUES (?, ?)',
-                (account_id, json.dumps(account_data))
-            )
-            
-            conn.commit()
+                
+                conn.commit()
+        finally:
+            conn.close()
         
         print(f"[Auth] Successfully saved account: {user_info['email']} @ {server_info['url']} (ID: {account_id})")
         
