@@ -533,6 +533,9 @@ class AuthenticationServer:
                     
         except Exception as e:
             print(f"[Auth Server] Error in server thread: {e}")
+            SpeckleAuthHandler.auth_complete = True
+            SpeckleAuthHandler.auth_success = False
+            SpeckleAuthHandler.error_message = f"Server thread crashed: {e}"
     
     def shutdown(self):
         """Shutdown the server and cleanup."""
