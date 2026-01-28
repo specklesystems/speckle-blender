@@ -289,6 +289,55 @@ class SpeckleAuthHandler(BaseHTTPRequestHandler):
         self.wfile.write(f"<html><body><h1>{code} {message}</h1></body></html>".encode())
 
 
+def _post_json(
+    url: str,
+    body: Dict[str, Any],
+    auth_token: Optional[str] = None,
+    error_context: str = "Request"
+) -> Dict[str, Any]:
+    """
+    Helper function to make POST requests with JSON body.
+    
+    Args:
+        url: The URL to POST to
+        body: Dictionary to send as JSON body
+        auth_token: Optional Bearer token for Authorization header
+        error_context: Context string for error messages (e.g., "token exchange")
+    
+    Returns:
+        Dict containing the parsed JSON response
+    
+    Raises:
+        AuthenticationError: If the request fails
+    """
+    # Encode body as JSON
+    data = json.dumps(body).encode('utf-8')
+    
+    # Build headers
+    headers = {
+        'Content-Type': 'application/json',
+        'User-Agent': get_user_agent()
+    }
+    
+    # Add Authorization header if token provided
+    if auth_token:
+        headers['Authorization'] = f'Bearer {auth_token}'
+    
+    try:
+        request = Request(url, data=data, headers=headers)
+        with urlopen(request, timeout=30) as response:
+            response_data = json.loads(response.read().decode('utf-8'))
+            return response_data
+    
+    except HTTPError as e:
+        error_body = e.read().decode('utf-8') if e.fp else "No error details"
+        raise AuthenticationError(f"{error_context} failed: {e.code} {error_body}")
+    except URLError as e:
+        raise AuthenticationError(f"Network error during {error_context}: {e.reason}")
+    except json.JSONDecodeError as e:
+        raise AuthenticationError(f"Invalid JSON response from {error_context}: {e}")
+
+
 def exchange_access_code_for_tokens(
     access_code: str,
     challenge: str,
@@ -319,34 +368,18 @@ def exchange_access_code_for_tokens(
         'challenge': challenge
     }
     
-    # Prepare request
+    # Make POST request
     url = f"{server_url}/auth/token"
-    data = json.dumps(body).encode('utf-8')
-    headers = {
-        'Content-Type': 'application/json',
-        'User-Agent': get_user_agent()
+    response_data = _post_json(url, body, error_context="token exchange")
+    
+    # Validate response
+    if 'token' not in response_data or 'refreshToken' not in response_data:
+        raise AuthenticationError("Invalid response from token endpoint")
+    
+    return {
+        'token': response_data['token'],
+        'refreshToken': response_data['refreshToken']
     }
-    
-    try:
-        request = Request(url, data=data, headers=headers)
-        with urlopen(request, timeout=30) as response:
-            response_data = json.loads(response.read().decode('utf-8'))
-            
-            if 'token' not in response_data or 'refreshToken' not in response_data:
-                raise AuthenticationError("Invalid response from token endpoint")
-            
-            return {
-                'token': response_data['token'],
-                'refreshToken': response_data['refreshToken']
-            }
-    
-    except HTTPError as e:
-        error_body = e.read().decode('utf-8') if e.fp else "No error details"
-        raise AuthenticationError(f"Failed to get token from {server_url}: {e.code} {error_body}")
-    except URLError as e:
-        raise AuthenticationError(f"Network error during token exchange: {e.reason}")
-    except json.JSONDecodeError as e:
-        raise AuthenticationError(f"Invalid JSON response from server: {e}")
 
 
 def get_user_and_server_info(
@@ -388,43 +421,26 @@ def get_user_and_server_info(
     
     body = {'query': query}
     
-    # Prepare request
+    # Make POST request
     url = f"{server_url}/graphql"
-    data = json.dumps(body).encode('utf-8')
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {token}',
-        'User-Agent': get_user_agent()
-    }
+    response_data = _post_json(url, body, auth_token=token, error_context="user info request")
     
-    try:
-        request = Request(url, data=data, headers=headers)
-        with urlopen(request, timeout=30) as response:
-            response_data = json.loads(response.read().decode('utf-8'))
-            
-            if 'data' not in response_data:
-                raise AuthenticationError("Invalid GraphQL response")
-            
-            data = response_data['data']
-            
-            if 'activeUser' not in data or 'serverInfo' not in data:
-                raise AuthenticationError("Missing user or server info in response")
-            
-            user_info = data['activeUser']
-            server_info = data['serverInfo']
-            
-            # Ensure server URL is set correctly
-            server_info['url'] = server_url.rstrip('/')
-            
-            return user_info, server_info
+    # Validate response
+    if 'data' not in response_data:
+        raise AuthenticationError("Invalid GraphQL response")
     
-    except HTTPError as e:
-        error_body = e.read().decode('utf-8') if e.fp else "No error details"
-        raise AuthenticationError(f"Failed to get user info: {e.code} {error_body}")
-    except URLError as e:
-        raise AuthenticationError(f"Network error during user info request: {e.reason}")
-    except json.JSONDecodeError as e:
-        raise AuthenticationError(f"Invalid JSON response from GraphQL: {e}")
+    data = response_data['data']
+    
+    if 'activeUser' not in data or 'serverInfo' not in data:
+        raise AuthenticationError("Missing user or server info in response")
+    
+    user_info = data['activeUser']
+    server_info = data['serverInfo']
+    
+    # Ensure server URL is set correctly
+    server_info['url'] = server_url.rstrip('/')
+    
+    return user_info, server_info
 
 
 def save_account_to_storage(
