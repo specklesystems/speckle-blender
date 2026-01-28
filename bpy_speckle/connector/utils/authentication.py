@@ -353,6 +353,25 @@ class SpeckleAuthHandler(BaseHTTPRequestHandler):
         self.wfile.write(f"<html><body><h1>{code} {message}</h1></body></html>".encode())
 
 
+def _handle_auth_error(e: AuthenticationError) -> None:
+    """
+    Re-raise AuthenticationError with user-friendly message for network errors.
+    
+    Args:
+        e: The AuthenticationError to handle
+    
+    Raises:
+        AuthenticationError: Re-raised with user-friendly message for network errors,
+                           or original error if not a network error
+    """
+    error_str = str(e)
+    if "Network error" in error_str or "URLError" in error_str:
+        raise AuthenticationError(
+            "Network error while authenticating. Please check your internet connection."
+        ) from e
+    raise
+
+
 def _post_json(
     url: str,
     body: Dict[str, Any],
@@ -437,13 +456,7 @@ def exchange_access_code_for_tokens(
     try:
         response_data = _post_json(url, body, error_context="token exchange")
     except AuthenticationError as e:
-        # Re-raise with more user-friendly message for network errors
-        error_str = str(e)
-        if "Network error" in error_str or "URLError" in error_str:
-            raise AuthenticationError(
-                "Network error while authenticating. Please check your internet connection."
-            )
-        raise
+        _handle_auth_error(e)
     
     # Validate response
     if 'token' not in response_data or 'refreshToken' not in response_data:
@@ -499,13 +512,7 @@ def get_user_and_server_info(
     try:
         response_data = _post_json(url, body, auth_token=token, error_context="user info request")
     except AuthenticationError as e:
-        # Re-raise with more user-friendly message for network errors
-        error_str = str(e)
-        if "Network error" in error_str or "URLError" in error_str:
-            raise AuthenticationError(
-                "Network error while authenticating. Please check your internet connection."
-            )
-        raise
+        _handle_auth_error(e)
     
     # Validate response
     if 'data' not in response_data:
