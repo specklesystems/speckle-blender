@@ -100,51 +100,49 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
         if self._timeout_counter >= self._max_timeout:
             print("[Add Account] Authentication timed out after 5 minutes")
             self._cleanup(context)
-            self.report(
-                {"WARNING"},
-                "Authentication timed out after 5 minutes. Please try again."
-            )
+            self.report({"WARNING"}, "Authentication timed out after 5 minutes. Please try again.")
             return {"CANCELLED"}
         
-        # Determine which authentication method is active
-        if _desktop_authenticator is not None:
-            # Using Desktop Service
-            _desktop_authenticator.check_for_new_account()
-            
-            if _desktop_authenticator.is_complete():
-                # Check success status BEFORE cleanup
-                is_successful = _desktop_authenticator.is_successful()
-                error_msg = _desktop_authenticator.get_error_message() if not is_successful else None
-                
-                print(f"[Add Account] Desktop Service authentication complete. Success: {is_successful}")
-                
-                # Now cleanup
-                self._cleanup(context)
-                
-                return self._handle_auth_complete(context, is_successful, error_msg)
-        
-        elif _auth_server is not None:
-            # Using our own server
-            if _auth_server.is_complete():
-                # Check success status BEFORE cleanup
-                is_successful = _auth_server.is_successful()
-                error_msg = _auth_server.get_error_message() if not is_successful else None
-                
-                print(f"[Add Account] Own server authentication complete. Success: {is_successful}")
-                
-                # Now cleanup
-                self._cleanup(context)
-                
-                return self._handle_auth_complete(context, is_successful, error_msg)
-        
-        else:
-            # Neither is active, something went wrong
+        # Check for no active authenticator
+        if not _desktop_authenticator and not _auth_server:
             print("[Add Account] No active authenticator, cancelling")
             self._cleanup(context)
             return {"CANCELLED"}
         
-        # Still waiting for auth to complete
+        # Check Desktop Service authentication
+        if _desktop_authenticator:
+            _desktop_authenticator.check_for_new_account()
+            if _desktop_authenticator.is_complete():
+                return self._finish_auth(
+                    context,
+                    _desktop_authenticator.is_successful(),
+                    _desktop_authenticator.get_error_message(),
+                    "Desktop Service"
+                )
+        
+        # Check own server authentication
+        if _auth_server and _auth_server.is_complete():
+            return self._finish_auth(
+                context,
+                _auth_server.is_successful(),
+                _auth_server.get_error_message(),
+                "Own server"
+            )
+        
+        # Still waiting
         return {"RUNNING_MODAL"}
+    
+    def _finish_auth(
+        self,
+        context: Context,
+        is_successful: bool,
+        error_msg: Optional[str],
+        auth_type: str
+    ) -> set[str]:
+        """Complete authentication and cleanup."""
+        print(f"[Add Account] {auth_type} authentication complete. Success: {is_successful}")
+        self._cleanup(context)
+        return self._handle_auth_complete(context, is_successful, error_msg)
     
     def _handle_auth_complete(self, context: Context, is_successful: bool, error_msg: Optional[str]) -> set[str]:
         """
