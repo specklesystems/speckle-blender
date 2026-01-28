@@ -1,29 +1,29 @@
+from typing import Dict, Union
+
 import bpy
 from bpy.types import Context
-from specklepy.transports.server import ServerTransport
-from specklepy.core.api import operations
-from specklepy.objects.models.collections.collection import Collection as SCollection
+from specklepy.core.api import host_applications, operations
+from specklepy.core.api.inputs.version_inputs import MarkReceivedVersionInput
+from specklepy.logging import metrics
 from specklepy.objects.graph_traversal.default_traversal import (
     create_default_traversal_function,
 )
-from specklepy.core.api import host_applications
+from specklepy.objects.models.collections.collection import Collection as SCollection
+from specklepy.transports.server import ServerTransport
 
-from ..utils.get_ascendants import get_ascendants
-from ..utils.account_manager import _client_cache
-from ...converter.utils import (
-    find_object_by_id,
-    get_project_workspace_id,
-    build_object_id_map,
-)
+from ... import bl_info
 from ...converter.to_native import (
     convert_to_native,
-    render_material_proxy_to_native,
-    instance_definition_proxy_to_native,
     find_instance_definitions,
+    instance_definition_proxy_to_native,
+    render_material_proxy_to_native,
 )
-from specklepy.logging import metrics
-from ... import bl_info
-from typing import Dict, Union
+from ...converter.utils import (
+    build_object_id_map,
+    get_project_workspace_id,
+)
+from ..utils.account_manager import _client_cache
+from ..utils.get_ascendants import get_ascendants
 
 
 def load_operation(
@@ -34,53 +34,50 @@ def load_operation(
     """
 
     wm = context.window_manager
+    accountId: str = wm.selected_account_id  # type: ignore
+    projectId: str = wm.selected_project_id  # type: ignore
+    versionId: str = wm.selected_version_id  # type: ignore
 
     # get cached client
-    client = _client_cache.get_client(context.window_manager.selected_account_id)
+    client = _client_cache.get_client(accountId)
     if not client:
         print("No Speckle client found")
         return {}
 
-    print(f"Using client for account: {context.window_manager.selected_account_id}")
+    print(f"Using client for account: {accountId}")
 
-    transport = ServerTransport(stream_id=wm.selected_project_id, client=client)
+    transport = ServerTransport(stream_id=projectId, client=client)
 
-    version = client.version.get(wm.selected_version_id, wm.selected_project_id)
+    version = client.version.get(versionId, projectId)
     obj_id = version.referenced_object
+    if not obj_id:
+        raise ValueError("Unable to receive version beyond workspaces limit")
 
     version_data = operations.receive(obj_id, transport)
 
     metrics.set_host_app("blender")
-
-    # Get account for metrics tracking
-    from specklepy.core.api.credentials import get_local_accounts
-
-    account = next(
-        (
-            acc
-            for acc in get_local_accounts()
-            if acc.id == context.window_manager.selected_account_id
-        ),
-        None,
+    client.version.received(
+        MarkReceivedVersionInput(
+            version_id=version.id,
+            project_id=projectId,
+            source_application="blender",
+        )
     )
 
-    if account:
-        metrics.track(
-            metrics.RECEIVE,
-            account,
-            {
-                "ui": "dui3",
-                "hostAppVersion": ".".join(map(str, bl_info["blender"])),
-                "core_version": ".".join(map(str, bl_info["version"])),
-                "sourceHostApp": host_applications.get_host_app_from_string(
-                    version.source_application
-                ).slug,
-                "isMultiplayer": version.author_user.id != account.userInfo.id,
-                "workspace_id": get_project_workspace_id(
-                    client, wm.selected_project_id
-                ),
-            },
-        )
+    metrics.track(
+        metrics.RECEIVE,
+        client.account,
+        {
+            "ui": "dui3",
+            "hostAppVersion": ".".join(map(str, bl_info["blender"])),
+            "core_version": ".".join(map(str, bl_info["version"])),
+            "sourceHostApp": host_applications.get_host_app_from_string(
+                version.source_application
+            ).slug,
+            "isMultiplayer": version.author_user.id != client.account.userInfo.id,
+            "workspace_id": get_project_workspace_id(client, wm.selected_project_id),
+        },
+    )
 
     # Build object ID map once
     object_id_map = build_object_id_map(version_data)

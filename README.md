@@ -39,16 +39,16 @@ Give Speckle a try in no time by:
 - [![website](https://img.shields.io/badge/tutorials-speckle.systems-royalblue?style=for-the-badge&logo=youtube)](https://speckle.systems) our tutorials portal is full of resources to get you started using Speckle
 - [![docs](https://img.shields.io/badge/docs-docs.speckle.systems-orange?style=for-the-badge&logo=read-the-docs&logoColor=white)](https://docs.speckle.systems/connectors/blender) reference on almost any end-user and developer functionality
 
-
 # Blender Connector
 
 The Speckle UI can be found in the 3d viewport toolbar (N), under the Speckle tab.
 
-
 ## Installation
+
 We officially support Blender 4.2 and newer, on Windows.
 
 ## Usage
+
 Once enabled in `Preferences -> Addons`,
 The Speckle connector UI can be found in the 3d viewport toolbar (N), under the `Speckle` tab.
 
@@ -61,7 +61,6 @@ The Speckle connector UI can be found in the 3d viewport toolbar (N), under the 
 ## Supported Elements
 
 The Blender Connector is still a work in progress and, as such, data sent from the Blender connector is a highly lossy exchange. Our connectors are ever evolving to facilitate more and more Speckle usecases. We welcome feedback, requests, edge cases, and contributions!
-
 
 ## Dependency Installation and Compatibility with Other Blender Addons
 
@@ -77,6 +76,40 @@ If you find an addon that conflicts, please try using a different version of tha
 
 If you can't find a version of an addon that works, please let us know on [our forums](https://speckle.community/) the name of the addon, the versions you've tried, the version of the Speckle connector you've tried, and your OS (win/mac/linux).
 
+## Local Development
+
+Pre-resquisits:
+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- A supported [blender](https://www.blender.org/download/) version
+- [Blender Development](https://marketplace.visualstudio.com/items?itemName=JacquesLucke.blender-development) extension for VS Code (recommended)
+
+First time setup (or anytime you change pyproject.toml)
+Run the following commands
+
+```sh
+uv sync
+./export_dependencies.sh
+```
+
+🪟 To activate the environment in a terminal (Windows):
+
+```powershell
+.venv\Scripts\activate
+```
+
+🐧 To activate the environment in a terminal (Linux / macOS):
+
+```sh
+source .venv/bin/activate.fish
+```
+
+---
+
+To run the blender plugin, run the `>Blender: Start`
+from VS code (`ctrl + shift + p`)
+<img width="1469" height="379" alt="image" src="https://github.com/user-attachments/assets/9dc174a0-07fc-47c7-85d1-bd5a04d8f8c7" />
+
 ## Contributing
 
 Please make sure you read the [contribution guidelines](.github/CONTRIBUTING.md) for an overview of the best practices we try to follow.
@@ -88,6 +121,3 @@ The Speckle Community hangs out on [the forum](https://discourse.speckle.works),
 ## License
 
 Unless otherwise described, the code in this repository is licensed under the Apache-2.0 License. Please note that some modules, extensions or code herein might be otherwise licensed. This is indicated either in the root of the containing folder under a different license file, or in the respective file's header. If you have any questions, don't hesitate to get in touch with us via [email](mailto:hello@speckle.systems).
-
-## Notes
-Thanks to [Tom Svilans](http://tomsvilans.com) ([Github](https://github.com/tsvilans)) for the original v1 contribution!

@@ -1,26 +1,27 @@
-from typing import Any, Iterable, List, Optional, Tuple, Dict
-from specklepy.objects import Base
-from specklepy.objects import DataObject
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+import bpy
+import mathutils
+from bpy.types import Object
+from specklepy.objects import Base, DataObject
 from specklepy.objects.geometry import (
-    Line,
-    Polyline,
-    Mesh,
     Arc,
     Circle,
-    Ellipse,
     Curve,
-    Polycurve,
+    Ellipse,
+    Line,
+    Mesh,
     Point,
+    Polycurve,
+    Polyline,
+)
+from specklepy.objects.models.units import (
+    get_scale_factor_to_meters,
+    get_units_from_string,
 )
 from specklepy.objects.proxies import InstanceProxy
-from specklepy.objects.models.units import (
-    get_units_from_string,
-    get_scale_factor_to_meters,
-)
-import bpy
-from bpy.types import Object
-import mathutils
-from ..converter.utils import create_material_from_proxy, find_object_by_id
+
+from ..converter.utils import create_material_from_proxy
 
 # Display value property aliases to check for
 DISPLAY_VALUE_PROPERTY_ALIASES = [
@@ -695,7 +696,7 @@ def render_material_proxy_to_native(
             continue
 
         render_material = proxy.value
-        material_name = getattr(render_material, "name", "Material")
+        material_name = getattr(render_material, "name", None) or "Material"
 
         # create or get existing material
         blender_material = create_material_from_proxy(render_material, material_name)
@@ -714,6 +715,7 @@ def arc_to_native(
     converts a Speckle arc to a Blender NURBS curve.
     """
     import math
+
     import mathutils
 
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
@@ -848,6 +850,7 @@ def circle_to_native(
     converts a Speckle circle to a Blender NURBS curve.
     """
     import math
+
     import mathutils
 
     curve = bpy.data.curves.new(data_block_name, type="CURVE")
@@ -1340,7 +1343,9 @@ def instance_definition_proxy_to_native(
                             if max_depth > 0:  # Only process if max_depth allows
                                 assert (
                                     found_obj.definitionId in definition_collections
-                                ), f"Definition collection not found for nested instance {found_obj.definitionId}"
+                                ), (
+                                    f"Definition collection not found for nested instance {found_obj.definitionId}"
+                                )
 
                                 if instance_loading_mode == "LINKED_DUPLICATES":
                                     blender_obj = instance_proxy_to_linked_duplicates(
