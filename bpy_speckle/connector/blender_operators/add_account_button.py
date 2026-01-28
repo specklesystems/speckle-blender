@@ -1,10 +1,17 @@
 import bpy
 from bpy.types import Event, Context
-from ..utils.authentication import AuthenticationServer, SPECKLE_AUTH_PORT
+from typing import Optional
+from ..utils.authentication import (
+    AuthenticationServer,
+    DesktopServiceAuthenticator,
+    is_desktop_service_running,
+    SPECKLE_AUTH_PORT
+)
 
 
-# Global auth server instance
+# Global auth server/authenticator instance
 _auth_server = None
+_desktop_authenticator = None
 
 
 class SPECKLE_OT_add_account(bpy.types.Operator):
@@ -33,22 +40,92 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
         layout.prop(self, "server_url", text="Server URL")
 
     def execute(self, context: Context) -> set[str]:
-        global _auth_server
-        
         print(f"[Add Account] Starting authentication for server: {self.server_url}")
         
-        # Clean up any previous auth server
+        # Clean up any previous auth server/authenticator
         cleanup_auth_server()
+        
+        # Import port check function
+        from ..utils.authentication import is_port_in_use
+        
+        # Step 1: Check if port 29364 is in use (Desktop Service running)
+        if is_port_in_use(SPECKLE_AUTH_PORT):
+            print(f"[Add Account] Port {SPECKLE_AUTH_PORT} is in use, assuming Desktop Service is running")
+            self.report({"INFO"}, "Authenticating via Speckle Desktop Service...")
+            return self._use_desktop_service(context)
+        
+        # Step 2: Port is available, start our own server
+        print("[Add Account] Port available, starting own auth server")
+        self.report({"INFO"}, f"Starting authentication server on port {SPECKLE_AUTH_PORT}...")
+        return self._use_own_auth_server(context)
+    
+    def _use_desktop_service(self, context: Context) -> set[str]:
+        """
+        Use Speckle Desktop Service for authentication.
+        
+        Args:
+            context: Blender context
+        
+        Returns:
+            set[str]: Blender operator return status
+        """
+        global _desktop_authenticator
+        
+        # Create Desktop Service authenticator
+        _desktop_authenticator = DesktopServiceAuthenticator(self.server_url)
+        
+        # Start authentication by opening browser
+        if not _desktop_authenticator.start():
+            error_msg = _desktop_authenticator.get_error_message()
+            print(f"[Add Account] Failed to start Desktop Service auth: {error_msg}")
+            self.report(
+                {"ERROR"},
+                error_msg if error_msg else "Failed to open browser. Please try again."
+            )
+            _desktop_authenticator = None
+            return {"CANCELLED"}
+        
+        # Start timer to poll for completion
+        self._timeout_counter = 0
+        wm = context.window_manager
+        self._timer = wm.event_timer_add(1.0, window=context.window)
+        wm.modal_handler_add(self)
+        
+        print("[Add Account] Desktop Service authentication initiated, waiting for completion...")
+        return {"RUNNING_MODAL"}
+    
+    def _use_own_auth_server(self, context: Context) -> set[str]:
+        """
+        Use our own authentication server.
+        
+        Args:
+            context: Blender context
+        
+        Returns:
+            set[str]: Blender operator return status
+        """
+        global _auth_server
         
         # Create and start the auth server
         _auth_server = AuthenticationServer(port=SPECKLE_AUTH_PORT)
         
         if not _auth_server.start():
-            print("[Add Account] Failed to start authentication server")
+            print("[Add Account] Failed to start authentication server - port may be in use")
+            
+            # Import port check function
+            from ..utils.authentication import is_port_in_use
+            
+            # Check if port is now in use (Desktop Service may have just started)
+            if is_port_in_use(SPECKLE_AUTH_PORT):
+                print("[Add Account] Port is in use, switching to Desktop Service")
+                _auth_server = None
+                return self._use_desktop_service(context)
+            
+            # Port is blocked by something else or there's another issue
             self.report(
                 {"ERROR"},
-                f"Failed to start authentication server. Port {SPECKLE_AUTH_PORT} may be in use. "
-                "Please close Speckle Desktop Service if running."
+                f"Failed to start authentication server on port {SPECKLE_AUTH_PORT}. "
+                "Please check if another application is using this port."
             )
             _auth_server = None
             return {"CANCELLED"}
@@ -74,7 +151,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def modal(self, context: Context, event: Event) -> set[str]:
-        global _auth_server
+        global _auth_server, _desktop_authenticator
         
         if event.type != "TIMER":
             return {"PASS_THROUGH"}
@@ -90,86 +167,118 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
             )
             return {"CANCELLED"}
         
-        # Check if auth is complete
-        if _auth_server is None:
-            print("[Add Account] Auth server is None, cancelling")
+        # Determine which authentication method is active
+        if _desktop_authenticator is not None:
+            # Using Desktop Service
+            _desktop_authenticator.check_for_new_account()
+            
+            if _desktop_authenticator.is_complete():
+                # Check success status BEFORE cleanup
+                is_successful = _desktop_authenticator.is_successful()
+                error_msg = _desktop_authenticator.get_error_message() if not is_successful else None
+                
+                print(f"[Add Account] Desktop Service authentication complete. Success: {is_successful}")
+                
+                # Now cleanup
+                self._cleanup(context)
+                
+                return self._handle_auth_complete(context, is_successful, error_msg)
+        
+        elif _auth_server is not None:
+            # Using our own server
+            if _auth_server.is_complete():
+                # Check success status BEFORE cleanup
+                is_successful = _auth_server.is_successful()
+                error_msg = _auth_server.get_error_message() if not is_successful else None
+                
+                print(f"[Add Account] Own server authentication complete. Success: {is_successful}")
+                
+                # Now cleanup
+                self._cleanup(context)
+                
+                return self._handle_auth_complete(context, is_successful, error_msg)
+        
+        else:
+            # Neither is active, something went wrong
+            print("[Add Account] No active authenticator, cancelling")
             self._cleanup(context)
             return {"CANCELLED"}
-        
-        if _auth_server.is_complete():
-            # Check success status BEFORE cleanup
-            is_successful = _auth_server.is_successful()
-            error_msg = _auth_server.get_error_message() if not is_successful else None
-            
-            print(f"[Add Account] Authentication complete. Success: {is_successful}")
-            
-            # Now cleanup
-            self._cleanup(context)
-            
-            if is_successful:
-                print("[Add Account] Account added successfully - refreshing UI")
-                
-                # Import account management functions
-                from ..utils.account_manager import get_account_enum_items, _client_cache
-                from ..ui.account_selection_dialog import update_workspaces_list, update_projects_list
-                
-                # Get the newly added account (most recent one)
-                accounts = get_account_enum_items()
-                if accounts and accounts[0][0] != "NO_ACCOUNTS":
-                    new_account_id = accounts[-1][0]  # Last account added
-                    
-                    # Set as selected account
-                    context.window_manager.selected_account_id = new_account_id
-                    
-                    # Clear client cache to force re-authentication
-                    _client_cache.clear()
-                    
-                    # Refresh UI state
-                    try:
-                        update_workspaces_list(context)
-                        update_projects_list(context)
-                    except Exception as e:
-                        print(f"[Add Account] Error refreshing UI state: {e}")
-                    
-                    self.report({"INFO"}, "Account added successfully and is now active!")
-                else:
-                    self.report({"INFO"}, "Account added successfully!")
-                
-                return {"FINISHED"}
-            else:
-                error_details = error_msg if error_msg else 'Unknown error'
-                print(f"[Add Account] Authentication failed: {error_details}")
-                self.report({"ERROR"}, f"Authentication failed: {error_details}")
-                
-                # Show persistent error popup with details
-                # Store error in window manager for the popup operator
-                context.window_manager["speckle_auth_error"] = error_details
-                bpy.ops.speckle.show_auth_error('INVOKE_DEFAULT')
-                
-                return {"CANCELLED"}
         
         # Still waiting for auth to complete
         return {"RUNNING_MODAL"}
     
-    def _cleanup(self, context: Context):
-        """Clean up timer and auth server."""
-        global _auth_server
+    def _handle_auth_complete(self, context: Context, is_successful: bool, error_msg: Optional[str]) -> set[str]:
+        """
+        Handle authentication completion (success or failure).
         
+        Args:
+            context: Blender context
+            is_successful: Whether authentication succeeded
+            error_msg: Error message if authentication failed
+        
+        Returns:
+            set[str]: Blender operator return status
+        """
+        if is_successful:
+            print("[Add Account] Account added successfully - refreshing UI")
+            
+            # Import account management functions
+            from ..utils.account_manager import get_account_enum_items, _client_cache
+            from ..ui.account_selection_dialog import update_workspaces_list, update_projects_list
+            
+            # Get the newly added account (most recent one)
+            accounts = get_account_enum_items()
+            if accounts and accounts[0][0] != "NO_ACCOUNTS":
+                new_account_id = accounts[-1][0]  # Last account added
+                
+                # Set as selected account
+                context.window_manager.selected_account_id = new_account_id
+                
+                # Clear client cache to force re-authentication
+                _client_cache.clear()
+                
+                # Refresh UI state
+                try:
+                    update_workspaces_list(context)
+                    update_projects_list(context)
+                except Exception as e:
+                    print(f"[Add Account] Error refreshing UI state: {e}")
+                
+                self.report({"INFO"}, "Account added successfully and is now active!")
+            else:
+                self.report({"INFO"}, "Account added successfully!")
+            
+            return {"FINISHED"}
+        else:
+            error_details = error_msg if error_msg else 'Unknown error'
+            print(f"[Add Account] Authentication failed: {error_details}")
+            self.report({"ERROR"}, f"Authentication failed: {error_details}")
+            
+            # Show persistent error popup with details
+            # Store error in window manager for the popup operator
+            context.window_manager["speckle_auth_error"] = error_details
+            bpy.ops.speckle.show_auth_error('INVOKE_DEFAULT')
+            
+            return {"CANCELLED"}
+    
+    def _cleanup(self, context: Context):
+        """Clean up timer and auth server/authenticator."""
         # Remove timer
         if self._timer is not None:
             context.window_manager.event_timer_remove(self._timer)
             self._timer = None
         
-        # Shutdown auth server
+        # Shutdown auth server/authenticator
         cleanup_auth_server()
 
 
 def cleanup_auth_server():
     """
-    Global cleanup function to shutdown auth server.
+    Global cleanup function to shutdown auth server/authenticator.
     Should be called when Blender exits or the addon is unloaded.
     """
-    global _auth_server
+    global _auth_server, _desktop_authenticator
+    
     if _auth_server is not None:
         try:
             _auth_server.shutdown()
@@ -177,6 +286,9 @@ def cleanup_auth_server():
             print(f"[Add Account] Failed to cleanup auth server: {e}")
             print(f"[Add Account] Port {SPECKLE_AUTH_PORT} may still be occupied")
         _auth_server = None
+    
+    if _desktop_authenticator is not None:
+        _desktop_authenticator = None
 
 
 class SPECKLE_OT_show_auth_error(bpy.types.Operator):

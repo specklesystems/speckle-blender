@@ -7,6 +7,7 @@ eliminating the dependency on the desktop service.
 
 import json
 import secrets
+import socket
 import string
 import sys
 import threading
@@ -31,6 +32,69 @@ SPECKLE_AUTH_PORT = 29364
 """
 Default port for local authentication callback server.
 """
+
+
+def is_port_in_use(port: int) -> bool:
+    """
+    Check if a port is currently in use.
+    
+    Args:
+        port: Port number to check
+    
+    Returns:
+        bool: True if port is in use, False otherwise
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.5)
+            # Try to bind to the port
+            result = sock.connect_ex(('127.0.0.1', port))
+            return result == 0
+    except Exception as e:
+        print(f"[Port Check] Error checking port {port}: {e}")
+        return False
+
+
+def is_desktop_service_running(port: int = SPECKLE_AUTH_PORT) -> bool:
+    """
+    Check if Speckle Desktop Service is running on the specified port.
+    
+    Tests if the port is in use and if it responds to a test HTTP request
+    like a Speckle Desktop Service would.
+    
+    Args:
+        port: Port to check (default: SPECKLE_AUTH_PORT)
+    
+    Returns:
+        bool: True if Desktop Service is running, False otherwise
+    """
+    # First check if port is in use
+    if not is_port_in_use(port):
+        return False
+    
+    # Port is in use, verify it's actually Desktop Service by making a test request
+    try:
+        test_url = f"http://127.0.0.1:{port}/auth/add-account?serverUrl=test"
+        request = Request(test_url, headers={'User-Agent': get_user_agent()})
+        
+        # We don't care about the response content, just that we get a valid HTTP response
+        # Desktop Service will return a 302 redirect
+        with urlopen(request, timeout=2) as response:
+            # If we get any response (200, 302, etc.), Desktop Service is running
+            return True
+    except HTTPError as e:
+        # 302 redirects might raise HTTPError in some cases, but that's still valid
+        if e.code in (302, 301):
+            return True
+        print(f"[Desktop Service Check] HTTP error: {e.code}")
+        return False
+    except URLError as e:
+        # Connection refused or timeout - port is in use but not responding like Desktop Service
+        print(f"[Desktop Service Check] URL error: {e.reason}")
+        return False
+    except Exception as e:
+        print(f"[Desktop Service Check] Unexpected error: {e}")
+        return False
 
 
 def get_user_agent() -> str:
@@ -355,7 +419,7 @@ def exchange_access_code_for_tokens(
         Dict containing 'token' and 'refreshToken'
     
     Raises:
-        AuthenticationError: If token exchange fails
+        AuthenticationError: If token exchange fails (with user-friendly messages)
     """
     if not challenge:
         raise AuthenticationError("No challenge available")
@@ -370,7 +434,16 @@ def exchange_access_code_for_tokens(
     
     # Make POST request
     url = f"{server_url}/auth/token"
-    response_data = _post_json(url, body, error_context="token exchange")
+    try:
+        response_data = _post_json(url, body, error_context="token exchange")
+    except AuthenticationError as e:
+        # Re-raise with more user-friendly message for network errors
+        error_str = str(e)
+        if "Network error" in error_str or "URLError" in error_str:
+            raise AuthenticationError(
+                "Network error while authenticating. Please check your internet connection."
+            )
+        raise
     
     # Validate response
     if 'token' not in response_data or 'refreshToken' not in response_data:
@@ -397,7 +470,7 @@ def get_user_and_server_info(
         Tuple of (user_info, server_info) dictionaries
     
     Raises:
-        AuthenticationError: If GraphQL query fails
+        AuthenticationError: If GraphQL query fails (with user-friendly messages)
     """
     # Prepare GraphQL query
     query = """
@@ -423,7 +496,16 @@ def get_user_and_server_info(
     
     # Make POST request
     url = f"{server_url}/graphql"
-    response_data = _post_json(url, body, auth_token=token, error_context="user info request")
+    try:
+        response_data = _post_json(url, body, auth_token=token, error_context="user info request")
+    except AuthenticationError as e:
+        # Re-raise with more user-friendly message for network errors
+        error_str = str(e)
+        if "Network error" in error_str or "URLError" in error_str:
+            raise AuthenticationError(
+                "Network error while authenticating. Please check your internet connection."
+            )
+        raise
     
     # Validate response
     if 'data' not in response_data:
@@ -441,6 +523,37 @@ def get_user_and_server_info(
     server_info['url'] = server_url.rstrip('/')
     
     return user_info, server_info
+
+
+def get_account_count() -> int:
+    """
+    Get the current number of accounts in storage.
+    
+    Returns:
+        int: Number of accounts in Accounts.db
+    """
+    try:
+        import sqlite3
+        import os
+        from specklepy.core.api.credentials import speckle_path_provider
+        
+        # Get database path
+        speckle_folder = speckle_path_provider.user_speckle_folder_path()
+        db_path = os.path.join(speckle_folder, 'Accounts.db')
+        
+        # If database doesn't exist, no accounts
+        if not os.path.exists(db_path):
+            return 0
+        
+        # Count accounts in database
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM objects')
+            result = cursor.fetchone()
+            return result[0] if result else 0
+    except Exception as e:
+        print(f"[Account Count] Error counting accounts: {e}")
+        return 0
 
 
 def save_account_to_storage(
@@ -558,6 +671,86 @@ def save_account_to_storage(
     
     except Exception as e:
         raise AuthenticationError(f"Failed to save account: {e}")
+
+
+class DesktopServiceAuthenticator:
+    """
+    Handles authentication via Speckle Desktop Service.
+    
+    When Desktop Service is running, we delegate the authentication flow to it
+    by opening the browser to its endpoint and polling for account creation.
+    """
+    
+    def __init__(self, server_url: str):
+        """
+        Initialize Desktop Service authenticator.
+        
+        Args:
+            server_url: Speckle server URL to authenticate against
+        """
+        self.server_url = server_url
+        self._initial_account_count = get_account_count()
+        self._auth_complete = False
+        self._auth_success = False
+        self._error_message: Optional[str] = None
+    
+    def start(self) -> bool:
+        """
+        Start authentication by opening browser to Desktop Service endpoint.
+        
+        Simply opens the browser to the Desktop Service URL. Desktop Service
+        handles the entire OAuth flow and saves the account.
+        
+        Returns:
+            bool: True if browser opened successfully, False otherwise
+        """
+        try:
+            auth_url = f"http://127.0.0.1:{SPECKLE_AUTH_PORT}/auth/add-account?serverUrl={self.server_url}"
+            webbrowser.open(auth_url)
+            print(f"[Desktop Service Auth] Opening browser to Desktop Service: {auth_url}")
+            return True
+        except Exception as e:
+            print(f"[Desktop Service Auth] Failed to open browser: {e}")
+            self._error_message = f"Failed to open browser: {e}"
+            return False
+    
+    def check_for_new_account(self) -> bool:
+        """
+        Check if a new account has been added to storage.
+        
+        Returns:
+            bool: True if authentication is complete (success or failure)
+        """
+        try:
+            current_count = get_account_count()
+            if current_count > self._initial_account_count:
+                # New account detected!
+                print(f"[Desktop Service Auth] New account detected (count: {self._initial_account_count} -> {current_count})")
+                self._auth_complete = True
+                self._auth_success = True
+                return True
+            
+            # Still waiting
+            return False
+            
+        except Exception as e:
+            print(f"[Desktop Service Auth] Error checking for new account: {e}")
+            self._auth_complete = True
+            self._auth_success = False
+            self._error_message = f"Error checking for new account: {e}"
+            return True
+    
+    def is_complete(self) -> bool:
+        """Check if authentication is complete."""
+        return self._auth_complete
+    
+    def is_successful(self) -> bool:
+        """Check if authentication was successful."""
+        return self._auth_success
+    
+    def get_error_message(self) -> Optional[str]:
+        """Get error message if authentication failed."""
+        return self._error_message
 
 
 class AuthenticationServer:
