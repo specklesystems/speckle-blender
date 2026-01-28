@@ -6,7 +6,7 @@ eliminating the dependency on the desktop service.
 """
 
 import json
-import random
+import secrets
 import string
 import sys
 import threading
@@ -69,7 +69,7 @@ def generate_challenge() -> str:
         str: Random 12-character challenge string
     """
     chars = string.ascii_letters + string.digits
-    return ''.join(random.choice(chars) for _ in range(12))
+    return ''.join(secrets.choice(chars) for _ in range(12))
 
 
 class SpeckleAuthHandler(BaseHTTPRequestHandler):
