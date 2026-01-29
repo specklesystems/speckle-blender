@@ -17,9 +17,7 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
     def description(cls, context: Context, properties) -> str:
         model_card_id = properties.model_card_id
         if model_card_id and hasattr(context.scene, "speckle_state"):
-            model_card = context.scene.speckle_state.get_model_card_by_id(
-                model_card_id
-            )
+            model_card = context.scene.speckle_state.get_model_card_by_id(model_card_id)
             if model_card and not model_card.can_create_version:
                 return "Workspace limits have been reached"
         return "Publish tracked objects to Speckle"

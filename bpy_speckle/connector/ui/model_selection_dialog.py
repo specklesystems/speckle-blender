@@ -104,9 +104,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         self.update_models_list(context)
 
         wm = context.window_manager
-        authorized, _ = can_create_model(
-            wm.selected_account_id, wm.selected_project_id
-        )
+        authorized, _ = can_create_model(wm.selected_account_id, wm.selected_project_id)
         self._can_create_model = authorized
         SPECKLE_OT_create_model._can_create = authorized
 

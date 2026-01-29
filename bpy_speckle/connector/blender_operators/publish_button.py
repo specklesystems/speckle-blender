@@ -116,9 +116,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             update_model_card_objects(model_card, objects_to_convert)
 
             # Re-check version creation permission (may have changed after publish)
-            version_authorized, _ = can_create_version(
-                account_id, project_id, model_id
-            )
+            version_authorized, _ = can_create_version(account_id, project_id, model_id)
             model_card.can_create_version = version_authorized
 
         # clear selected model details from Window Manager
