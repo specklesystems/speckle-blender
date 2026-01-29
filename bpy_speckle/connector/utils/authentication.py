@@ -7,7 +7,6 @@ eliminating the dependency on the desktop service.
 
 import json
 import secrets
-import socket
 import string
 import sys
 import threading
