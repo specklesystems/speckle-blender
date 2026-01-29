@@ -264,16 +264,38 @@ def can_load(client, project) -> Tuple[bool, str]:
         return False, error_msg
 
 
-def can_publish(client, project) -> Tuple[bool, str]:
+def can_create_version(account_id: str, project_id: str, model_id: str) -> Tuple[bool, str]:
     try:
-        permissions = client.project.get_permissions(project.id)
+        client = _client_cache.get_client(account_id)
+        permissions = client.model.get_permissions(project_id, model_id)
 
-        if permissions.can_publish.authorized:
+        if permissions.can_create_version.authorized:
             return True, ""
         else:
+            message = getattr(permissions.can_create_version, "message", None)
             return (
                 False,
-                "Your role on this project doesn't give you permission to publish.",
+                message or "Your role on this project doesn't give you permission to publish.",
+            )
+
+    except Exception as e:
+        error_msg = f"Failed to check permissions: {str(e)}"
+        print(error_msg)
+        return False, error_msg
+
+
+def can_create_model(account_id: str, project_id: str) -> Tuple[bool, str]:
+    try:
+        client = _client_cache.get_client(account_id)
+        permissions = client.project.get_permissions(project_id)
+
+        if permissions.can_create_model.authorized:
+            return True, ""
+        else:
+            message = getattr(permissions.can_create_model, "message", None)
+            return (
+                False,
+                message or "You don't have permission to create models in this project.",
             )
 
     except Exception as e:

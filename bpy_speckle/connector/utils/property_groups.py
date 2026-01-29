@@ -103,6 +103,11 @@ class speckle_model_card(bpy.types.PropertyGroup):
         description="Apply modifiers to the objects",
         default=True,
     )  # type: ignore
+    can_create_version: bpy.props.BoolProperty(
+        name="Can Create Version",
+        description="Whether the user can create a version on this model",
+        default=True,
+    )  # type: ignore
 
     def get_model_card_id(self) -> str:
         if not self.project_id or not self.model_id:

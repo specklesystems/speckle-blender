@@ -2,6 +2,9 @@ import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from ..utils.model_manager import get_models_for_project
 from ..utils.version_manager import get_latest_version
+from ..utils.account_manager import can_create_model, can_create_version
+from ..blender_operators.create_model import SPECKLE_OT_create_model
+from ..blender_operators.publish_button import SPECKLE_OT_publish
 
 
 class SPECKLE_UL_models_list(bpy.types.UIList):
@@ -86,6 +89,12 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
                 wm.selected_version_load_option = "LATEST"
                 wm.selected_version_id = latest_version[0]
 
+            authorized, _ = can_create_version(
+                wm.selected_account_id, wm.selected_project_id, selected_model.id
+            )
+            wm.can_create_version = authorized
+            SPECKLE_OT_publish._can_publish = authorized
+
             print(f"Selected model: {selected_model.name} ({selected_model.id})")
 
             context.area.tag_redraw()
@@ -93,6 +102,13 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
 
     def invoke(self, context: Context, event: Event) -> set[str]:
         self.update_models_list(context)
+
+        wm = context.window_manager
+        authorized, _ = can_create_model(
+            wm.selected_account_id, wm.selected_project_id
+        )
+        self._can_create_model = authorized
+        SPECKLE_OT_create_model._can_create = authorized
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -104,7 +120,9 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
         row = layout.row(align=True)
         row.prop(self, "search_query", icon="VIEWZOOM", text="")  # search bar
         if wm.ui_mode != "LOAD":
-            row.operator("speckle.create_model", icon="ADD", text="")
+            sub = row.row(align=True)
+            sub.enabled = getattr(self, "_can_create_model", True)
+            sub.operator("speckle.create_model", icon="ADD", text="")
 
         layout.template_list(
             "SPECKLE_UL_models_list",
