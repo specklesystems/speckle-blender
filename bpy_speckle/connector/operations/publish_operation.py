@@ -8,6 +8,14 @@ from specklepy.core.api import operations
 from specklepy.transports.server import ServerTransport
 from specklepy.core.api.inputs.version_inputs import CreateVersionInput
 from specklepy.objects.models.units import Units
+from specklepy.logging.exceptions import GraphQLException, WorkspacePermissionException
+from specklepy.core.api.inputs.model_ingestion_inputs import (
+    ModelIngestionCreateInput,
+    ModelIngestionStartProcessingInput,
+    ModelIngestionSuccessInput,
+    ModelIngestionFailedInput,
+    SourceDataInput,
+)
 
 from ...converter.to_speckle import convert_to_speckle
 from ...converter.to_speckle.material_to_speckle import (
@@ -17,6 +25,94 @@ from ...converter.utils import get_project_workspace_id
 from ..utils.account_manager import _client_cache
 from specklepy.logging import metrics
 from ... import bl_info
+
+
+def _check_use_model_ingestion_send(client, project_id: str, model_id: str) -> bool:
+    """Check if the server supports model ingestion and the user is authorized."""
+    try:
+        result = client.model.can_create_model_ingestion(project_id, model_id)
+        result.ensure_authorised()
+        return True
+    except GraphQLException:
+        return False
+
+
+def _build_source_data() -> SourceDataInput:
+    """Build data input for model ingestion."""
+    file_name = bpy.path.basename(bpy.data.filepath)
+    if not file_name:
+        file_name = "Untitled.blend"
+    blender_version = ".".join(map(str, bl_info["blender"]))
+    return SourceDataInput(
+        source_application_slug="blender",
+        source_application_version=blender_version,
+        file_name=file_name,
+    )
+
+
+def _send_via_ingestion(
+    client,
+    project_id: str,
+    model_id: str,
+    obj_id: str,
+    version_message: str,
+) -> str:
+    """Send via the model ingestion. Returns version_id."""
+    source_data = _build_source_data()
+
+    create_input = ModelIngestionCreateInput(
+        project_id=project_id,
+        model_id=model_id,
+        source_data=source_data,
+        message=version_message,
+    )
+    ingestion = client.model_ingestion.create(create_input)
+    ingestion_id = ingestion.id
+
+    try:
+        start_input = ModelIngestionStartProcessingInput(
+            project_id=project_id,
+            ingestion_id=ingestion_id,
+        )
+        client.model_ingestion.start_processing(start_input)
+
+        success_input = ModelIngestionSuccessInput(
+            project_id=project_id,
+            ingestion_id=ingestion_id,
+            root_object_id=obj_id,
+        )
+        result = client.model_ingestion.complete(success_input)
+        return result.version_id
+    except Exception:
+        try:
+            fail_input = ModelIngestionFailedInput(
+                project_id=project_id,
+                ingestion_id=ingestion_id,
+                message="Failed during processing",
+            )
+            client.model_ingestion.fail_with_error(fail_input)
+        except Exception:
+            pass
+        raise
+
+
+def _send_via_version_create(
+    client,
+    project_id: str,
+    model_id: str,
+    obj_id: str,
+    version_message: str,
+) -> str:
+    """Send via the legacy version.create() flow. Returns version_id."""
+    version_input = CreateVersionInput(
+        objectId=obj_id,
+        modelId=model_id,
+        projectId=project_id,
+        message=version_message,
+        sourceApplication="blender",
+    )
+    version = client.version.create(version_input)
+    return version.id
 
 
 def publish_operation(
@@ -36,7 +132,13 @@ def publish_operation(
         if not client:
             return False, "No Speckle client found", None
 
-        transport = ServerTransport(stream_id=wm.selected_project_id, client=client)
+        project_id = wm.selected_project_id
+        model_id = wm.selected_model_id
+
+        # check ingestion support before sending data (fail fast on permission errors)
+        use_ingestion = _check_use_model_ingestion_send(client, project_id, model_id)
+
+        transport = ServerTransport(stream_id=project_id, client=client)
 
         # build collection hierarchy and convert objects
         root_collection = build_collection_hierarchy(
@@ -51,16 +153,14 @@ def publish_operation(
 
         obj_id = operations.send(root_collection, [transport])
 
-        version_input = CreateVersionInput(
-            objectId=obj_id,
-            modelId=wm.selected_model_id,
-            projectId=wm.selected_project_id,
-            message=version_message,
-            sourceApplication="blender",
-        )
-
-        version = client.version.create(version_input)
-        version_id = version.id
+        if use_ingestion:
+            version_id = _send_via_ingestion(
+                client, project_id, model_id, obj_id, version_message
+            )
+        else:
+            version_id = _send_via_version_create(
+                client, project_id, model_id, obj_id, version_message
+            )
 
         # Get account for metrics tracking
         from specklepy.core.api.credentials import get_local_accounts
@@ -80,9 +180,7 @@ def publish_operation(
                     "ui": "dui3",
                     "hostAppVersion": ".".join(map(str, bl_info["blender"])),
                     "core_version": ".".join(map(str, bl_info["version"])),
-                    "workspace_id": get_project_workspace_id(
-                        client, wm.selected_project_id
-                    ),
+                    "workspace_id": get_project_workspace_id(client, project_id),
                 },
             )
 
@@ -94,6 +192,9 @@ def publish_operation(
             f"Successfully published {total_objects} objects with hierarchy to Speckle",
             version_id,
         )
+
+    except WorkspacePermissionException as e:
+        return False, f"Permission denied: {str(e)}", None
 
     except Exception as e:
         import traceback
