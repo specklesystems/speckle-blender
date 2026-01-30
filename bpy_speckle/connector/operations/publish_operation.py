@@ -42,11 +42,22 @@ def _build_source_data() -> SourceDataInput:
     file_name = bpy.path.basename(bpy.data.filepath)
     if not file_name:
         file_name = "Untitled.blend"
+
+    file_size_bytes: Optional[int] = None
+    if bpy.data.filepath:
+        import os
+
+        try:
+            file_size_bytes = os.path.getsize(bpy.data.filepath)
+        except OSError:
+            pass
+
     blender_version = ".".join(map(str, bl_info["blender"]))
     return SourceDataInput(
         source_application_slug="blender",
         source_application_version=blender_version,
         file_name=file_name,
+        file_size_bytes=file_size_bytes,
     )
 
 
