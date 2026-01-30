@@ -95,8 +95,8 @@ def _send_via_ingestion(
             root_object_id=obj_id,
             version_message=version_message,
         )
-        result = client.model_ingestion.complete(success_input)
-        return result.version_id
+        version_id = client.model_ingestion.complete(success_input)
+        return version_id
     except Exception:
         try:
             fail_input = ModelIngestionFailedInput(
