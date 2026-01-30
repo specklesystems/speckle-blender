@@ -125,8 +125,12 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             wm.selected_workspace.id = active_workspace["id"]
             wm.selected_workspace.name = active_workspace["name"]
         else:
-            wm.selected_workspace.id = "personal"
-            wm.selected_workspace.name = "Personal Projects"
+            from .account_selection_dialog import update_workspaces_list
+            update_workspaces_list(context)
+            workspaces = list(wm.speckle_workspaces)
+            if workspaces:
+                wm.selected_workspace.id = workspaces[0].id
+                wm.selected_workspace.name = workspaces[0].name
 
         # Fetch projects from server
         projects: List[Tuple[str, str, str, str, bool]] = get_projects_for_account(

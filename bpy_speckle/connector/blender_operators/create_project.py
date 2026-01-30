@@ -1,10 +1,9 @@
 import bpy
 from bpy.types import Context, Event, UILayout
 
-from specklepy.core.api.inputs import ProjectCreateInput
 from specklepy.core.api.inputs.project_inputs import WorkspaceProjectCreateInput
 from specklepy.core.api.enums import ProjectVisibility
-from typing import Tuple, Optional
+from typing import Tuple
 
 from ..utils.account_manager import _client_cache
 
@@ -25,9 +24,7 @@ class SPECKLE_OT_create_project(bpy.types.Operator):
         project_id, project_name = create_project(
             wm.selected_account_id,
             self.project_name,
-            None
-            if wm.selected_workspace.id == "personal"
-            else wm.selected_workspace.id,
+            wm.selected_workspace.id,
         )
         wm.selected_project_id = project_id
         wm.selected_project_name = project_name
@@ -54,30 +51,21 @@ def unregister() -> None:
 
 
 def create_project(
-    account_id: str, project_name: str, workspace_id: Optional[str]
+    account_id: str, project_name: str, workspace_id: str
 ) -> Tuple[str, str]:
     try:
         # Get cached client
         client = _client_cache.get_client(account_id)
         if not client:
             raise Exception(f"Could not get client for account: {account_id}")
-        if workspace_id:
-            project = client.project.create_in_workspace(
-                input=WorkspaceProjectCreateInput(
-                    name=project_name,
-                    description="",
-                    visibility=ProjectVisibility("PUBLIC"),
-                    workspaceId=workspace_id,
-                )
+        project = client.project.create_in_workspace(
+            input=WorkspaceProjectCreateInput(
+                name=project_name,
+                description="",
+                visibility=ProjectVisibility("PUBLIC"),
+                workspaceId=workspace_id,
             )
-        else:
-            project = client.project.create(
-                input=ProjectCreateInput(
-                    name=project_name,
-                    description="",
-                    visibility=ProjectVisibility("PUBLIC"),
-                )
-            )
+        )
 
         return (project.id, project.name)
     except Exception as e:
