@@ -75,7 +75,7 @@ def _send_via_ingestion(
         project_id=project_id,
         model_id=model_id,
         source_data=source_data,
-        message=version_message,
+        progress_message="Model ingestion created",
     )
     ingestion = client.model_ingestion.create(create_input)
     ingestion_id = ingestion.id
@@ -84,6 +84,8 @@ def _send_via_ingestion(
         start_input = ModelIngestionStartProcessingInput(
             project_id=project_id,
             ingestion_id=ingestion_id,
+            progress_message="Processing model ingestion",
+            source_data=source_data,
         )
         client.model_ingestion.start_processing(start_input)
 
@@ -91,6 +93,7 @@ def _send_via_ingestion(
             project_id=project_id,
             ingestion_id=ingestion_id,
             root_object_id=obj_id,
+            version_message=version_message,
         )
         result = client.model_ingestion.complete(success_input)
         return result.version_id
@@ -99,7 +102,7 @@ def _send_via_ingestion(
             fail_input = ModelIngestionFailedInput(
                 project_id=project_id,
                 ingestion_id=ingestion_id,
-                message="Failed during processing",
+                error_reason="Failed during processing",
             )
             client.model_ingestion.fail_with_error(fail_input)
         except Exception:
