@@ -126,6 +126,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             wm.selected_workspace.name = active_workspace["name"]
         else:
             from .account_selection_dialog import update_workspaces_list
+
             update_workspaces_list(context)
             workspaces = list(wm.speckle_workspaces)
             if workspaces:
