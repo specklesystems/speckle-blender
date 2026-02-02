@@ -45,15 +45,11 @@ class SPECKLE_PT_model_cards_panel(bpy.types.Panel):
 
                 if model_card.is_publish:
                     # Publish button in the model card
-                    publish_sub = row_1.row(align=True)
-                    publish_sub.enabled = model_card.can_create_version
-                    publish_sub.operator(
+                    row_1.operator(
                         "speckle.model_card_publish", text="", icon="EXPORT"
                     ).model_card_id = model_card.get_model_card_id()
                     # Selection filter button in the model card
-                    selection_sub = row_2.row(align=True)
-                    selection_sub.enabled = model_card.can_create_version
-                    selection_sub.operator(
+                    row_2.operator(
                         "speckle.selection_filter_dialog",
                         text=f"Selection: {len(model_card.objects)} objects",
                     ).model_card_id = model_card.get_model_card_id()

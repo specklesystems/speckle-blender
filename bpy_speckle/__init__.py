@@ -135,7 +135,6 @@ def invoke_window_manager_properties():
     WindowManager.speckle_models = bpy.props.CollectionProperty(type=speckle_model)
     WindowManager.selected_model_id = bpy.props.StringProperty()
     WindowManager.selected_model_name = bpy.props.StringProperty()
-    WindowManager.can_create_version = bpy.props.BoolProperty(default=True)
     # Versions
     WindowManager.speckle_versions = bpy.props.CollectionProperty(type=speckle_version)
     WindowManager.selected_version_id = bpy.props.StringProperty()

@@ -76,10 +76,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
 
             # Publish button
             row = layout.row()
-            can_publish = getattr(wm, "can_create_version", True)
-            row.enabled = (
-                project_selected and model_selected and selection_made and can_publish
-            )
+            row.enabled = project_selected and model_selected and selection_made
             row.operator("speckle.publish", text="Publish Model", icon="EXPORT")
             pass
 

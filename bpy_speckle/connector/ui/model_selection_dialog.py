@@ -2,9 +2,8 @@ import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from ..utils.model_manager import get_models_for_project
 from ..utils.version_manager import get_latest_version
-from ..utils.account_manager import can_create_model, can_create_version
+from ..utils.account_manager import can_create_model
 from ..blender_operators.create_model import SPECKLE_OT_create_model
-from ..blender_operators.publish_button import SPECKLE_OT_publish
 
 
 class SPECKLE_UL_models_list(bpy.types.UIList):
@@ -88,12 +87,6 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
             if latest_version:
                 wm.selected_version_load_option = "LATEST"
                 wm.selected_version_id = latest_version[0]
-
-            authorized, _ = can_create_version(
-                wm.selected_account_id, wm.selected_project_id, selected_model.id
-            )
-            wm.can_create_version = authorized
-            SPECKLE_OT_publish._can_publish = authorized
 
             print(f"Selected model: {selected_model.name} ({selected_model.id})")
 

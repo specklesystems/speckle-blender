@@ -15,15 +15,6 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
     bl_label = "Select Objects"
     bl_description = "Select objects to publish"
 
-    @classmethod
-    def description(cls, context: Context, properties) -> str:
-        model_card_id = properties.model_card_id
-        if model_card_id and hasattr(context.scene, "speckle_state"):
-            model_card = context.scene.speckle_state.get_model_card_by_id(model_card_id)
-            if model_card and not model_card.can_create_version:
-                return "Workspace limits have been reached"
-        return "Select objects to publish"
-
     selection_type: EnumProperty(
         name="Selection",
         items=[
@@ -55,11 +46,10 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
             update_model_card_objects(model_card, user_selection)
             self.report({"INFO"}, "Selection updated")
 
-            # Check permission before publishing
+            # On-demand permission check before publishing
             authorized, auth_message = can_create_version(
                 model_card.account_id, model_card.project_id, model_card.model_id
             )
-            model_card.can_create_version = authorized
             if not authorized:
                 self.report({"ERROR"}, auth_message)
                 return {"CANCELLED"}

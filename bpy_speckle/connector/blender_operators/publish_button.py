@@ -13,14 +13,6 @@ class SPECKLE_OT_publish(bpy.types.Operator):
     bl_label = "Publish to Speckle"
     bl_description = "Publish selected objects to Speckle"
 
-    _can_publish: bool = True
-
-    @classmethod
-    def description(cls, context: Context, properties) -> str:
-        if not cls._can_publish:
-            return "Workspace limits have been reached"
-        return "Publish selected objects to Speckle"
-
     version_message: bpy.props.StringProperty(name="Version Message")  # type: ignore
     apply_modifiers: bpy.props.BoolProperty(  # type: ignore
         name="Apply Modifiers",
@@ -114,10 +106,6 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             model_card.version_id = version_id
             model_card.apply_modifiers = self.apply_modifiers
             update_model_card_objects(model_card, objects_to_convert)
-
-            # Re-check version creation permission (may have changed after publish)
-            version_authorized, _ = can_create_version(account_id, project_id, model_id)
-            model_card.can_create_version = version_authorized
 
         # clear selected model details from Window Manager
         wm.selected_account_id = ""
