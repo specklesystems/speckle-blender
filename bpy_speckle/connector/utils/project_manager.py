@@ -30,9 +30,6 @@ def get_projects_for_account(
             print(f"Error: Could not find account with ID: {account_id}")
             return []
 
-        if workspace_id == "personal":
-            return _get_personal_projects_with_permissions(client, search)
-
         try:
             workspace_resource = WorkspaceResource(
                 account, client.url, client.httpclient, client.server.version()
@@ -93,43 +90,6 @@ def get_projects_for_account(
         # Clear cache on error to prevent stale clients
         _client_cache.clear()
         return []
-
-
-def _get_personal_projects_with_permissions(
-    client: SpeckleClient, search: Optional[str] = None
-) -> List[Tuple[str, str, str, str, bool]]:
-    """
-    helper function to get personal projects with permissions using the old method
-    """
-    from specklepy.core.api.inputs.user_inputs import UserProjectsFilter
-    from .account_manager import can_load
-
-    filter = UserProjectsFilter(
-        search=search,
-        workspaceId=None,
-        personalOnly=True,
-        include_implicit_access=True,
-    )
-
-    projects = client.active_user.get_projects(limit=10, filter=filter).items
-
-    result = []
-    for project in projects:
-        can_load_permission, _ = can_load(client, project)
-
-        result.append(
-            (
-                strip_non_ascii(project.name),
-                format_role(getattr(project, "role", ""))
-                if hasattr(project, "role") and project.role
-                else "",
-                format_relative_time(project.updated_at),
-                project.id,
-                can_load_permission,
-            )
-        )
-
-    return result
 
 
 def _get_projects_with_individual_permissions(

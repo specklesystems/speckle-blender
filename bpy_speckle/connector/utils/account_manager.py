@@ -95,22 +95,20 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
                 for ws in workspaces
                 if ws.creation_state is None or ws.creation_state.completed
             ]
-            personal_projects_text = "Personal Projects (Legacy)"
-        else:
-            workspace_list = []
-            personal_projects_text = "Personal Projects"
 
-        workspace_list.append(("personal", personal_projects_text))
-
-        if workspaces_enabled:
             active_workspace = client.active_user.get_active_workspace()
             default_workspace_id = (
-                active_workspace.id if active_workspace else "personal"
+                active_workspace.id
+                if active_workspace
+                else (workspaces[0].id if workspaces else None)
             )
 
-            result = reorder_tuple(workspace_list, default_workspace_id)
+            if default_workspace_id:
+                result = reorder_tuple(workspace_list, default_workspace_id)
+            else:
+                result = workspace_list
         else:
-            result = workspace_list
+            result = []
 
         return result
     except Exception as e:
@@ -148,7 +146,7 @@ def get_active_workspace(account_id: str) -> Optional[Dict[str, str]]:
         active_workspace = client.active_user.get_active_workspace()
         if active_workspace:
             return {"id": active_workspace.id, "name": active_workspace.name}
-        return {"id": "personal", "name": "Personal Projects"}
+        return None
     except Exception as e:
         print(f"Error in get_active_workspace: {str(e)}")
         _client_cache.clear()
@@ -315,15 +313,12 @@ def can_create_project_in_workspace(account_id: str, workspace_id: str) -> bool:
     try:
         client = _client_cache.get_client(account_id)
 
-        if workspace_id == "personal":
-            return client.active_user.can_create_personal_projects().authorized
-        else:
-            try:
-                workspace = client.workspace.get(workspace_id)
-                return workspace.permissions.can_create_project.authorized
-            except Exception as e:
-                print(f"Failed to get workspace: {str(e)}")
-                return False
+        try:
+            workspace = client.workspace.get(workspace_id)
+            return workspace.permissions.can_create_project.authorized
+        except Exception as e:
+            print(f"Failed to get workspace: {str(e)}")
+            return False
     except Exception as e:
         print(f"Error in can_create_project_in_workspace: {str(e)}")
         _client_cache.clear()  # Clear cache on error
