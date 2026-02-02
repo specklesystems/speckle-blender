@@ -3,7 +3,7 @@ from bpy.types import Context, Event, UILayout
 from specklepy.core.api.inputs import CreateModelInput
 from typing import Tuple
 
-from ..utils.account_manager import _client_cache
+from ..utils.account_manager import _client_cache, can_create_model
 
 
 class SPECKLE_OT_create_model(bpy.types.Operator):
@@ -11,10 +11,25 @@ class SPECKLE_OT_create_model(bpy.types.Operator):
     bl_label = "Create Model"
     bl_description = "Create a new Speckle model"
 
+    _can_create: bool = True
+
     model_name: bpy.props.StringProperty(name="Model Name")  # type: ignore
+
+    @classmethod
+    def description(cls, context: Context, properties) -> str:
+        if not cls._can_create:
+            return "Workspace limits have been reached"
+        return "Create a new Speckle model"
 
     def execute(self, context: Context) -> set[str]:
         wm = context.window_manager
+
+        authorized, auth_message = can_create_model(
+            wm.selected_account_id, wm.selected_project_id
+        )
+        if not authorized:
+            self.report({"ERROR"}, auth_message)
+            return {"CANCELLED"}
 
         if not self.model_name.strip():
             self.report({"ERROR"}, "Model name cannot be empty")

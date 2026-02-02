@@ -4,7 +4,7 @@ from bpy.types import Event
 from typing import Set
 
 from ..operations.publish_operation import publish_operation
-from ..utils.account_manager import get_server_url_by_account_id
+from ..utils.account_manager import get_server_url_by_account_id, can_create_version
 from ..utils.model_card_utils import model_card_exists, update_model_card_objects
 
 
@@ -53,6 +53,11 @@ class SPECKLE_OT_publish(bpy.types.Operator):
 
         if not model_id:
             self.report({"ERROR"}, "No model selected")
+            return {"CANCELLED"}
+
+        authorized, auth_message = can_create_version(account_id, project_id, model_id)
+        if not authorized:
+            self.report({"ERROR"}, auth_message)
             return {"CANCELLED"}
 
         objects_to_convert = []
