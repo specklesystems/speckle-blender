@@ -30,7 +30,7 @@ def patch_manifest(simple_version: str):
 
         for index, line in enumerate(lines):
             if line.startswith("version ="):
-                lines[index] = f'version = "{version[0]}.{version[1]}.{version[2]}",\n'
+                lines[index] = f'version = "{version[0]}.{version[1]}.{version[2]}"\n'
                 print(f"Patched connector version number in {FILE_PATH}")
                 break
 
