@@ -70,6 +70,10 @@ from .connector.blender_operators.model_card_settings import (
 )
 from .connector.blender_operators.select_objects import SPECKLE_OT_select_objects
 from .connector.blender_operators.add_account_button import SPECKLE_OT_add_account
+from .connector.blender_operators.add_account_button import (
+    SPECKLE_OT_show_auth_error,
+    SPECKLE_OT_dismiss_popup,
+)
 from .connector.blender_operators.model_card_load_button import (
     SPECKLE_OT_load_model_card,
 )
@@ -184,6 +188,8 @@ classes = (
     SPECKLE_OT_delete_model_card,
     SPECKLE_OT_select_objects,
     SPECKLE_OT_add_account,
+    SPECKLE_OT_show_auth_error,
+    SPECKLE_OT_dismiss_popup,
     SPECKLE_OT_load_model_card,
     SPECKLE_OT_publish_model_card,
     SPECKLE_OT_add_project_by_url,
@@ -231,6 +237,11 @@ def unregister():
     # Clear any pending timers to prevent duplicate calls
     if bpy.app.timers.is_registered(delayed_version_check):
         bpy.app.timers.unregister(delayed_version_check)
+
+    # Clean up authentication server
+    from .connector.blender_operators.add_account_button import cleanup_auth_server
+
+    cleanup_auth_server()
 
     icons.unload_icons()
     unregister_speckle_state()  # Unregister SpeckleState
