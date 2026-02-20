@@ -2,6 +2,7 @@ import bpy
 from typing import Set
 from bpy.types import Context, Event
 from ..operations.publish_operation import publish_operation
+from ..utils.account_manager import can_create_version
 
 
 class SPECKLE_OT_publish_model_card(bpy.types.Operator):
@@ -26,6 +27,14 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
         model_card = context.scene.speckle_state.get_model_card_by_id(
             self.model_card_id
         )
+
+        # On-demand permission check
+        authorized, auth_message = can_create_version(
+            model_card.account_id, model_card.project_id, model_card.model_id
+        )
+        if not authorized:
+            self.report({"ERROR"}, auth_message)
+            return {"CANCELLED"}
 
         # set wm
         wm.selected_account_id = model_card.account_id

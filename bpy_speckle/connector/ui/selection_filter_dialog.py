@@ -3,6 +3,7 @@ from typing import List
 from bpy.types import Operator, Context, Object
 from bpy.props import EnumProperty
 from ..utils.model_card_utils import update_model_card_objects
+from ..utils.account_manager import can_create_version
 
 
 class SPECKLE_OT_selection_filter_dialog(Operator):
@@ -44,6 +45,14 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
             )
             update_model_card_objects(model_card, user_selection)
             self.report({"INFO"}, "Selection updated")
+
+            # On-demand permission check before publishing
+            authorized, auth_message = can_create_version(
+                model_card.account_id, model_card.project_id, model_card.model_id
+            )
+            if not authorized:
+                self.report({"ERROR"}, auth_message)
+                return {"CANCELLED"}
 
             # Call the publish operator
             bpy.ops.speckle.model_card_publish(
