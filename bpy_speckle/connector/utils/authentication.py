@@ -5,6 +5,7 @@ Implements OAuth-style authentication flow with a local HTTP server,
 eliminating the dependency on the desktop service.
 """
 
+import errno
 import json
 import secrets
 import string
@@ -505,7 +506,7 @@ class AuthenticationServer:
             return True
 
         except OSError as e:
-            if e.errno == 98 or e.errno == 10048:  # Address already in use
+            if e.errno in (errno.EADDRINUSE, 10048):  # Address already in use
                 print(f"[Auth Server] Port {self.port} is already in use.")
             else:
                 print(f"[Auth Server] Failed to start server: {e}")
