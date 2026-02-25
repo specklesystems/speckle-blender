@@ -18,9 +18,9 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 
-# Speckle Desktop Authentication Service protocol constants
-SPECKLE_APP_ID = "sdas"  # App ID for Speckle Desktop Auth Service protocol
-SPECKLE_AUTH_PORT = 29364  # Default port for local auth callback server
+# Speckle Blender dedicated app constants (registered server-side)
+SPECKLE_APP_ID = "sblndrdui"  # Dedicated app ID for Blender connector
+SPECKLE_AUTH_PORT = 29365  # Port for local auth callback server
 
 
 def get_user_agent() -> str:
@@ -364,36 +364,6 @@ def get_user_and_server_info(
     return user_info, server_info
 
 
-def get_account_count() -> int:
-    """Get the current number of accounts in Accounts.db."""
-    try:
-        import sqlite3
-        import os
-        from specklepy.core.api.credentials import speckle_path_provider
-
-        # Get database path
-        speckle_folder = speckle_path_provider.user_speckle_folder_path()
-        db_path = os.path.join(speckle_folder, "Accounts.db")
-
-        # If database doesn't exist, no accounts
-        if not os.path.exists(db_path):
-            return 0
-
-        # Count accounts in database
-        conn = sqlite3.connect(db_path)
-        try:
-            with conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM objects")
-                result = cursor.fetchone()
-                return result[0] if result else 0
-        finally:
-            conn.close()
-    except Exception as e:
-        print(f"[Account Count] Error counting accounts: {e}")
-        return 0
-
-
 def save_account_to_storage(
     token: str,
     refresh_token: str,
@@ -510,63 +480,6 @@ def save_account_to_storage(
         raise AuthenticationError(f"Failed to save account: {e}")
 
 
-class DesktopServiceAuthenticator:
-    """Handles authentication via Speckle Desktop Service by delegating to its endpoint."""
-
-    def __init__(self, server_url: str):
-        self.server_url = server_url
-        self._initial_account_count = get_account_count()
-        self._auth_complete = False
-        self._auth_success = False
-        self._error_message: Optional[str] = None
-
-    def start(self) -> bool:
-        """Open browser to Desktop Service endpoint to initiate OAuth flow."""
-        try:
-            auth_url = f"http://127.0.0.1:{SPECKLE_AUTH_PORT}/auth/add-account?serverUrl={self.server_url}"
-            webbrowser.open(auth_url)
-            print(
-                f"[Desktop Service Auth] Opening browser to Desktop Service: {auth_url}"
-            )
-            return True
-        except Exception as e:
-            print(f"[Desktop Service Auth] Failed to open browser: {e}")
-            self._error_message = f"Failed to open browser: {e}"
-            return False
-
-    def check_for_new_account(self) -> bool:
-        """Check if a new account has been added to storage."""
-        try:
-            current_count = get_account_count()
-            if current_count > self._initial_account_count:
-                # New account detected!
-                print(
-                    f"[Desktop Service Auth] New account detected (count: {self._initial_account_count} -> {current_count})"
-                )
-                self._auth_complete = True
-                self._auth_success = True
-                return True
-
-            # Still waiting
-            return False
-
-        except Exception as e:
-            print(f"[Desktop Service Auth] Error checking for new account: {e}")
-            self._auth_complete = True
-            self._auth_success = False
-            self._error_message = f"Error checking for new account: {e}"
-            return True
-
-    def is_complete(self) -> bool:
-        return self._auth_complete
-
-    def is_successful(self) -> bool:
-        return self._auth_success
-
-    def get_error_message(self) -> Optional[str]:
-        return self._error_message
-
-
 class AuthenticationServer:
     """Manages local HTTP server for Speckle authentication in a background thread."""
 
@@ -593,9 +506,7 @@ class AuthenticationServer:
 
         except OSError as e:
             if e.errno == 98 or e.errno == 10048:  # Address already in use
-                print(
-                    f"[Auth Server] Port {self.port} is already in use. Is desktop service running?"
-                )
+                print(f"[Auth Server] Port {self.port} is already in use.")
             else:
                 print(f"[Auth Server] Failed to start server: {e}")
             return False
