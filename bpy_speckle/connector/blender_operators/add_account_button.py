@@ -4,14 +4,12 @@ from bpy.types import Event, Context
 from typing import Optional
 from ..utils.authentication import (
     AuthenticationServer,
-    DesktopServiceAuthenticator,
     SPECKLE_AUTH_PORT,
 )
 
 
-# Global auth server/authenticator instance
+# Global auth server instance
 _auth_server = None
-_desktop_authenticator = None
 
 
 class SPECKLE_OT_add_account(bpy.types.Operator):
@@ -50,11 +48,14 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
         if _auth_server.start():
             return self._initiate_own_server_flow(context)
 
-        # Server failed to start - assume Desktop Service is running
+        # Server failed to start - port is in use
         _auth_server = None
-        print(f"[Add Account] Port {SPECKLE_AUTH_PORT} in use, using Desktop Service")
-        self.report({"INFO"}, "Authenticating via Speckle Desktop Service...")
-        return self._initiate_desktop_service_flow(context)
+        print(f"[Add Account] Port {SPECKLE_AUTH_PORT} is already in use")
+        self.report(
+            {"ERROR"},
+            f"Port {SPECKLE_AUTH_PORT} is already in use. Please close any application using it and try again.",
+        )
+        return {"CANCELLED"}
 
     def _initiate_own_server_flow(self, context: Context) -> set[str]:
         """Start auth flow with our own server."""
@@ -68,22 +69,6 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
             cleanup_auth_server()
             return {"CANCELLED"}
 
-    def _initiate_desktop_service_flow(self, context: Context) -> set[str]:
-        """Start auth flow with Desktop Service."""
-        global _desktop_authenticator
-        _desktop_authenticator = DesktopServiceAuthenticator(self.server_url)
-
-        if not _desktop_authenticator.start():
-            error_msg = _desktop_authenticator.get_error_message()
-            self.report(
-                {"ERROR"}, error_msg or "Failed to open browser. Please try again."
-            )
-            _desktop_authenticator = None
-            return {"CANCELLED"}
-
-        self._start_modal_timer(context)
-        return {"RUNNING_MODAL"}
-
     def _start_modal_timer(self, context: Context):
         """Start modal timer for auth polling."""
         self._timeout_counter = 0
@@ -92,7 +77,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
         wm.modal_handler_add(self)
 
     def modal(self, context: Context, event: Event) -> set[str]:
-        global _auth_server, _desktop_authenticator
+        global _auth_server
 
         if event.type != "TIMER":
             return {"PASS_THROUGH"}
@@ -108,30 +93,19 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
             )
             return {"CANCELLED"}
 
-        # Check for no active authenticator
-        if not _desktop_authenticator and not _auth_server:
-            print("[Add Account] No active authenticator, cancelling")
+        # Check for no active auth server
+        if not _auth_server:
+            print("[Add Account] No active auth server, cancelling")
             self._cleanup(context)
             return {"CANCELLED"}
 
-        # Check Desktop Service authentication
-        if _desktop_authenticator:
-            _desktop_authenticator.check_for_new_account()
-            if _desktop_authenticator.is_complete():
-                return self._finish_auth(
-                    context,
-                    _desktop_authenticator.is_successful(),
-                    _desktop_authenticator.get_error_message(),
-                    "Desktop Service",
-                )
-
-        # Check own server authentication
-        if _auth_server and _auth_server.is_complete():
+        # Check auth server completion
+        if _auth_server.is_complete():
             return self._finish_auth(
                 context,
                 _auth_server.is_successful(),
                 _auth_server.get_error_message(),
-                "Own server",
+                "Auth server",
             )
 
         # Still waiting
@@ -211,8 +185,8 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
 
 
 def cleanup_auth_server():
-    """Shutdown auth server/authenticator on addon unload."""
-    global _auth_server, _desktop_authenticator
+    """Shutdown auth server on addon unload."""
+    global _auth_server
 
     if _auth_server is not None:
         try:
@@ -221,9 +195,6 @@ def cleanup_auth_server():
             print(f"[Add Account] Failed to cleanup auth server: {e}")
             print(f"[Add Account] Port {SPECKLE_AUTH_PORT} may still be occupied")
         _auth_server = None
-
-    if _desktop_authenticator is not None:
-        _desktop_authenticator = None
 
 
 class SPECKLE_OT_show_auth_error(bpy.types.Operator):
