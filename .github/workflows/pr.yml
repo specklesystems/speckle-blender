@@ -2,7 +2,7 @@ name: "PR workflow"
 on:
   pull_request:
     branches:
-      - "v3-dev"
+      - "main"
 jobs:
   build:
     name: Pre-commit Checks
