@@ -107,6 +107,10 @@ def _send_via_ingestion(
             if pre_allocated_version_id:
                 # the v2 upload's `complete` call creates the version itself;
                 # no model_ingestion.complete follows.
+                print(
+                    "[Speckle] Publishing via parquet bundle "
+                    f"(version {pre_allocated_version_id})"
+                )
                 return publish_bundle(
                     client.account,
                     project_id,
@@ -114,6 +118,10 @@ def _send_via_ingestion(
                     pre_allocated_version_id,
                     root_collection,
                 )
+            print(
+                "[Speckle] Server has no pre-allocated version id — "
+                "falling back to classic send"
+            )
 
         # classic path: detached-object JSON send, then complete the ingestion
         transport = ServerTransport(stream_id=project_id, client=client)
