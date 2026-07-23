@@ -137,6 +137,7 @@ class BlenderBundleExporter:
                 opacity=float(_attr(material, "opacity", 1.0)),
                 metalness=float(_attr(material, "metalness", 0.0)),
                 roughness=float(_attr(material, "roughness", 1.0)),
+                name=_attr(material, "name"),
             )
             for geo_id in _attr(proxy, "objects", []) or []:
                 geo_k = self._geo_k_by_id.get(geo_id)
