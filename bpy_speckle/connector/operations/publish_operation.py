@@ -23,6 +23,11 @@ from ...converter.to_speckle.material_to_speckle import (
 )
 from ...converter.utils import get_project_workspace_id
 from ..utils.account_manager import _client_cache
+from .bundle_publish import (
+    fetch_pre_allocated_version_id,
+    is_bundle_send_available,
+    publish_bundle,
+)
 from specklepy.logging import metrics
 from ... import bl_info
 
@@ -65,10 +70,16 @@ def _send_via_ingestion(
     client,
     project_id: str,
     model_id: str,
-    obj_id: str,
+    root_collection: Collection,
     version_message: str,
 ) -> str:
-    """Send via the model ingestion. Returns version_id."""
+    """Send via the model ingestion. Returns version_id.
+
+    The ingestion is created before any data is sent, because the parquet-bundle
+    path needs the server's pre-allocated version id (it names the bundle files).
+    When the bundle producer or the server's v2 data endpoints are unavailable,
+    falls back to the classic ``operations.send`` + ``complete`` flow.
+    """
     source_data = _build_source_data()
 
     create_input = ModelIngestionCreateInput(
@@ -89,6 +100,25 @@ def _send_via_ingestion(
         )
         client.model_ingestion.start_processing(start_input)
 
+        if is_bundle_send_available():
+            pre_allocated_version_id = fetch_pre_allocated_version_id(
+                client.account, project_id, ingestion_id
+            )
+            if pre_allocated_version_id:
+                # the v2 upload's `complete` call creates the version itself;
+                # no model_ingestion.complete follows.
+                return publish_bundle(
+                    client.account,
+                    project_id,
+                    ingestion_id,
+                    pre_allocated_version_id,
+                    root_collection,
+                )
+
+        # classic path: detached-object JSON send, then complete the ingestion
+        transport = ServerTransport(stream_id=project_id, client=client)
+        obj_id = operations.send(root_collection, [transport])
+
         success_input = ModelIngestionSuccessInput(
             project_id=project_id,
             ingestion_id=ingestion_id,
@@ -97,12 +127,12 @@ def _send_via_ingestion(
         )
         version_id = client.model_ingestion.complete(success_input)
         return version_id
-    except Exception:
+    except Exception as e:
         try:
             fail_input = ModelIngestionFailedInput(
                 project_id=project_id,
                 ingestion_id=ingestion_id,
-                error_reason="Failed during processing",
+                error_reason=str(e) or "Failed during processing",
             )
             client.model_ingestion.fail_with_error(fail_input)
         except Exception:
@@ -152,8 +182,6 @@ def publish_operation(
         # check ingestion support before sending data (fail fast on permission errors)
         use_ingestion = _check_use_model_ingestion_send(client, project_id, model_id)
 
-        transport = ServerTransport(stream_id=project_id, client=client)
-
         # build collection hierarchy and convert objects
         root_collection = build_collection_hierarchy(
             context, objects_to_convert, apply_modifiers
@@ -165,13 +193,13 @@ def publish_operation(
         # add material proxies
         add_render_material_proxies_to_base(root_collection, objects_to_convert)
 
-        obj_id = operations.send(root_collection, [transport])
-
         if use_ingestion:
             version_id = _send_via_ingestion(
-                client, project_id, model_id, obj_id, version_message
+                client, project_id, model_id, root_collection, version_message
             )
         else:
+            transport = ServerTransport(stream_id=project_id, client=client)
+            obj_id = operations.send(root_collection, [transport])
             version_id = _send_via_version_create(
                 client, project_id, model_id, obj_id, version_message
             )
