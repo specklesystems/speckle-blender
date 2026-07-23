@@ -331,7 +331,9 @@ def update_model_card_objects(
 
             s_col = model_card.collections.add()
             s_col.name = obj.name
-            s_col.applicationId = obj.get("applicationId", "")
+            # .get's default only applies when the key is absent — a present
+            # custom property can still hold None, which StringProperty rejects
+            s_col.applicationId = str(obj.get("applicationId") or "")
 
             # apply old collection properties if available (use identifier-based lookup)
             if old_properties:
@@ -348,7 +350,7 @@ def update_model_card_objects(
 
             s_obj = model_card.objects.add()
             s_obj.name = obj.name
-            s_obj.applicationId = obj.get("applicationId", "")
+            s_obj.applicationId = str(obj.get("applicationId") or "")
 
             # Apply old object properties if available
             if (
