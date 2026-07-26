@@ -1,16 +1,136 @@
+"""Convert Blender Curve objects to Speckle geometry.
+
+A Blender curve is really two things at once: a path (the splines the user
+edits) and, when the shape settings give it a cross-section, the swept surface
+Blender generates from that path at display time. Only the path exists as data
+— the tube, the extrusion and the filled cap are produced by the tessellator
+and are not recoverable from ``curve_data.splines``.
+
+So this module picks a representation per object: curves whose shape settings
+produce faces are published as meshes (via ``to_mesh()``, the same route text
+takes), and genuine wire curves keep their exact NURBS/Bezier definition.
+"""
+
+from bpy.types import Curve as BCurve
 from bpy.types import Object
 from typing import Union, Optional, Tuple, List
 from specklepy.objects.geometry import Polyline, Curve
+from specklepy.objects.geometry.mesh import Mesh
 from specklepy.objects.primitive import Interval
 from specklepy.objects.base import Base
 from mathutils import Matrix
 from mathutils.geometry import interpolate_bezier
+from .mesh_to_speckle import mesh_to_speckle_meshes
 from .utils import (
     nurb_make_curve,
     make_knots,
     apply_cached_properties,
     extract_custom_properties,
+    get_curve_element_id,
+    temporary_mesh,
 )
+
+
+def curve_may_have_volume(curve_data: BCurve) -> bool:
+    """Whether the curve's shape settings could make Blender generate faces.
+
+    Deliberately over-inclusive: it exists only to skip the cost of
+    tessellating the common case (a plain wire curve). Whether faces are
+    *actually* produced is settled by asking Blender — see
+    ``curve_to_speckle_display_value`` — so a false positive here costs one
+    throwaway ``to_mesh()`` and nothing else.
+
+    The cases, all of them properties on the Curve datablock rather than
+    modifiers, which is why the modifier-only check they used to sit behind
+    never caught them:
+      - ``bevel_depth``  — a round or custom-profile cross-section swept along
+        the path (``bevel_mode`` of ``ROUND`` or ``PROFILE``)
+      - ``bevel_object`` — another curve used as the cross-section
+                           (``bevel_mode`` of ``OBJECT``)
+      - ``extrude``      — the path pushed along local Z into a ribbon or solid
+      - a 2D curve with a ``fill_mode`` other than ``NONE``, which caps closed
+        splines with a flat face
+    """
+    if curve_data.bevel_depth != 0.0 or curve_data.bevel_object is not None:
+        return True
+
+    if curve_data.extrude != 0.0:
+        return True
+
+    return curve_data.dimensions == "2D" and curve_data.fill_mode != "NONE"
+
+
+def curve_to_speckle_display_value(
+    blender_object: Object,
+    scale_factor: float = 1.0,
+    units: str = "m",
+    apply_modifiers: bool = True,
+) -> List[Base]:
+    """Build the ``displayValue`` for a Blender Curve object.
+
+    Returns meshes when the curve renders as a solid and Speckle curves when it
+    is a wire. Returns an empty list when there is nothing to publish, which
+    makes ``convert_to_speckle`` drop the object.
+    """
+    assert blender_object.type == "CURVE", "Object must be a curve"
+    assert blender_object.data is not None, "Curve data cannot be None"
+
+    curve_data: BCurve = blender_object.data
+    has_modifiers = bool(apply_modifiers and blender_object.modifiers)
+
+    if has_modifiers or curve_may_have_volume(curve_data):
+        meshes = tessellated_curve_to_speckle_meshes(
+            blender_object, curve_data, scale_factor, units, apply_modifiers
+        )
+        if meshes:
+            return list(meshes)
+        # no faces after all — the shape settings were set but inert (an open
+        # spline with fill only, a zero-radius bevel object), so fall through
+        # and publish the path
+
+    return curve_splines_to_speckle(blender_object, curve_data, scale_factor)
+
+
+def tessellated_curve_to_speckle_meshes(
+    blender_object: Object,
+    curve_data: BCurve,
+    scale_factor: float,
+    units: str,
+    apply_modifiers: bool,
+) -> List[Mesh]:
+    """Convert the curve's generated surface to Speckle meshes, one per material
+    slot. Empty when Blender tessellates the curve to no faces."""
+    with temporary_mesh(blender_object, apply_modifiers) as mesh:
+        if mesh is None or not mesh.polygons:
+            return []
+
+        meshes = mesh_to_speckle_meshes(blender_object, mesh, scale_factor, units)
+
+    # the tessellated mesh is a throwaway datablock, so any custom properties
+    # the user set live on the Curve — carry them onto the geometry the way the
+    # wire path below carries them onto each spline
+    curve_properties = extract_custom_properties(curve_data)
+    for speckle_mesh in meshes:
+        apply_cached_properties(speckle_mesh, curve_properties)
+
+    return meshes
+
+
+def curve_splines_to_speckle(
+    blender_object: Object, curve_data: BCurve, scale_factor: float
+) -> List[Base]:
+    """Convert each spline of a wire curve to its Speckle equivalent, preserving
+    the exact NURBS/Bezier definition."""
+    result = curve_to_speckle(blender_object, scale_factor)
+    if result is None:
+        return []
+
+    elements = result["@elements"] if hasattr(result, "@elements") else [result]
+    for i, element in enumerate(elements):
+        if hasattr(element, "applicationId"):
+            element.applicationId = get_curve_element_id(blender_object, i)
+
+    return elements
 
 
 def curve_to_speckle(

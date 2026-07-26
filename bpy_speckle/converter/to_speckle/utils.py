@@ -1,7 +1,9 @@
 import bpy
 from bpy.types import ID, Object
+from bpy.types import Mesh as BMesh
 import math
-from typing import Tuple, Optional, Dict, Any
+from contextlib import contextmanager
+from typing import Tuple, Optional, Dict, Any, Iterator
 
 OBJECT_NAME_SPECKLE_SEPARATOR = " -- "
 SPECKLE_ID_LENGTH = 32
@@ -289,3 +291,79 @@ def apply_cached_properties(speckle_obj, properties: Dict[str, Any]) -> None:
     """Apply pre-extracted custom properties to a Speckle object if they exist."""
     if properties:
         speckle_obj.properties = properties
+
+
+def has_cross_object_geometry_deps(blender_data: Optional[ID]) -> bool:
+    """Whether a Curve/TextCurve datablock builds its surface from *other*
+    objects — ``bevel_object`` (a curve used as the swept cross-section) or
+    ``taper_object`` (a curve scaling that section along the path).
+
+    Those references are resolved by the depsgraph and nothing else: calling
+    ``to_mesh()`` on the original object returns zero faces, with or without a
+    ``depsgraph=`` argument (measured on Blender 4.3). Only
+    ``evaluated_get(depsgraph).to_mesh()`` produces the surface.
+    """
+    if blender_data is None:
+        return False
+
+    return bool(
+        getattr(blender_data, "bevel_object", None)
+        or getattr(blender_data, "taper_object", None)
+    )
+
+
+def needs_evaluated_object(blender_object: Object, apply_modifiers: bool) -> bool:
+    """Whether tessellation has to go through the depsgraph-evaluated copy.
+
+    Modifiers are the obvious case. The subtler one is a curve whose profile
+    lives on another object: there is no un-evaluated route to that surface, so
+    the choice is between evaluating (and inheriting modifiers the caller asked
+    us to skip) or publishing no faces at all.
+
+    TODO: confirm the behaviour when ``apply_modifiers`` is False *and* the
+    curve has a bevel/taper object. Options:
+      - evaluate anyway (current): the profile is honoured, so the published
+        tube matches the viewport, but any modifiers ride along against the
+        caller's wish. Only affects curves that have both.
+      - respect the flag: return False here, tessellation finds no faces and
+        the curve falls back to publishing its path as a wire. Honest about
+        the setting, but the user sees a line where Blender shows a solid.
+    """
+    if apply_modifiers and blender_object.modifiers:
+        return True
+
+    return has_cross_object_geometry_deps(blender_object.data)
+
+
+@contextmanager
+def temporary_mesh(
+    blender_object: Object, apply_modifiers: bool
+) -> Iterator[Optional[BMesh]]:
+    """Yield the tessellated mesh of ``blender_object``, freeing it afterwards.
+
+    Used by every object type that has no Speckle geometry primitive of its own
+    (text, bevelled/extruded curves) and therefore has to reach the viewer as
+    triangles. Blender already tessellates these for the viewport, so we borrow
+    that result instead of reimplementing the sweep or the fill.
+
+    ``to_mesh()`` hands back a mesh owned by the object it was called on, so the
+    matching ``to_mesh_clear()`` has to target that same object — the evaluated
+    copy when we went through the depsgraph, the original otherwise.
+    """
+    source = blender_object
+    if needs_evaluated_object(blender_object, apply_modifiers):
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        source = blender_object.evaluated_get(depsgraph)
+
+    mesh: Optional[BMesh] = None
+    try:
+        mesh = source.to_mesh()
+    except RuntimeError:
+        # object state that Blender refuses to tessellate
+        mesh = None
+
+    try:
+        yield mesh
+    finally:
+        if mesh is not None:
+            source.to_mesh_clear()

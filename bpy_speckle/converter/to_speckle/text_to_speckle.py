@@ -12,46 +12,14 @@ object-level ``properties`` so they stay queryable in the viewer even though the
 glyphs are baked into geometry.
 """
 
-from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, List
 
-import bpy
-from bpy.types import Mesh as BMesh
 from bpy.types import Object, TextCurve
 
 from specklepy.objects.geometry.mesh import Mesh
 
 from .mesh_to_speckle import mesh_to_speckle_meshes
-from .utils import apply_cached_properties, extract_custom_properties
-
-
-@contextmanager
-def temporary_mesh(
-    blender_object: Object, apply_modifiers: bool
-) -> Iterator[Optional[BMesh]]:
-    """Yield the tessellated mesh of ``blender_object``, freeing it afterwards.
-
-    ``to_mesh()`` hands back a mesh owned by the object it was called on, so the
-    matching ``to_mesh_clear()`` has to target that same object — the evaluated
-    copy when modifiers were applied, the original otherwise.
-    """
-    source = blender_object
-    if apply_modifiers and blender_object.modifiers:
-        depsgraph = bpy.context.evaluated_depsgraph_get()
-        source = blender_object.evaluated_get(depsgraph)
-
-    mesh: Optional[BMesh] = None
-    try:
-        mesh = source.to_mesh()
-    except RuntimeError:
-        # object state that Blender refuses to tessellate
-        mesh = None
-
-    try:
-        yield mesh
-    finally:
-        if mesh is not None:
-            source.to_mesh_clear()
+from .utils import apply_cached_properties, extract_custom_properties, temporary_mesh
 
 
 def text_to_speckle_meshes(

@@ -1,10 +1,10 @@
 from bpy.types import Object
 from typing import Optional
 from specklepy.objects.data_objects import BlenderObject
-from .curve_to_speckle import curve_to_speckle
+from .curve_to_speckle import curve_to_speckle_display_value
 from .mesh_to_speckle import mesh_to_speckle_meshes
 from .text_to_speckle import text_properties, text_to_speckle_meshes
-from .utils import get_object_id, get_curve_element_id, extract_custom_properties
+from .utils import get_object_id, extract_custom_properties
 
 
 def merge_data_block_properties(
@@ -40,34 +40,11 @@ def convert_to_speckle(
     )
 
     if blender_object.type == "CURVE":
-        # handle curve modifiers apply_modifiers is True
-        if apply_modifiers and blender_object.modifiers:
-            import bpy
-
-            # Convert curve with modifiers to mesh
-            depsgraph = bpy.context.evaluated_depsgraph_get()
-            evaluated_obj = blender_object.evaluated_get(depsgraph)
-            evaluated_mesh = evaluated_obj.to_mesh()
-
-            if evaluated_mesh:
-                meshes = mesh_to_speckle_meshes(
-                    blender_object, evaluated_mesh, scale_factor, units
-                )
-                blender_object.to_mesh_clear()
-                if meshes:
-                    display_value = meshes
-        else:
-            # curve conversion without modifiers
-            curve_result = curve_to_speckle(blender_object, scale_factor)
-            if curve_result and hasattr(curve_result, "@elements"):
-                display_value = curve_result["@elements"]
-                for i, element in enumerate(display_value):
-                    if hasattr(element, "applicationId"):
-                        element.applicationId = get_curve_element_id(blender_object, i)
-            elif curve_result:
-                if hasattr(curve_result, "applicationId"):
-                    curve_result.applicationId = get_curve_element_id(blender_object, 0)
-                display_value = [curve_result]
+        # bevelled, extruded and filled curves reach the viewer as tessellated
+        # geometry; genuine wire curves keep their NURBS/Bezier definition
+        display_value = curve_to_speckle_display_value(
+            blender_object, scale_factor, units, apply_modifiers
+        )
 
     elif blender_object.type == "MESH":
         # get mesh data - apply modifiers if requested
