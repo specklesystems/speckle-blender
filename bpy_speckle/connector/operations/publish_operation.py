@@ -430,7 +430,7 @@ def convert_selected_objects(
 
     speckle_objects = []
     for obj in objects_to_convert:
-        if not obj or obj.type not in ["MESH", "CURVE", "EMPTY"]:
+        if not obj or obj.type not in ["MESH", "CURVE", "FONT", "EMPTY"]:
             speckle_objects.append(None)
             continue
 

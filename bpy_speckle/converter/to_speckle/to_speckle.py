@@ -3,6 +3,7 @@ from typing import Optional
 from specklepy.objects.data_objects import BlenderObject
 from .curve_to_speckle import curve_to_speckle
 from .mesh_to_speckle import mesh_to_speckle_meshes
+from .text_to_speckle import text_properties, text_to_speckle_meshes
 from .utils import get_object_id, get_curve_element_id, extract_custom_properties
 
 
@@ -88,6 +89,17 @@ def convert_to_speckle(
             and mesh_data != blender_object.data
         ):
             blender_object.to_mesh_clear()
+
+        if meshes:
+            display_value = meshes
+
+    elif blender_object.type == "FONT":
+        # text reaches the viewer as tessellated glyphs; the string and layout
+        # settings ride along as properties so they stay queryable
+        meshes = text_to_speckle_meshes(
+            blender_object, scale_factor, units, apply_modifiers
+        )
+        properties = {**properties, **text_properties(blender_object.data)}
 
         if meshes:
             display_value = meshes
