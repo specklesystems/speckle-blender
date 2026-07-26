@@ -8,7 +8,7 @@ from mathutils import Vector as MVector
 
 from specklepy.objects.base import Base
 from specklepy.objects.geometry.mesh import Mesh
-from .utils import get_submesh_id
+from .utils import get_submesh_id, apply_cached_properties, extract_custom_properties
 
 
 def mesh_to_speckle(
@@ -41,6 +41,9 @@ def mesh_to_speckle_meshes(
     normal_transform = transform.to_3x3().inverted().transposed()
 
     submeshes = []
+
+    # extract custom properties once for all submeshes (shared mesh data)
+    mesh_properties = extract_custom_properties(data)
 
     # sort material indices to ensure consistent ordering
     for material_index in sorted(submesh_data.keys()):
@@ -106,6 +109,8 @@ def mesh_to_speckle_meshes(
             speckle_mesh.area = mesh_area
 
         speckle_mesh.applicationId = get_submesh_id(blender_object, material_index)
+
+        apply_cached_properties(speckle_mesh, mesh_properties)
 
         submeshes.append(speckle_mesh)
 

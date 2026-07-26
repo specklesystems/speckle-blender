@@ -5,7 +5,12 @@ from specklepy.objects.primitive import Interval
 from specklepy.objects.base import Base
 from mathutils import Matrix
 from mathutils.geometry import interpolate_bezier
-from .utils import nurb_make_curve, make_knots
+from .utils import (
+    nurb_make_curve,
+    make_knots,
+    apply_cached_properties,
+    extract_custom_properties,
+)
 
 
 def curve_to_speckle(
@@ -21,15 +26,22 @@ def curve_to_speckle(
     base = Base()
     curves = []
 
+    # extract custom properties once for all curves (shared curve data)
+    curve_properties = extract_custom_properties(curve_data)
+
     for spline in curve_data.splines:
         if spline.type == "BEZIER":
-            curves.append(
-                bezier_to_speckle(matrix, spline, blender_obj.name, scale_factor, units)
+            curve = bezier_to_speckle(
+                matrix, spline, blender_obj.name, scale_factor, units
             )
+            apply_cached_properties(curve, curve_properties)
+            curves.append(curve)
         elif spline.type == "NURBS":
-            curves.append(
-                nurbs_to_speckle(matrix, spline, blender_obj.name, scale_factor, units)
+            curve = nurbs_to_speckle(
+                matrix, spline, blender_obj.name, scale_factor, units
             )
+            apply_cached_properties(curve, curve_properties)
+            curves.append(curve)
 
     if curves:
         base["@elements"] = curves

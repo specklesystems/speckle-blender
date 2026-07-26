@@ -3,21 +3,27 @@ from typing import Optional
 from specklepy.objects.data_objects import BlenderObject
 from .curve_to_speckle import curve_to_speckle
 from .mesh_to_speckle import mesh_to_speckle_meshes
-from .utils import get_object_id, get_curve_element_id
+from .utils import get_object_id, get_curve_element_id, extract_custom_properties
 
 
-def extract_custom_properties(blender_object: Object) -> dict:
-    """Extract the object's custom properties for the published version.
+def merge_data_block_properties(
+    object_properties: dict, data_properties: dict
+) -> dict:
+    """Combine object-level and data-block-level custom properties into the
+    dict published on the BlenderObject.
 
-    In the parquet-bundle schema these flatten into the eav table, where they
-    become queryable/filterable on the server — so which properties to include
-    (and how to name/nest them) shapes what users can do with published data.
+    Only this merged dict reaches the parquet bundle's eav table (queryable/
+    filterable on the server). Data-block properties are also applied to the
+    displayValue geometry, which serializes on classic sends but is dropped
+    by the bundle's SGEO geometry encoding.
 
-    TODO: decide what to publish. Candidates: `blender_object.keys()` items
-    (skipping the private `_RNA_UI`), dimensions, modifier summaries. Values
-    must be plain scalars / dicts / lists.
+    TODO: decide how data-block properties surface in the bundle. Options:
+    nest them (e.g. ``{**object_properties, "data": data_properties}`` →
+    eav paths ``properties.data.<key>``, no collisions, clear provenance);
+    merge flat with one side winning on key collisions; or keep the current
+    object-only behavior (exact parity with PR #294's reach on classic sends).
     """
-    return {}
+    return object_properties
 
 
 def convert_to_speckle(
@@ -27,7 +33,10 @@ def convert_to_speckle(
     apply_modifiers: bool = True,
 ) -> Optional[BlenderObject]:
     display_value = []
-    properties = extract_custom_properties(blender_object)
+    properties = merge_data_block_properties(
+        extract_custom_properties(blender_object),
+        extract_custom_properties(blender_object.data) if blender_object.data else {},
+    )
 
     if blender_object.type == "CURVE":
         # handle curve modifiers apply_modifiers is True
