@@ -72,6 +72,7 @@ additions.
 | `instance_definitions` | exact `{placement_name: definition_name}`, via DISPLAY_INSTANCE |
 | `instance_translations` | exact `{placement_name: [x, y, z]}` of the placement transform |
 | `relations` | per-name counts: `DISPLAY`, `IN_COLLECTION`, `HAS_MATERIAL`, … |
+| `subelements` | exact `{parent_name: [child_name, …]}`, children in ordinal order |
 | `scene_views` | ordered view names |
 | `eav_paths` | property paths that must exist |
 | `properties` | `{object_name: {path: value}}`, subset |

@@ -43,6 +43,8 @@ class BundleSummary:
     instance_translations: Dict[str, List[float]] = field(default_factory=dict)
     # definition name -> how many members it owns (distinct DEFINES* ordinals)
     definition_members: Dict[str, int] = field(default_factory=dict)
+    # parent object application_id -> its SUBELEMENT children, in ordinal order
+    subelements: Dict[str, List[str]] = field(default_factory=dict)
     relations: Dict[str, int] = field(default_factory=dict)
     scene_views: List[str] = field(default_factory=list)
     # application_id -> {eav path: value}
@@ -172,11 +174,19 @@ def summarize(bundle_dir: str) -> BundleSummary:
         # a definition's member count is its distinct DEFINES* ordinals: all the
         # geometry of one member shares that member's ordinal
         member_ords: Dict[str, set] = {}
+        # SUBELEMENT is object -> object, so both ends index object_ids
+        subelement_ords: Dict[str, List[tuple]] = {}
         for i, rel in enumerate(relations["rel"]):
             name = rel_name.get(rel)
             src, dst = relations["src"][i], relations["dst"][i]
 
-            if name == "IN_COLLECTION":
+            if name == "SUBELEMENT":
+                if src < len(s.object_ids) and dst < len(s.object_ids):
+                    subelement_ords.setdefault(s.object_ids[src], []).append(
+                        (relations["ord"][i], s.object_ids[dst])
+                    )
+
+            elif name == "IN_COLLECTION":
                 if src < len(s.object_ids) and dst in container_names:
                     s.object_collections[s.object_ids[src]] = container_names[dst]
 
@@ -196,6 +206,10 @@ def summarize(bundle_dir: str) -> BundleSummary:
                     member_ords.setdefault(definition, set()).add(relations["ord"][i])
 
         s.definition_members = {name: len(ords) for name, ords in member_ords.items()}
+        s.subelements = {
+            parent: [child for _, child in sorted(pairs)]
+            for parent, pairs in subelement_ords.items()
+        }
 
     views = _read(bundle_dir, "envelope.scene_views")
     if views:
@@ -236,6 +250,8 @@ def format_report(s: BundleSummary) -> str:
             f"instances      : {s.instances}  {s.instance_definitions}",
             f"placements     : {s.instance_translations}",
         ]
+    if s.subelements:
+        lines.append(f"subelements    : {s.subelements}")
     for m in s.materials:
         lines.append(
             f"  - {m['name']!r} argb={m['argb']} opacity={m['opacity']} "
@@ -280,6 +296,13 @@ def check(s: BundleSummary, expect: Dict[str, Any]) -> List[str]:
                 for app_id, coll in s.object_collections.items()
             }
             eq("object_collections", actual, dict(wanted))
+        elif key == "subelements":
+            # keyed by object name at both ends, like object_collections
+            actual = {
+                parent.split(":", 1)[-1]: [c.split(":", 1)[-1] for c in children]
+                for parent, children in s.subelements.items()
+            }
+            eq("subelements", actual, {k: list(v) for k, v in dict(wanted).items()})
         elif key == "definitions":
             eq("definitions", sorted(s.definitions), sorted(wanted))
         elif key == "instances":

@@ -4,6 +4,8 @@ from specklepy.objects.data_objects import BlenderObject
 from .curve_to_speckle import curve_to_speckle_display_value
 from .empty_to_speckle import empty_properties
 from .mesh_to_speckle import mesh_to_speckle_meshes
+from .metaball_to_speckle import metaball_properties, metaball_to_speckle_meshes
+from .metaball_unpacker import MetaballRole
 from .surface_to_speckle import surface_to_speckle_meshes
 from .text_to_speckle import text_properties, text_to_speckle_meshes
 from .utils import get_object_id, extract_custom_properties
@@ -32,6 +34,7 @@ def convert_to_speckle(
     scale_factor: float = 1.0,
     units: str = "m",
     apply_modifiers: bool = True,
+    metaball_role: Optional[MetaballRole] = None,
 ) -> Optional[BlenderObject]:
     display_value = []
     properties = merge_data_block_properties(
@@ -91,6 +94,39 @@ def convert_to_speckle(
         if meshes:
             display_value = meshes
 
+    elif blender_object.type == "META":
+        # A metaball family is polygonized as one inseparable isosurface onto its
+        # basis, so only the family object carries geometry; its siblings publish
+        # as properties-only SUBELEMENT children (see metaball_unpacker).
+        role = metaball_role
+        if role is None:
+            # converted outside a publish (no unpacker ran): treat the object as
+            # its own family — correct if it is the basis, and an empty
+            # tessellation drops it if it is not
+            role = MetaballRole(
+                is_family_object=True,
+                geometry_source=blender_object,
+                family_name=blender_object.name,
+                member_count=1,
+            )
+
+        properties = {
+            **properties,
+            **metaball_properties(
+                blender_object,
+                role.family_name,
+                role.is_family_object,
+                role.member_count,
+            ),
+        }
+
+        if role.is_family_object and role.geometry_source is not None:
+            meshes = metaball_to_speckle_meshes(
+                role.geometry_source, scale_factor, units, apply_modifiers
+            )
+            if meshes:
+                display_value = meshes
+
     elif blender_object.type == "EMPTY":
         # the one type that publishes without geometry — an empty is a transform
         # and a name. A collection instance's placement is published separately as
@@ -98,7 +134,13 @@ def convert_to_speckle(
         # the tree so it stays selectable and carries its properties.
         properties = {**properties, **empty_properties(blender_object, scale_factor)}
 
-    if not display_value and blender_object.type != "EMPTY":
+    # An EMPTY is always geometry-less, and so is a metaball published as a
+    # SUBELEMENT child — its geometry lives on the family object instead. A
+    # family object that tessellates to nothing still drops, like any other type.
+    publishes_without_geometry = blender_object.type == "EMPTY" or (
+        metaball_role is not None and not metaball_role.is_family_object
+    )
+    if not display_value and not publishes_without_geometry:
         return None
 
     if not isinstance(display_value, list):

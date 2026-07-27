@@ -330,6 +330,12 @@ def needs_evaluated_object(blender_object: Object, apply_modifiers: bool) -> boo
     if apply_modifiers and blender_object.modifiers:
         return True
 
+    if blender_object.type == "META":
+        # a metaball has no un-evaluated surface at all: the isosurface is a
+        # scene-level computation over every family member's field, so the
+        # original object's to_mesh() yields nothing regardless of modifiers
+        return True
+
     return has_cross_object_geometry_deps(blender_object.data)
 
 

@@ -25,6 +25,11 @@ from ...converter.to_speckle.instance_unpacker import (
 from ...converter.to_speckle.material_to_speckle import (
     add_render_material_proxies_to_base,
 )
+from ...converter.to_speckle.metaball_unpacker import (
+    MetaballUnpackResult,
+    unpack_metaballs,
+)
+from ...converter.to_speckle.utils import get_object_id
 from ...converter.utils import get_project_workspace_id
 from ..utils.account_manager import _client_cache
 from .bundle_publish import (
@@ -34,6 +39,13 @@ from .bundle_publish import (
 )
 from specklepy.logging import metrics
 from ... import bl_info
+
+
+# Object types with a conversion path. Anything else is skipped silently — the
+# selection dialog's icon map is a generic Blender-type table, not this list.
+SUPPORTED_OBJECT_TYPES = frozenset(
+    {"MESH", "CURVE", "SURFACE", "FONT", "EMPTY", "META"}
+)
 
 
 def _check_use_model_ingestion_send(client, project_id: str, model_id: str) -> bool:
@@ -276,13 +288,18 @@ def build_collection_hierarchy(
     )
     objects_to_convert = instances.objects
 
+    # Metaball families are resolved after instancing, because a definition
+    # member pulled in behind a placement can itself be a metaball.
+    metaballs = unpack_metaballs(objects_to_convert)
+    _report_promoted_metaball_families(metaballs)
+
     collection_data = analyze_collection_structure(objects_to_convert)
 
     if not collection_data["objects"] and not collection_data["collections"]:
         return None
 
     converted_objects = convert_selected_objects(
-        context, objects_to_convert, apply_modifiers
+        context, objects_to_convert, apply_modifiers, metaballs
     )
     if not converted_objects:
         return None
@@ -336,6 +353,7 @@ def build_collection_hierarchy(
             root_collection.elements.append(speckle_obj)
 
     attach_instance_proxies(root_collection, instances)
+    attach_metaball_subelements(root_collection, metaballs)
     # Materials are collected here rather than by the caller because only this
     # function sees the expanded object list — a definition member pulled in
     # behind a placement needs its material proxy too.
@@ -378,6 +396,35 @@ def attach_instance_proxies(
         # whereas here it usually is. Only the unpacker knows which members the
         # user selected in their own right, so it says so explicitly.
         root_collection["definitionOnlyObjects"] = sorted(instances.definition_only_ids)
+
+
+def attach_metaball_subelements(
+    root_collection: Collection, metaballs: MetaballUnpackResult
+) -> None:
+    """Hang the metaball parent/child table off the root.
+
+    A Blender-side hint for the bundle exporter, alongside
+    ``definitionOnlyObjects``. The classic send path ignores it and simply
+    carries the members as ordinary geometry-less objects, which is what keeps
+    ``to_native`` round-tripping without needing to learn about families.
+    """
+    if metaballs.subelements:
+        root_collection["subelementIds"] = metaballs.subelements
+
+
+def _report_promoted_metaball_families(metaballs: MetaballUnpackResult) -> None:
+    """Say so when a family publishes through a member rather than its basis.
+
+    The blob then necessarily includes contributions from siblings the user did
+    not select — the isosurface cannot be cut apart — so the geometry is wider
+    than the selection. Not silent, but not an error either: the alternative is
+    publishing nothing where the viewport clearly shows a shape.
+    """
+    for family_name in metaballs.promoted_families:
+        print(
+            f"[speckle] metaball family '{family_name}': basis not selected, "
+            "publishing the whole family — the blob includes unselected members"
+        )
 
 
 def analyze_collection_structure(objects: List) -> Dict:
@@ -472,7 +519,10 @@ def find_target_collection_for_object(
 
 
 def convert_selected_objects(
-    context: Context, objects_to_convert: List, apply_modifiers: bool = True
+    context: Context,
+    objects_to_convert: List,
+    apply_modifiers: bool = True,
+    metaballs: Optional[MetaballUnpackResult] = None,
 ) -> List[Optional[Base]]:
     """
     convert selected objects to Speckle format with proper units
@@ -480,15 +530,20 @@ def convert_selected_objects(
     scene = context.scene
     units = get_scene_units(scene)
     scale_factor = scene.unit_settings.scale_length
+    roles = metaballs.roles if metaballs else {}
 
     speckle_objects = []
     for obj in objects_to_convert:
-        if not obj or obj.type not in ["MESH", "CURVE", "SURFACE", "FONT", "EMPTY"]:
+        if not obj or obj.type not in SUPPORTED_OBJECT_TYPES:
             speckle_objects.append(None)
             continue
 
         speckle_obj = convert_to_speckle(
-            obj, scale_factor, units.value, apply_modifiers
+            obj,
+            scale_factor,
+            units.value,
+            apply_modifiers,
+            metaball_role=roles.get(get_object_id(obj)),
         )
         speckle_objects.append(speckle_obj)
 

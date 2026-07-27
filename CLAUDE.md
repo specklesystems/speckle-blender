@@ -125,6 +125,29 @@ The pipeline separates cleanly, which is what makes offline testing possible:
     only inside its definition collection.
   - Not yet handled: `instance_type` in `{VERTS, FACES}` and geometry-nodes
     instancing, which only exist in the evaluated depsgraph.
+- **Metaballs publish per family, not per object**, and are the only type using
+  the `SUBELEMENT` edge. Blender sums the fields of every metaball sharing a
+  base name (`Mball`, `Mball.001`) and polygonizes one merged isosurface onto
+  the **basis** — the lowest numeric suffix, where an unsuffixed name sorts
+  lowest. The basis becomes the family object carrying the blob; its siblings
+  become properties-only SUBELEMENT children, keeping their own
+  `IN_COLLECTION` edge. `metaball_unpacker.py` assigns the roles,
+  `bundle_exporter._emit_subelements` emits the edges.
+  - This ports Revit's curtain wall (`ElementUnpacker` +
+    `RevitArtifactRootObjectBuilder.EmitChild`) **inverted**: there the parent
+    is an empty container and the children own the geometry; here the basis
+    owns all of it and the children own none. A metaball's isosurface is
+    continuous across contributors, so per-member geometry does not exist even
+    in principle.
+  - A non-basis member evaluates to an *empty mesh*, not an error, and only the
+    basis is worth tessellating. Hidden members contribute no field at all.
+  - The merged mesh is in **basis-local** space with siblings baked in, so
+    `mesh_to_speckle_meshes(basis, …)` recovers world coordinates. A
+    non-uniformly scaled basis genuinely deforms the blob, matching the
+    viewport.
+  - Selecting a member without its basis publishes the *whole* family (the only
+    way geometry exists) and logs that it did. Not yet handled: `MetaElement`
+    granularity — elements have no stable identity to key an applicationId on.
 - **Only object-level properties reach the eav table.** Data-block (mesh/curve)
   custom properties are dropped by SGEO geometry encoding. There is an open
   decision in `merge_data_block_properties()` in `to_speckle/to_speckle.py`

@@ -69,7 +69,13 @@ def build_scene(args: argparse.Namespace) -> Tuple[List[Any], Optional[Any]]:
         fixture = load_fixture(args.fixture)
         # start from an empty scene so fixtures are reproducible in isolation
         bpy.ops.wm.read_factory_settings(use_empty=True)
-        return list(fixture.build()), fixture
+        objects = list(fixture.build())
+        # A fixture that sets `location` through the data API rather than an
+        # operator leaves `matrix_world` stale until the depsgraph catches up.
+        # Conversion reads it directly, so without this a fixture silently
+        # publishes its geometry at the origin — and asserts that it did.
+        bpy.context.view_layer.update()
+        return objects, fixture
 
     bpy.ops.wm.open_mainfile(filepath=os.path.expanduser(args.blend))
     if args.objects:

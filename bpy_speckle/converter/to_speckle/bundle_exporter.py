@@ -56,6 +56,9 @@ class BlenderBundleExporter:
         self._definition_only: set = set()
         self._geo_ks_by_object: Dict[str, List[int]] = {}
         self._instance_k_by_object: Dict[str, int] = {}
+        # applicationIds that actually reached the objects table, so a
+        # SUBELEMENT edge can never point at an object that was never emitted
+        self._emitted_object_ids: set = set()
         # id() of every Collection that will actually hold a visible object
         self._collections_to_emit: set = set()
 
@@ -67,6 +70,7 @@ class BlenderBundleExporter:
         # after the walk: every member's geometry / nested placement K must exist
         # before the edges that resolve them
         self._emit_definitions()
+        self._emit_subelements(root)
         self._emit_materials(root)
         self._pipeline.add_scene_view(
             SceneView(
@@ -142,6 +146,7 @@ class BlenderBundleExporter:
 
         obj_k = self._pipeline.intern_object(app_id)
         self._object_count += 1
+        self._emitted_object_ids.add(app_id)
         self._pipeline.add_properties(
             app_id,
             _attr(obj, "properties", {}) or {},
@@ -233,6 +238,33 @@ class BlenderBundleExporter:
                 # consumer can group the fragments back into one member
                 for geo_k in self._geo_ks_by_object.get(member_id, []):
                     self._pipeline.defines(def_k, geo_k, member_ord)
+
+    # ── subelements ─────────────────────────────────────────────────────────
+
+    def _emit_subelements(self, root: Collection) -> None:
+        """Parent -> child SUBELEMENT edges from the root's ``subelementIds``.
+
+        Currently only metaball families: the basis carries the merged blob and
+        its siblings hang off it carrying properties. That inverts Revit's
+        curtain wall — where the children own the geometry — but the edge is the
+        same one, and ``RevitArtifactRootObjectBuilder.EmitChild`` is the model.
+
+        Runs after the walk so both ends are already interned with their
+        properties, geometry and IN_COLLECTION edge. ``intern_object`` is
+        idempotent, so resolving a K here never creates a second object; a child
+        whose object never made it into the tree is skipped rather than interned
+        into existence, which would leave a dangling edge.
+        """
+        subelements: Dict[str, List[str]] = _attr(root, "subelementIds", {}) or {}
+        for parent_id, child_ids in subelements.items():
+            if parent_id not in self._emitted_object_ids:
+                continue
+            parent_k = self._pipeline.intern_object(parent_id)
+            for ord_, child_id in enumerate(child_ids):
+                if child_id not in self._emitted_object_ids:
+                    continue
+                child_k = self._pipeline.intern_object(child_id)
+                self._pipeline.subelement(parent_k, child_k, ord_)
 
     # ── materials ───────────────────────────────────────────────────────────
 
