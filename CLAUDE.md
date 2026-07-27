@@ -131,12 +131,33 @@ Three modules, split so most of it runs without Blender:
 - **`HAS_MATERIAL` binds to geometry, not to the object.** One object's two
   display meshes can carry different materials, hence material *slots* and
   per-face-range assignment rather than one material per object.
-- **Geometry decoding is MESH-only.** `sgeo.py` gained a decoder but only for
-  `PrimitiveType.MESH`; the curve family publishes fine and reads back as
-  `SgeoDecodeError`. An object whose geometry is *entirely* undecodable is
-  **skipped outright** — no placeholder — and the per-type tally is printed.
+- **All 11 SGEO primitives decode.** Blender only *publishes* mesh / curve /
+  polyline / points, but a Rhino or Revit bundle carries the rest, so the whole
+  family is handled. `sgeo.decode_mesh` is a raw-array fast path for MESH only —
+  meshes are the dense case; curves go through `sgeo.decode` to a `Base` because
+  the object model carries the NURBS definition needed to rebuild a spline.
   Requires a specklepy with `sgeo.decode_mesh`; `is_bundle_receive_available()`
   feature-detects it, so an older specklepy falls back rather than crashing.
+  An object whose geometry is *entirely* undecodable is **skipped outright** —
+  no placeholder — and the per-type tally is printed.
+- **Geometry types map to three Blender data-blocks**: `mesh`/`box` → Mesh,
+  the curve family → one Curve holding a spline per geometry, `points` → an
+  Empty (single) or a vertex-only Mesh (cloud). A Blender object holds one
+  data-block, so an object mixing families gets mesh as the primary and the
+  rest as parented children. Blender's own publishes are always homogeneous;
+  this only fires cross-connector.
+- **Blender cannot set a NURBS knot vector from Python.** It derives one from
+  `order_u`/`use_cyclic_u`/`use_endpoint_u`, so a non-uniform source curve is
+  redrawn on a uniform basis — control points, degree and weights are exact,
+  the traced path can drift (half of a 55-curve model within 0.03%, 50/51
+  within 5%). Arc/circle/ellipse have no Blender primitive at all and are
+  tessellated to polylines; an arc's sweep direction comes from its midpoint,
+  since three points alone don't say which way round.
+- **Do not trust `Curve.periodic` for `use_endpoint_u`.** The publish side
+  writes `periodic = not spline.use_endpoint_u`, but Bezier splines have no
+  meaningful `use_endpoint_u`, so every Bezier arrives claiming to be periodic
+  and comes back visibly short of its endpoints. `_is_clamped()` reads the knot
+  vector instead and only falls back to the flag when the knots say nothing.
 - **Only the translation is unit-scaled** in a placement matrix. Scaling all 16
   doubles would scale the basis vectors too and resize the instance — invisible
   in metres, obvious in millimetres.
