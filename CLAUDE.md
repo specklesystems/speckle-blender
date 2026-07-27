@@ -98,6 +98,10 @@ The pipeline separates cleanly, which is what makes offline testing possible:
 - Blender uses the **direct-display dialect** (same as Rhino): every
   `displayValue` is already in world coordinates, so objects link straight to
   geometry with `DISPLAY` edges. No DEFINITION/INSTANCE layer.
+- **Geometry ids are keyed on the object, never the data-block.** World-baked
+  geometry needs an object-scoped identity, or linked duplicates collide and
+  the exporter's id-keyed cache serves them all the first copy's mesh. See
+  `get_submesh_id` / `get_curve_element_id`.
 - **Only object-level properties reach the eav table.** Data-block (mesh/curve)
   custom properties are dropped by SGEO geometry encoding. There is an open
   decision in `merge_data_block_properties()` in `to_speckle/to_speckle.py`

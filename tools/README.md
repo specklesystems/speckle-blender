@@ -71,7 +71,7 @@ additions.
 | `eav_paths` | property paths that must exist |
 | `properties` | `{object_name: {path: value}}`, subset |
 
-Two things worth knowing when writing expectations:
+Three things worth knowing when writing expectations:
 
 - **Collection parentage is not a relation.** A `CONTAINER` node's `def_ref`
   points at its parent, so nesting three collections still yields one
@@ -79,6 +79,10 @@ Two things worth knowing when writing expectations:
   counts — a count matches even when every object is in the wrong collection.
 - **Integers arrive as floats.** The eav table writes numbers to
   `value_double`, so `obj["int_prop"] = 42` asserts as `42.0`.
+- **`matrix_world` is lazy.** Setting `obj.location` in a fixture does not update
+  `matrix_world` until `bpy.context.view_layer.update()`. Forget it and every
+  object bakes at the origin — which passes a count-based expectation for
+  entirely the wrong reason. Any fixture that places objects must call it.
 
 ## Limits
 

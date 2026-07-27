@@ -221,27 +221,25 @@ def get_unique_id(native_object: ID, suffix: Optional[str] = None) -> str:
     return base_id
 
 
-def get_submesh_id(blender_object: Object, material_index: int) -> str:
-    mesh_data = blender_object.data
-    if not mesh_data:
-        return f"Mesh:{blender_object.name_full}_mat{material_index}"
+def get_object_id(blender_object: Object) -> str:
+    return get_unique_id(blender_object)
 
-    return f"Mesh:{mesh_data.name_full}_mat{material_index}"
+
+# Geometry ids are keyed on the OBJECT, never on its data-block. Every displayValue
+# is baked into world coordinates (the direct-display dialect), so two objects
+# sharing one data-block — linked duplicates — describe *different* geometry. A
+# data-block key made those ids collide, and the bundle exporter's id-keyed
+# geometry cache then served every duplicate the first one's world-space mesh, so
+# they all rendered stacked at the first duplicate's transform. Same convention as
+# the C# connectors' `{objectAppId}:g{ord}`.
+
+
+def get_submesh_id(blender_object: Object, material_index: int) -> str:
+    return f"{get_object_id(blender_object)}:mat{material_index}"
 
 
 def get_curve_element_id(blender_object: Object, curve_index: int = 0) -> str:
-    curve_data = blender_object.data
-    if not curve_data:
-        return f"Curve:{blender_object.name_full}_curve{curve_index}"
-
-    if curve_index == 0:
-        return f"Curve:{curve_data.name_full}"
-
-    return f"Curve:{curve_data.name_full}_curve{curve_index}"
-
-
-def get_object_id(blender_object: Object) -> str:
-    return get_unique_id(blender_object)
+    return f"{get_object_id(blender_object)}:curve{curve_index}"
 
 
 def extract_custom_properties(blender_id: ID) -> Dict[str, Any]:
