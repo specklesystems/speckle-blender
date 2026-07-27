@@ -95,13 +95,36 @@ The pipeline separates cleanly, which is what makes offline testing possible:
 
 ## Bundle gotchas
 
-- Blender uses the **direct-display dialect** (same as Rhino): every
-  `displayValue` is already in world coordinates, so objects link straight to
-  geometry with `DISPLAY` edges. No DEFINITION/INSTANCE layer.
+- Blender uses the **direct-display dialect** (same as Rhino): an ordinary
+  object's `displayValue` is already in world coordinates, so it links straight
+  to geometry with a `DISPLAY` edge.
 - **Geometry ids are keyed on the object, never the data-block.** World-baked
   geometry needs an object-scoped identity, or linked duplicates collide and
   the exporter's id-keyed cache serves them all the first copy's mesh. See
   `get_submesh_id` / `get_curve_element_id`.
+- **Collection instances are the one exception to direct-display**, and use the
+  same DEFINITION/INSTANCE layer as the C# connectors' blocks:
+  `instance_unpacker.py` turns a placement empty into an `InstanceProxy` +
+  `InstanceDefinitionProxy` (Rhino's `RhinoInstanceUnpacker`), and
+  `bundle_exporter.py` translates those to nodes (Rhino's
+  `RhinoArtifactRootObjectBuilder`). Producing proxies rather than nodes is what
+  lets the classic send path round-trip with the existing `to_native` receive.
+  - The placement transform is `empty.matrix_world @
+    Translation(-collection.instance_offset)` — members bake their own
+    `matrix_world` as definition-local geometry, so the collection pivot has to
+    come back out of the placement.
+  - **Definition members are usually real scene objects too**, unlike a Rhino
+    block's members. A member is suppressed from the scene tree (no
+    `IN_COLLECTION`, no `DISPLAY`) only when the user did *not* select it in its
+    own right; the unpacker says which via the root's `definitionOnlyObjects`.
+  - A collection holding *only* definition-only members emits no `CONTAINER`
+    node — otherwise the usual excluded-from-the-view-layer "library"
+    collection leaves an empty folder in the viewer's scene tree.
+  - Known gap: `load_operation` skips every object listed in a definition, so a
+    member published as *both* standalone and a definition member comes back
+    only inside its definition collection.
+  - Not yet handled: `instance_type` in `{VERTS, FACES}` and geometry-nodes
+    instancing, which only exist in the evaluated depsgraph.
 - **Only object-level properties reach the eav table.** Data-block (mesh/curve)
   custom properties are dropped by SGEO geometry encoding. There is an open
   decision in `merge_data_block_properties()` in `to_speckle/to_speckle.py`

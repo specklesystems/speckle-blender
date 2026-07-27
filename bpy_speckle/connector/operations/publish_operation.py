@@ -18,6 +18,10 @@ from specklepy.core.api.inputs.model_ingestion_inputs import (
 )
 
 from ...converter.to_speckle import convert_to_speckle
+from ...converter.to_speckle.instance_unpacker import (
+    InstanceUnpackResult,
+    unpack_instances,
+)
 from ...converter.to_speckle.material_to_speckle import (
     add_render_material_proxies_to_base,
 )
@@ -198,9 +202,6 @@ def publish_operation(
         if not root_collection:
             return False, "No objects could be converted to Speckle format", None
 
-        # add material proxies
-        add_render_material_proxies_to_base(root_collection, objects_to_convert)
-
         if use_ingestion:
             version_id = _send_via_ingestion(
                 client, project_id, model_id, root_collection, version_message
@@ -265,6 +266,16 @@ def build_collection_hierarchy(
     file_name = bpy.path.basename(bpy.data.filepath)
     collection_name = file_name if file_name else "Untitled.blend"
 
+    # Collection instances expand the publish set: the members of an instanced
+    # collection have to convert too, even when the user only picked the empty.
+    scene_units = get_scene_units(context.scene)
+    instances = unpack_instances(
+        objects_to_convert,
+        scene_units.value,
+        context.scene.unit_settings.scale_length,
+    )
+    objects_to_convert = instances.objects
+
     collection_data = analyze_collection_structure(objects_to_convert)
 
     if not collection_data["objects"] and not collection_data["collections"]:
@@ -307,7 +318,7 @@ def build_collection_hierarchy(
     object_mapping = {}
     for i, blender_obj in enumerate(objects_to_convert):
         if i < len(converted_objects) and converted_objects[i] is not None:
-            object_mapping[blender_obj] = converted_objects[i]
+            object_mapping[blender_obj] = as_placement(converted_objects[i], instances)
 
     for blender_obj, speckle_obj in object_mapping.items():
         placed = False
@@ -324,7 +335,49 @@ def build_collection_hierarchy(
         if not placed:
             root_collection.elements.append(speckle_obj)
 
+    attach_instance_proxies(root_collection, instances)
+    # Materials are collected here rather than by the caller because only this
+    # function sees the expanded object list — a definition member pulled in
+    # behind a placement needs its material proxy too.
+    add_render_material_proxies_to_base(root_collection, objects_to_convert)
+
     return root_collection
+
+
+def as_placement(speckle_obj: Base, instances: InstanceUnpackResult) -> Base:
+    """Swap a converted collection-instance empty for its placement proxy.
+
+    Both consumers key on the InstanceProxy *being* the element rather than
+    hanging off it: ``to_native`` looks for InstanceProxy instances while
+    traversing, and the bundle exporter reads the transform off the element it is
+    already walking. The empty's descriptive members ride along on the proxy so
+    the placement still reaches the eav table named and queryable.
+    """
+    proxy = instances.instance_proxies.get(getattr(speckle_obj, "applicationId", None))
+    if proxy is None:
+        return speckle_obj
+
+    proxy["name"] = speckle_obj.name
+    proxy["type"] = getattr(speckle_obj, "type", "EMPTY")
+    proxy["properties"] = getattr(speckle_obj, "properties", {})
+    return proxy
+
+
+def attach_instance_proxies(
+    root_collection: Collection, instances: InstanceUnpackResult
+) -> None:
+    """Hang the instancing tables off the root, next to the material proxies."""
+    if instances.definition_proxies:
+        # the key the C# connectors and to_native both expect
+        root_collection["instanceDefinitionProxies"] = instances.definition_proxies
+
+    if instances.definition_only_ids:
+        # A Blender-side hint for the bundle exporter, with no equivalent in the
+        # C# payload: Rhino can derive "is a definition member" from the
+        # definitions alone because a block member is never also a scene object,
+        # whereas here it usually is. Only the unpacker knows which members the
+        # user selected in their own right, so it says so explicitly.
+        root_collection["definitionOnlyObjects"] = sorted(instances.definition_only_ids)
 
 
 def analyze_collection_structure(objects: List) -> Dict:

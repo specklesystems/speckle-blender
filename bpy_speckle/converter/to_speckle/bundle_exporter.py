@@ -5,11 +5,20 @@ collections + ``BlenderObject``s with world-coordinate ``displayValue`` geometry
 plus the attached ``renderMaterialProxies``) and maps it onto the parquet bundle
 via ``ObjectsArtifactPipeline``.
 
-Blender uses the direct-display dialect (same as Rhino): every ``displayValue``
-element is already in world coordinates, so objects link straight to geometry
-with DISPLAY edges — no DEFINITION/INSTANCE layer. The Blender collection tree
-becomes CONTAINER nodes (subtype "Collection") joined by IN_COLLECTION edges,
-and the default scene view groups by that relation.
+Blender uses the direct-display dialect (same as Rhino): an ordinary object's
+``displayValue`` is already in world coordinates, so it links straight to
+geometry with DISPLAY edges. The Blender collection tree becomes CONTAINER nodes
+(subtype "Collection") joined by IN_COLLECTION edges, and the default scene view
+groups by that relation.
+
+Collection instances are the exception, and take the same DEFINITION/INSTANCE
+layer the C# connectors use for blocks: the placement empty gets an INSTANCE node
+(carrying the transform) reached by DISPLAY_INSTANCE, the instanced collection
+gets a DEFINITION node, and the definition's members hang off it with DEFINES
+(geometry) or DEFINES_INSTANCE (a nested placement). A member that renders only
+through a placement is listed in the root's ``definitionOnlyObjects`` and gets no
+IN_COLLECTION or DISPLAY of its own — otherwise it would also draw untransformed
+at its authored location, duplicating the instance.
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -19,6 +28,7 @@ from specklepy.bundle.pipeline import ObjectsArtifactPipeline
 from specklepy.bundle.spec import Rel
 from specklepy.objects.base import Base
 from specklepy.objects.models.collections.collection import Collection
+from specklepy.objects.proxies import InstanceProxy
 
 
 def _attr(node: Base, key: str, default: Any = None) -> Any:
@@ -41,11 +51,22 @@ class BlenderBundleExporter:
         # would break the geometry K-space density the validator enforces).
         self._geo_k_by_id: Dict[str, int] = {}
         self._conversion_errors: List[Tuple[str, Exception]] = []
+        # instancing, resolved in _prepare_instancing / used by _emit_definitions
+        self._definitions: List[Base] = []
+        self._definition_only: set = set()
+        self._geo_ks_by_object: Dict[str, List[int]] = {}
+        self._instance_k_by_object: Dict[str, int] = {}
+        # id() of every Collection that will actually hold a visible object
+        self._collections_to_emit: set = set()
 
     def export(self, root: Collection) -> Tuple[str, int]:
         """Emit the whole bundle. Returns ``(root_id, object_count)`` for the
         uploader."""
+        self._prepare_instancing(root)
         self._walk_collection(root, parent_collection_k=None, is_root=True)
+        # after the walk: every member's geometry / nested placement K must exist
+        # before the edges that resolve them
+        self._emit_definitions()
         self._emit_materials(root)
         self._pipeline.add_scene_view(
             SceneView(
@@ -72,18 +93,47 @@ class BlenderBundleExporter:
         parent_collection_k: Optional[int],
         is_root: bool = False,
     ) -> None:
-        name = _attr(collection, "name") or "Collection"
-        coll_k = self._pipeline.add_collection(
-            _attr(collection, "applicationId") or name,
-            name,
-            parent_collection_k,
-            "Collection",
-        )
+        # A collection holding nothing but definition-only members contributes no
+        # IN_COLLECTION edge, so emitting it would leave an empty folder in the
+        # viewer's scene tree — the usual shape for an instanced "library"
+        # collection excluded from the view layer. Skip the node but keep walking:
+        # its members still need geometry and properties for DEFINES to resolve.
+        if is_root or id(collection) in self._collections_to_emit:
+            name = _attr(collection, "name") or "Collection"
+            coll_k = self._pipeline.add_collection(
+                _attr(collection, "applicationId") or name,
+                name,
+                parent_collection_k,
+                "Collection",
+            )
+        else:
+            coll_k = parent_collection_k
+
         for ord_, element in enumerate(_attr(collection, "elements", []) or []):
             if isinstance(element, Collection):
                 self._walk_collection(element, coll_k)
             else:
                 self._emit_object(element, coll_k, ord_)
+
+    def _mark_collections_to_emit(self, collection: Collection) -> bool:
+        """Record which collections hold something the scene tree will show.
+
+        Returns True when this collection, or a descendant, contains an object
+        that gets an IN_COLLECTION edge.
+        """
+        keep = False
+        for element in _attr(collection, "elements", []) or []:
+            if isinstance(element, Collection):
+                # not short-circuited: every descendant has to be marked
+                keep = self._mark_collections_to_emit(element) or keep
+            else:
+                app_id = _attr(element, "applicationId")
+                if app_id and app_id not in self._definition_only:
+                    keep = True
+
+        if keep:
+            self._collections_to_emit.add(id(collection))
+        return keep
 
     def _emit_object(self, obj: Base, collection_k: int, ord_: int) -> None:
         app_id = _attr(obj, "applicationId")
@@ -101,9 +151,21 @@ class BlenderBundleExporter:
                 ("speckle_type", getattr(obj, "speckle_type", None)),
             ],
         )
-        self._pipeline.in_collection(obj_k, collection_k, ord_)
+
+        # A definition-only member is reachable solely through a placement, so it
+        # gets no scene-tree membership and no render edge — only the DEFINES that
+        # _emit_definitions adds. Its properties and geometry still land, which is
+        # what lets a placement resolve to real geometry.
+        standalone = app_id not in self._definition_only
+        if standalone:
+            self._pipeline.in_collection(obj_k, collection_k, ord_)
+
+        if isinstance(obj, InstanceProxy):
+            self._emit_placement(obj, obj_k, app_id, standalone)
+            return
 
         display_ord = 0
+        geo_ks: List[int] = []
         for element in _attr(obj, "displayValue", []) or []:
             geo_id = _attr(element, "applicationId") or f"{app_id}:{display_ord}"
             try:
@@ -115,8 +177,62 @@ class BlenderBundleExporter:
                 # geometry type without an SGEO mapping — skip it, keep the object
                 self._conversion_errors.append((geo_id, e))
                 continue
-            self._pipeline.display(obj_k, geo_k, display_ord)
+            if standalone:
+                self._pipeline.display(obj_k, geo_k, display_ord)
+            geo_ks.append(geo_k)
             display_ord += 1
+
+        self._geo_ks_by_object[app_id] = geo_ks
+
+    # ── instancing ──────────────────────────────────────────────────────────
+
+    def _prepare_instancing(self, root: Collection) -> None:
+        """Read the instancing tables off the root and pre-create DEFINITION nodes.
+
+        Pre-creating them is what gives a definition its name: the per-object pass
+        only ever sees a placement's ``definitionId``, so a lazily created node
+        would be nameless. Same ordering as the Rhino artefact builder.
+        """
+        self._definitions = list(_attr(root, "instanceDefinitionProxies", []) or [])
+        self._definition_only = set(_attr(root, "definitionOnlyObjects", []) or [])
+        self._mark_collections_to_emit(root)
+
+        for proxy in self._definitions:
+            def_id = _attr(proxy, "applicationId")
+            if def_id:
+                self._pipeline.add_definition(def_id, _attr(proxy, "name"))
+
+    def _emit_placement(
+        self, proxy: InstanceProxy, obj_k: int, app_id: str, standalone: bool
+    ) -> None:
+        """A collection instance: object -> INSTANCE node -> DEFINITION."""
+        def_k = self._pipeline.add_definition(proxy.definitionId, None)
+        instance_k = self._pipeline.add_instance(
+            app_id, def_k, proxy.transform, _attr(proxy, "units")
+        )
+        self._instance_k_by_object[app_id] = instance_k
+        if standalone:
+            # a nested placement is reached through DEFINES_INSTANCE instead
+            self._pipeline.display_instance(obj_k, instance_k, 0)
+
+    def _emit_definitions(self) -> None:
+        """Link each definition to its members: DEFINES for geometry members,
+        DEFINES_INSTANCE for members that are themselves placements."""
+        for proxy in self._definitions:
+            def_id = _attr(proxy, "applicationId")
+            if not def_id:
+                continue
+            def_k = self._pipeline.add_definition(def_id, _attr(proxy, "name"))
+
+            for member_ord, member_id in enumerate(_attr(proxy, "objects", []) or []):
+                nested_k = self._instance_k_by_object.get(member_id)
+                if nested_k is not None:
+                    self._pipeline.defines_instance(def_k, nested_k, member_ord)
+                    continue
+                # all of a member's geometry shares its member ordinal, so a
+                # consumer can group the fragments back into one member
+                for geo_k in self._geo_ks_by_object.get(member_id, []):
+                    self._pipeline.defines(def_k, geo_k, member_ord)
 
     # ── materials ───────────────────────────────────────────────────────────
 

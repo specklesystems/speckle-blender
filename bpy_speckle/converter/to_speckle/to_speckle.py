@@ -2,6 +2,7 @@ from bpy.types import Object
 from typing import Optional
 from specklepy.objects.data_objects import BlenderObject
 from .curve_to_speckle import curve_to_speckle_display_value
+from .empty_to_speckle import empty_properties
 from .mesh_to_speckle import mesh_to_speckle_meshes
 from .surface_to_speckle import surface_to_speckle_meshes
 from .text_to_speckle import text_properties, text_to_speckle_meshes
@@ -90,7 +91,14 @@ def convert_to_speckle(
         if meshes:
             display_value = meshes
 
-    if not display_value:
+    elif blender_object.type == "EMPTY":
+        # the one type that publishes without geometry — an empty is a transform
+        # and a name. A collection instance's placement is published separately as
+        # an InstanceProxy (see instance_unpacker); this keeps the empty itself in
+        # the tree so it stays selectable and carries its properties.
+        properties = {**properties, **empty_properties(blender_object, scale_factor)}
+
+    if not display_value and blender_object.type != "EMPTY":
         return None
 
     if not isinstance(display_value, list):

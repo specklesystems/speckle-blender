@@ -66,6 +66,11 @@ additions.
 | `object_collections` | exact `{object_name: collection_name}` placement |
 | `materials` | material count |
 | `material_names` | exact set of material names |
+| `definitions` | exact set of DEFINITION node names (instanced collections) |
+| `instances` | INSTANCE node count (one per placement, nested included) |
+| `definition_members` | exact `{definition_name: member_count}` |
+| `instance_definitions` | exact `{placement_name: definition_name}`, via DISPLAY_INSTANCE |
+| `instance_translations` | exact `{placement_name: [x, y, z]}` of the placement transform |
 | `relations` | per-name counts: `DISPLAY`, `IN_COLLECTION`, `HAS_MATERIAL`, … |
 | `scene_views` | ordered view names |
 | `eav_paths` | property paths that must exist |
@@ -86,6 +91,10 @@ Three things worth knowing when writing expectations:
 
 ## Limits
 
+- `--blend` without `--objects` publishes the objects a user could actually
+  select — `visible_get()`, not `scene.objects`. Objects in collections excluded
+  from the view layer are reported and omitted, because the publish selection can
+  never contain them. Pass `--objects` to override.
 - Assertions only catch what a fixture thought to check. There are no committed
   golden snapshots, by choice — the bundle format is still moving on this
   branch and goldens would go red on every intentional change.

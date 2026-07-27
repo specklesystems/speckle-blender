@@ -78,7 +78,16 @@ def build_scene(args: argparse.Namespace) -> Tuple[List[Any], Optional[Any]]:
         if missing:
             raise SystemExit(f"Objects not in {args.blend}: {missing}")
         return [bpy.data.objects[n] for n in wanted], None
-    return list(bpy.context.scene.objects), None
+
+    # Only what the user could actually select. scene.objects also returns objects
+    # in collections excluded from the view layer, which the publish selection can
+    # never contain — and for an instanced "library" collection that is precisely
+    # the set that must arrive as definition members, not as scene objects.
+    visible = [obj for obj in bpy.context.scene.objects if obj.visible_get()]
+    hidden = len(bpy.context.scene.objects) - len(visible)
+    if hidden:
+        print(f"  ({hidden} hidden/excluded object(s) not selectable — omitted)")
+    return visible, None
 
 
 def export(objects: List[Any], out_dir: str, apply_modifiers: bool) -> Tuple[str, int]:
@@ -89,14 +98,13 @@ def export(objects: List[Any], out_dir: str, apply_modifiers: bool) -> Tuple[str
         build_collection_hierarchy,
     )
     from bpy_speckle.converter.to_speckle.bundle_exporter import BlenderBundleExporter
-    from bpy_speckle.converter.to_speckle.material_to_speckle import (
-        add_render_material_proxies_to_base,
-    )
 
+    # build_collection_hierarchy attaches the material and instance proxies itself:
+    # it expands the selection with collection-instance members, so it is the only
+    # place that knows the full object list those proxies have to cover.
     root = build_collection_hierarchy(bpy.context, objects, apply_modifiers)
     if root is None:
         raise SystemExit("build_collection_hierarchy returned None — nothing converted")
-    add_render_material_proxies_to_base(root, objects)
 
     exporter = BlenderBundleExporter(out_dir, "headless")
     root_id, count = exporter.export(root)

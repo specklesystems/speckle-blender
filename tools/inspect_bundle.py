@@ -34,6 +34,15 @@ class BundleSummary:
     # object application_id -> the collection it was placed in
     object_collections: Dict[str, str] = field(default_factory=dict)
     materials: List[Dict[str, Any]] = field(default_factory=list)
+    # instancing: DEFINITION node names, and one entry per INSTANCE placement
+    definitions: List[str] = field(default_factory=list)
+    instances: int = 0
+    # placement object application_id -> the definition it places
+    instance_definitions: Dict[str, Optional[str]] = field(default_factory=dict)
+    # placement object application_id -> its transform's translation [x, y, z]
+    instance_translations: Dict[str, List[float]] = field(default_factory=dict)
+    # definition name -> how many members it owns (distinct DEFINES* ordinals)
+    definition_members: Dict[str, int] = field(default_factory=dict)
     relations: Dict[str, int] = field(default_factory=dict)
     scene_views: List[str] = field(default_factory=list)
     # application_id -> {eav path: value}
@@ -80,6 +89,16 @@ def _eav_value(row: Dict[str, List[Any]], i: int) -> Any:
     return row["value_string"][i]
 
 
+def _translation(transform: Optional[str]) -> List[float]:
+    """Pull [x, y, z] out of a row-major 4x4 stored as a CSV string."""
+    if not transform:
+        return []
+    values = [float(v) for v in transform.split(",")]
+    if len(values) != 16:
+        return []
+    return [round(values[3], 4), round(values[7], 4), round(values[11], 4)]
+
+
 def summarize(bundle_dir: str) -> BundleSummary:
     """Decode a bundle directory into a BundleSummary."""
     s = BundleSummary()
@@ -101,12 +120,22 @@ def summarize(bundle_dir: str) -> BundleSummary:
     kind_name = dict(zip(kinds["kind"], kinds["name"]))
     nodes = _read(bundle_dir, "envelope.nodes")
     container_names: Dict[int, str] = {}
+    definition_names: Dict[int, str] = {}
+    instance_nodes: Dict[int, Dict[str, Any]] = {}
     if nodes:
         for i, kind in enumerate(nodes["kind"]):
             name = kind_name.get(kind)
             if name == "CONTAINER":
                 s.collections.append(nodes["name"][i])
                 container_names[nodes["id"][i]] = nodes["name"][i]
+            elif name == "DEFINITION":
+                s.definitions.append(nodes["name"][i])
+                definition_names[nodes["id"][i]] = nodes["name"][i]
+            elif name == "INSTANCE":
+                instance_nodes[nodes["id"][i]] = {
+                    "def_ref": nodes["def_ref"][i],
+                    "transform": nodes["transform"][i],
+                }
             elif name == "MATERIAL":
                 s.materials.append(
                     {
@@ -139,12 +168,34 @@ def summarize(bundle_dir: str) -> BundleSummary:
         # IN_COLLECTION: src is an object index, dst a container node id.
         # Decoding it is the difference between "3 objects were placed" and
         # "3 objects were placed in the right collections".
+        s.instances = len(instance_nodes)
+        # a definition's member count is its distinct DEFINES* ordinals: all the
+        # geometry of one member shares that member's ordinal
+        member_ords: Dict[str, set] = {}
         for i, rel in enumerate(relations["rel"]):
-            if rel_name.get(rel) != "IN_COLLECTION":
-                continue
+            name = rel_name.get(rel)
             src, dst = relations["src"][i], relations["dst"][i]
-            if src < len(s.object_ids) and dst in container_names:
-                s.object_collections[s.object_ids[src]] = container_names[dst]
+
+            if name == "IN_COLLECTION":
+                if src < len(s.object_ids) and dst in container_names:
+                    s.object_collections[s.object_ids[src]] = container_names[dst]
+
+            elif name == "DISPLAY_INSTANCE":
+                # object -> INSTANCE node -> (def_ref) -> DEFINITION node
+                if src < len(s.object_ids) and dst in instance_nodes:
+                    node = instance_nodes[dst]
+                    app_id = s.object_ids[src]
+                    s.instance_definitions[app_id] = definition_names.get(
+                        node["def_ref"]
+                    )
+                    s.instance_translations[app_id] = _translation(node["transform"])
+
+            elif name in ("DEFINES", "DEFINES_INSTANCE"):
+                definition = definition_names.get(src)
+                if definition is not None:
+                    member_ords.setdefault(definition, set()).add(relations["ord"][i])
+
+        s.definition_members = {name: len(ords) for name, ords in member_ords.items()}
 
     views = _read(bundle_dir, "envelope.scene_views")
     if views:
@@ -179,6 +230,12 @@ def format_report(s: BundleSummary) -> str:
         f"relations      : {s.relations}",
         f"materials      : {len(s.materials)}",
     ]
+    if s.definitions or s.instances:
+        lines += [
+            f"definitions    : {s.definitions}  members={s.definition_members}",
+            f"instances      : {s.instances}  {s.instance_definitions}",
+            f"placements     : {s.instance_translations}",
+        ]
     for m in s.materials:
         lines.append(
             f"  - {m['name']!r} argb={m['argb']} opacity={m['opacity']} "
@@ -223,6 +280,31 @@ def check(s: BundleSummary, expect: Dict[str, Any]) -> List[str]:
                 for app_id, coll in s.object_collections.items()
             }
             eq("object_collections", actual, dict(wanted))
+        elif key == "definitions":
+            eq("definitions", sorted(s.definitions), sorted(wanted))
+        elif key == "instances":
+            eq("instances", s.instances, wanted)
+        elif key == "definition_members":
+            eq("definition_members", s.definition_members, dict(wanted))
+        elif key == "instance_definitions":
+            actual = {
+                app_id.split(":", 1)[-1]: definition
+                for app_id, definition in s.instance_definitions.items()
+            }
+            eq("instance_definitions", actual, dict(wanted))
+        elif key == "instance_translations":
+            actual = {
+                app_id.split(":", 1)[-1]: [round(v, 3) for v in xyz]
+                for app_id, xyz in s.instance_translations.items()
+            }
+            eq(
+                "instance_translations",
+                actual,
+                {
+                    k: [round(float(v), 3) for v in xyz]
+                    for k, xyz in dict(wanted).items()
+                },
+            )
         elif key == "materials":
             eq("materials", len(s.materials), wanted)
         elif key == "material_names":
