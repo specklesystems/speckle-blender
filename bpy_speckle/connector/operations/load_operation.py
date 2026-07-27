@@ -1,4 +1,5 @@
-from typing import Dict, Union
+import tempfile
+from typing import Dict, Optional, Union
 
 import bpy
 from bpy.types import Context
@@ -26,6 +27,92 @@ from ..utils.account_manager import _client_cache
 from ..utils.get_ascendants import get_ascendants
 
 
+def _mark_received(client, version, project_id: str, wm) -> None:
+    """Tell the server the version was received, and track the metric.
+
+    Shared by both receive paths so a bundle load is recorded identically to a
+    classic one.
+    """
+    metrics.set_host_app("blender")
+    client.version.received(
+        MarkReceivedVersionInput(
+            version_id=version.id,
+            project_id=project_id,
+            source_application="blender",
+        )
+    )
+
+    metrics.track(
+        metrics.RECEIVE,
+        client.account,
+        {
+            "ui": "dui3",
+            "hostAppVersion": ".".join(map(str, bl_info["blender"])),
+            "core_version": ".".join(map(str, bl_info["version"])),
+            "sourceHostApp": host_applications.get_host_app_from_string(
+                version.source_application
+            ).slug,
+            "isMultiplayer": version.author_user.id != client.account.userInfo.id,
+            "workspace_id": get_project_workspace_id(client, wm.selected_project_id),
+        },
+    )
+
+
+def _try_load_bundle(
+    context: Context, client, version, instance_loading_mode: str
+) -> Optional[Dict[str, Union[bpy.types.Collection, bpy.types.Object]]]:
+    """Download and bake this version's parquet bundle, if it has one.
+
+    Returns ``None`` when there is no bundle (a legacy version, an old server, or
+    the reader force-disabled), which sends the caller to the classic receive.
+    A bundle that exists but fails to read raises instead of falling back: the
+    classic path provably cannot serve a bundle version, so silently continuing
+    would only swap a clear error for a confusing 404.
+    """
+    from ...converter.from_bundle.bundle_reader import read_bundle
+    from ...converter.from_bundle.bundle_to_native import bake_bundle
+    from .bundle_receive import download_bundle, is_bundle_receive_available
+
+    if not is_bundle_receive_available():
+        return None
+
+    wm = context.window_manager
+    project_id: str = wm.selected_project_id  # type: ignore
+    model_id: str = wm.selected_model_id  # type: ignore
+
+    with tempfile.TemporaryDirectory(prefix="speckle-receive-") as bundle_dir:
+        downloaded = download_bundle(
+            client.account, project_id, model_id, version.id, bundle_dir
+        )
+        if downloaded is None:
+            return None
+
+        bundle = read_bundle(downloaded)
+        result = bake_bundle(
+            bundle,
+            f"{wm.selected_model_name} - {version.id}",
+            instance_loading_mode=instance_loading_mode,
+        )
+
+    if result.skipped_by_type:
+        summary = ", ".join(
+            f"{count} {type_name}"
+            for type_name, count in result.skipped_by_type.items()
+        )
+        print(
+            f"[Speckle] Geometry not yet supported on the bundle load path: {summary}"
+        )
+    for app_id, error in result.decode_errors:
+        print(f"[Speckle] Could not decode geometry for '{app_id}': {error}")
+
+    print(f"\nLoad process completed. Imported {len(result.objects)} objects.")
+    for area in context.screen.areas:
+        if area.type == "OUTLINER":
+            area.tag_redraw()
+
+    return result.objects
+
+
 def load_operation(
     context: Context, instance_loading_mode: str = "INSTANCE_PROXIES"
 ) -> Dict[str, Union[bpy.types.Collection, bpy.types.Object]]:
@@ -49,35 +136,24 @@ def load_operation(
     transport = ServerTransport(stream_id=projectId, client=client)
 
     version = client.version.get(versionId, projectId)
+
+    # Speckle 4.0 artefact path: probe the v2 data endpoints for this version's
+    # parquet bundle and bake it directly. A bundle version's referencedObject is
+    # the synthetic `binary-{versionId}`, which has no row in the objects table,
+    # so the classic receive below cannot serve it at all. Detection is by the
+    # endpoint returning files, never by the id convention.
+    bundle_result = _try_load_bundle(context, client, version, instance_loading_mode)
+    if bundle_result is not None:
+        _mark_received(client, version, projectId, wm)
+        return bundle_result
+
     obj_id = version.referenced_object
     if not obj_id:
         raise ValueError("Unable to receive version beyond workspaces limit")
 
     version_data = operations.receive(obj_id, transport)
 
-    metrics.set_host_app("blender")
-    client.version.received(
-        MarkReceivedVersionInput(
-            version_id=version.id,
-            project_id=projectId,
-            source_application="blender",
-        )
-    )
-
-    metrics.track(
-        metrics.RECEIVE,
-        client.account,
-        {
-            "ui": "dui3",
-            "hostAppVersion": ".".join(map(str, bl_info["blender"])),
-            "core_version": ".".join(map(str, bl_info["version"])),
-            "sourceHostApp": host_applications.get_host_app_from_string(
-                version.source_application
-            ).slug,
-            "isMultiplayer": version.author_user.id != client.account.userInfo.id,
-            "workspace_id": get_project_workspace_id(client, wm.selected_project_id),
-        },
-    )
+    _mark_received(client, version, projectId, wm)
 
     # Build object ID map once
     object_id_map = build_object_id_map(version_data)

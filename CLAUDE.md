@@ -85,13 +85,68 @@ diff in review.
 3. **`version.create`** — legacy, when the server has no ingestion support.
 
 Both fallbacks are feature-detected, never assumed. `SPECKLE_BLENDER_BUNDLE=0`
-force-disables the bundle path. The **receive** path is still classic
-`operations.receive`.
+force-disables the bundle path.
 
 The pipeline separates cleanly, which is what makes offline testing possible:
 `build_collection_hierarchy` (Blender → Speckle `Collection`) and
 `BlenderBundleExporter` (→ parquet on disk) need no network. Only
 `ArtifactPipeline` in `bundle_publish.py` talks to a server.
+
+## Receive architecture
+
+`load_operation()` tries the bundle first, then falls back to classic
+`operations.receive`. A bundle-published version **cannot** be loaded any other
+way: its `referencedObject` is the synthetic `binary-{versionId}` sentinel, which
+has no row in the objects table, so a classic receive 404s on it.
+
+Detection is by **probing** `GET /api/v2/projects/{p}/models/{m}/versions/{v}/artifacts`
+and treating "returns files" as the signal — never by sniffing the `binary-`
+prefix. The id convention is a producer detail, and C#'s `ArtifactReceiver`
+deliberately avoids depending on it too. No files (404) → classic path. Files
+that then fail to read → raise, because falling back would only swap a clear
+error for a confusing 404.
+
+Blender takes the **direct-bake** path (Rhino's `IArtifactHostObjectBuilder`),
+not the Base-reconstruction path (Revit's). Parquet arrays go straight to
+`bpy.data`; no `Base` graph is ever built, so dense meshes skip per-object
+pydantic validation entirely. That is why the raw-array `sgeo.decode_mesh` exists
+alongside `sgeo.decode`.
+
+Three modules, split so most of it runs without Blender:
+
+- `connector/operations/bundle_receive.py` — probe + download presigned files.
+- `converter/from_bundle/bundle_reader.py` — parquet → dataclasses. **No `bpy`**,
+  so it can be exercised against a downloaded bundle offline.
+- `converter/from_bundle/bundle_to_native.py` — dataclasses → data-blocks.
+
+## Receive gotchas
+
+- **Three K-spaces, and relations cross them.** `object K` (a row in
+  `eav.objects`), `geometry K` (a row in `geometries`) and `node id` (a row in
+  `envelope.nodes`, shared by CONTAINER/DEFINITION/INSTANCE/MATERIAL) are
+  independent index spaces. `DISPLAY` is object→geometry but `IN_COLLECTION` is
+  object→node; resolving an edge against the wrong table yields a
+  plausible-looking wrong answer rather than an error, so every lookup goes
+  through its own dict.
+- **`HAS_MATERIAL` binds to geometry, not to the object.** One object's two
+  display meshes can carry different materials, hence material *slots* and
+  per-face-range assignment rather than one material per object.
+- **Geometry decoding is MESH-only.** `sgeo.py` gained a decoder but only for
+  `PrimitiveType.MESH`; the curve family publishes fine and reads back as
+  `SgeoDecodeError`. An object whose geometry is *entirely* undecodable is
+  **skipped outright** — no placeholder — and the per-type tally is printed.
+  Requires a specklepy with `sgeo.decode_mesh`; `is_bundle_receive_available()`
+  feature-detects it, so an older specklepy falls back rather than crashing.
+- **Only the translation is unit-scaled** in a placement matrix. Scaling all 16
+  doubles would scale the basis vectors too and resize the instance — invisible
+  in metres, obvious in millimetres.
+- **The geometries table is sharded.** Shard 0 is `{base}.geometries.parquet`,
+  overflow shards are `{base}.geometries.{N}.parquet`. Read the set with the
+  glob `*.geometries*.parquet`; reading only shard 0 silently drops geometry
+  above ~1.5 GiB. (`tools/inspect_bundle.py` reads shard 0 only — fine for
+  fixtures, wrong for a real model.)
+- The published root CONTAINER maps *onto* the caller's root collection rather
+  than nesting inside it, so a load does not add a redundant folder level.
 
 ## Bundle gotchas
 
