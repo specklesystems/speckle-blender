@@ -3,6 +3,7 @@ from typing import Optional
 from specklepy.objects.data_objects import BlenderObject
 from .curve_to_speckle import curve_to_speckle_display_value
 from .mesh_to_speckle import mesh_to_speckle_meshes
+from .surface_to_speckle import surface_to_speckle_meshes
 from .text_to_speckle import text_properties, text_to_speckle_meshes
 from .utils import get_object_id, extract_custom_properties
 
@@ -43,6 +44,16 @@ def convert_to_speckle(
         display_value = curve_to_speckle_display_value(
             blender_object, scale_factor, units, apply_modifiers
         )
+
+    elif blender_object.type == "SURFACE":
+        # NURBS patches always reach the viewer as tessellated geometry: SGEO
+        # has no Surface primitive, so there is no exact route to the bundle
+        meshes = surface_to_speckle_meshes(
+            blender_object, scale_factor, units, apply_modifiers
+        )
+
+        if meshes:
+            display_value = meshes
 
     elif blender_object.type == "MESH":
         # get mesh data - apply modifiers if requested
