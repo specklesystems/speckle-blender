@@ -7,9 +7,7 @@ from .text_to_speckle import text_properties, text_to_speckle_meshes
 from .utils import get_object_id, extract_custom_properties
 
 
-def merge_data_block_properties(
-    object_properties: dict, data_properties: dict
-) -> dict:
+def merge_data_block_properties(object_properties: dict, data_properties: dict) -> dict:
     """Combine object-level and data-block-level custom properties into the
     dict published on the BlenderObject.
 
