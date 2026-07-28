@@ -9,6 +9,12 @@ from ..utils.account_manager import (
 )
 from ..utils.project_manager import get_projects_for_account
 from ..utils.property_groups import speckle_project
+from ..utils.dialog import (
+    DIALOG_WIDTH,
+    invalidate_downstream_selection,
+    open_dialog_deferred,
+    redraw_ui,
+)
 
 
 class SPECKLE_UL_projects_list(bpy.types.UIList):
@@ -105,10 +111,18 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
 
             wm.selected_project_id = selected_project.id
             wm.selected_project_name = selected_project.name
+            invalidate_downstream_selection(wm, "PROJECT")
 
             print(f"Selected project: {selected_project.name} ({selected_project.id})")
 
-            context.area.tag_redraw()
+            redraw_ui(context)
+
+            # Picking a project is never the goal in itself — a model always
+            # comes next, in both modes. Cancelling the chained dialog stops
+            # here, since only a confirmed selection reaches execute().
+            open_dialog_deferred(
+                bpy.ops.speckle.model_selection_dialog, search_query=""
+            )
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
@@ -146,7 +160,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             project.id = id
             project.can_receive = can_receive
 
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout

@@ -1,6 +1,10 @@
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from ..utils.version_manager import get_versions_for_model, get_latest_version
+from ..utils.dialog import (
+    DIALOG_WIDTH,
+    redraw_ui,
+)
 
 
 class SPECKLE_UL_versions_list(bpy.types.UIList):
@@ -120,7 +124,7 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
                 f"Model card updated: Selected version: {model_card.version_id}, Option: {self.load_option}",
             )
             bpy.ops.speckle.model_card_load(model_card_id=self.model_card_id)
-            context.area.tag_redraw()
+            redraw_ui(context)
 
             return {"FINISHED"}
 
@@ -130,7 +134,7 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             f"Selected version: {version_id_to_store} (Option: {self.load_option})",
         )
 
-        context.area.tag_redraw()
+        redraw_ui(context)
 
         return {"FINISHED"}
 
@@ -148,7 +152,7 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
 
         self.update_versions_list(context)
 
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout

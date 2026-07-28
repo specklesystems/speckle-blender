@@ -4,6 +4,7 @@ from specklepy.core.api.inputs import CreateModelInput
 from typing import Tuple
 
 from ..utils.account_manager import _client_cache, can_create_model
+from ..utils.dialog import DIALOG_WIDTH
 
 
 class SPECKLE_OT_create_model(bpy.types.Operator):
@@ -51,7 +52,7 @@ class SPECKLE_OT_create_model(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout

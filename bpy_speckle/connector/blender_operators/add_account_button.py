@@ -6,6 +6,10 @@ from ..utils.authentication import (
     AuthenticationServer,
     SPECKLE_AUTH_PORT,
 )
+from ..utils.dialog import (
+    DIALOG_WIDTH,
+    WIDE_DIALOG_WIDTH,
+)
 
 
 # Global auth server instance
@@ -30,7 +34,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
     _max_timeout = 300  # 5 minutes in seconds (300 checks at ~1 sec intervals)
 
     def invoke(self, context: Context, event: Event) -> set[str]:
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def draw(self, context: Context):
         layout = self.layout
@@ -211,7 +215,7 @@ class SPECKLE_OT_show_auth_error(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
-        return context.window_manager.invoke_popup(self, width=450)
+        return context.window_manager.invoke_popup(self, width=WIDE_DIALOG_WIDTH)
 
     def draw(self, context: Context):
         layout = self.layout

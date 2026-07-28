@@ -8,6 +8,7 @@ from ..utils.model_card_utils import (
     delete_model_card_objects,
     model_card_exists,
 )
+from ..utils.dialog import DIALOG_WIDTH
 
 
 class SPECKLE_OT_load(bpy.types.Operator):
@@ -40,7 +41,7 @@ class SPECKLE_OT_load(bpy.types.Operator):
         row.prop(self, "instance_loading_mode", text="")
 
     def invoke(self, context: Context, event: Event) -> Set[str]:
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def execute(self, context: Context) -> Set[str]:
         wm = context.window_manager

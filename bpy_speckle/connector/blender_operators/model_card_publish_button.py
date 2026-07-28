@@ -3,6 +3,7 @@ from typing import Set
 from bpy.types import Context, Event
 from ..operations.publish_operation import publish_operation
 from ..utils.account_manager import can_create_version
+from ..utils.dialog import DIALOG_WIDTH
 
 
 class SPECKLE_OT_publish_model_card(bpy.types.Operator):
@@ -18,7 +19,7 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
         layout.prop(self, "version_message")
 
     def invoke(self, context: Context, event: Event) -> Set[str]:
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def execute(self, context: Context) -> Set[str]:
         wm = context.window_manager
