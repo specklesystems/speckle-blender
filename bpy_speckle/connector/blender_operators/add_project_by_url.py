@@ -5,6 +5,7 @@ from ..utils.account_manager import (
     get_project_from_url,
     can_load,
 )
+from ..utils.dialog import DIALOG_WIDTH
 
 
 class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
@@ -68,7 +69,7 @@ class SPECKLE_OT_add_project_by_url(bpy.types.Operator):
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout

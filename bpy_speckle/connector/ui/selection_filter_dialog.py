@@ -4,6 +4,7 @@ from bpy.types import Operator, Context, Object
 from bpy.props import EnumProperty
 from ..utils.model_card_utils import update_model_card_objects
 from ..utils.account_manager import can_create_version
+from ..utils.dialog import DIALOG_WIDTH
 
 
 class SPECKLE_OT_selection_filter_dialog(Operator):
@@ -69,7 +70,7 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: bpy.types.Event) -> set:
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def draw(self, context: Context):
         layout = self.layout

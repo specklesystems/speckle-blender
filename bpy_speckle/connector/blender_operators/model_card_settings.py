@@ -2,6 +2,7 @@ import bpy
 import webbrowser
 from typing import Set
 from bpy.types import Event, Context, UILayout
+from ..utils.dialog import DIALOG_WIDTH
 
 
 class SPECKLE_OT_model_card_settings(bpy.types.Operator):
@@ -36,7 +37,7 @@ class SPECKLE_OT_model_card_settings(bpy.types.Operator):
 
     def invoke(self, context: Context, event: Event) -> Set[str]:
         wm = context.window_manager
-        return wm.invoke_popup(self)
+        return wm.invoke_popup(self, width=DIALOG_WIDTH)
 
 
 class SPECKLE_OT_view_in_browser(bpy.types.Operator):

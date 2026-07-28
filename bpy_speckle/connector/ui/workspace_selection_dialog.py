@@ -4,6 +4,7 @@ from typing import List, Tuple
 from ..utils.account_manager import get_workspaces, speckle_workspace
 from ..utils.project_manager import get_projects_for_account
 from ..utils.account_manager import can_create_project_in_workspace
+from ..utils.dialog import DIALOG_WIDTH
 
 
 class SPECKLE_UL_workspaces_list(bpy.types.UIList):
@@ -53,7 +54,7 @@ class SPECKLE_OT_workspace_selection_dialog(bpy.types.Operator):
             if id == wm.selected_workspace.id:
                 current_workspace_index = i
         self.workspace_index = current_workspace_index
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
