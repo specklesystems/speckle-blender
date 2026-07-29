@@ -4,7 +4,6 @@ from typing import List, Tuple, Optional, Dict
 from urllib.parse import urlparse
 from specklepy.core.api.credentials import Account
 from specklepy.core.api.client import SpeckleClient
-from specklepy.core.api.wrapper import StreamWrapper
 from .config_store import get_user_selected_account_id
 from .misc import strip_non_ascii
 
@@ -183,79 +182,6 @@ def reorder_tuple(tuple_list, target_id):
     # If the target_id wasn't found
     print(f"Tuple with ID {target_id} not found in the list")
     return tuple_list
-
-
-def get_project_from_url(
-    url: str,
-) -> Tuple[Optional[StreamWrapper], Optional[object], Optional[object], str]:
-    """
-    get a project from a URL, handling all the client setup.
-    """
-    try:
-        wrapper = StreamWrapper(url)
-        account = wrapper.get_account()
-        client = _client_cache.get_client(account.id)
-
-        # get the stream_id (project_id) from the wrapper
-        if not wrapper.stream_id:
-            return wrapper, client, None, "Could not extract project ID from URL"
-
-        project = client.project.get(wrapper.stream_id)
-
-        if not project:
-            return wrapper, client, None, "Could not access project"
-
-        return wrapper, client, project, ""
-
-    except Exception as e:
-        return None, None, None, f"Failed to process URL: {str(e)}"
-
-
-def get_model_details_by_wrapper(
-    wrapper: StreamWrapper,
-) -> Tuple[str, str, str, str, str, str, str]:
-    """
-    extract model details from a StreamWrapper object.
-    """
-    client = wrapper.get_client()
-    client.authenticate_with_account(wrapper.get_account())
-    (
-        account_id,
-        project_id,
-        project_name,
-        model_id,
-        model_name,
-        version_id,
-        load_option,
-    ) = "", "", "", "", "", "", ""
-    account_id = wrapper.get_account().id
-    if wrapper.stream_id:
-        project_id = wrapper.stream_id
-        project_name = client.project.get(project_id).name
-    if wrapper.model_id:
-        model_id = wrapper.model_id
-        model = client.model.get(model_id, project_id)
-        model_name = model.name
-        load_option = "LATEST" if not wrapper.commit_id else "SPECIFIC"
-        if wrapper.commit_id:
-            version_id = wrapper.commit_id
-        else:
-            versions = client.version.get_versions(
-                wrapper.model_id, wrapper.stream_id, limit=1
-            )
-            if versions.items and len(versions.items) > 0:
-                version_id = versions.items[0].id
-            else:
-                version_id = ""
-    return (
-        account_id,
-        project_id,
-        project_name,
-        model_id,
-        model_name,
-        version_id,
-        load_option,
-    )
 
 
 def can_load(client, project) -> Tuple[bool, str]:

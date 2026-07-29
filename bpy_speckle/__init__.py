@@ -80,10 +80,6 @@ from .connector.blender_operators.model_card_load_button import (
 from .connector.blender_operators.model_card_publish_button import (
     SPECKLE_OT_publish_model_card,
 )
-from .connector.blender_operators.add_project_by_url import (
-    SPECKLE_OT_add_project_by_url,
-)
-
 from .connector.blender_operators.create_project import SPECKLE_OT_create_project
 from .connector.blender_operators.create_model import SPECKLE_OT_create_model
 from .connector.blender_operators.version_check import SPECKLE_OT_version_check
@@ -192,7 +188,6 @@ classes = (
     SPECKLE_OT_dismiss_popup,
     SPECKLE_OT_load_model_card,
     SPECKLE_OT_publish_model_card,
-    SPECKLE_OT_add_project_by_url,
     SPECKLE_OT_create_project,
     SPECKLE_OT_create_model,
     SPECKLE_OT_version_check,
