@@ -91,8 +91,12 @@ def _send_via_ingestion(
 ) -> str:
     """Send via the model ingestion. Returns version_id.
 
-    The ingestion is created before any data is sent, because the parquet-bundle
-    path needs the server's pre-allocated version id (it names the bundle files).
+    Called with ``root_collection`` already converted: the ingestion is created
+    here, after conversion, because the only thing that needs its pre-allocated
+    version id is the bundle write (the id names the parquet files). Creating it
+    this late also means a scene that converts to nothing never leaves an
+    orphaned in-progress ingestion behind.
+
     When the bundle producer or the server's v2 data endpoints are unavailable,
     falls back to the classic ``operations.send`` + ``complete`` flow.
     """

@@ -334,9 +334,16 @@ def _read_relations(
 def _read_properties(bundle_dir: str, by_k: Dict[int, BundleObject]) -> None:
     """Fold the eav rows back onto their objects.
 
-    ``name`` / ``type`` / ``speckle_type`` were written as bare root scalars and
-    are lifted onto the object; everything under the ``properties.`` prefix is
-    a user property and stays in the dict.
+    ``name`` and ``speckle_type`` are lifted onto the object; everything else
+    stays in the dict.
+
+    Only paths under the ``properties.`` prefix are genuinely user data, but the
+    producer also writes bare root scalars (``type``, ``applicationId``, and
+    whatever other producers put there), and those currently land in the dict
+    too — so a bake cannot tell the schema field ``type`` from an authored
+    custom property of the same name. Fixing that means lifting every recognised
+    root field into a typed attribute and round-tripping only ``properties.*``;
+    see R6 in ``docs/parquet-bundle-regression-report.md``.
     """
     paths = _read(bundle_dir, "eav.paths") or {"path_index": [], "path": []}
     path_name = dict(zip(paths["path_index"], paths["path"]))

@@ -13,10 +13,16 @@ bpy_speckle/
     utils/              account/project/model/version managers, property groups
   converter/
     to_speckle/         Blender -> Speckle (per-type modules + bundle_exporter.py)
-    to_native.py        Speckle -> Blender
+    from_bundle/        parquet -> dataclasses -> data-blocks (direct bake)
+    to_native.py        Speckle -> Blender (classic receive)
   installer.py          bootstraps specklepy into the connector install path
 tools/                  local dev harness — NOT shipped, NOT run in CI
+docs/                   parquet-bundle-migration.md is the release contract
 ```
+
+`docs/parquet-bundle-migration.md` is the review/release contract for the 4.0
+migration — decision paths, packaging pins, accepted data losses and open
+regressions. Keep it in step with any change to either bundle path.
 
 ## Local dev setup
 
@@ -77,8 +83,10 @@ diff in review.
 
 1. **Parquet bundle** (Speckle 4.0, bundle-spec v5) — requires `specklepy.bundle`
    importable *and* a server that pre-allocates a `versionId` on the ingestion.
-   The version id names the bundle files, so the ingestion must exist before
-   conversion. The v2 `complete` call creates the version itself; no
+   The version id names the bundle files, so the ingestion must exist before the
+   *parquet write*. Conversion runs first and needs no version id; creating the
+   ingestion after it also avoids orphaning one when nothing converts. The v2
+   `complete` call creates the version itself; no
    `model_ingestion.complete` follows, and version messages are dropped (no
    field in the payload — a server-side API gap).
 2. **Model ingestion + classic send** — JSON detached objects, then `complete`.

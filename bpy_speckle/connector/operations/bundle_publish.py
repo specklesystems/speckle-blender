@@ -4,8 +4,9 @@ The bundle path replaces the classic ``operations.send`` JSON-object upload with
 a locally-written parquet bundle (see ``specklepy.bundle``) uploaded via the
 server's v2 data endpoints: sign → presigned PUT per file → complete, where the
 ``complete`` call itself creates the version. The version id is pre-allocated by
-the server at ingestion creation and baked into the bundle filenames, so the
-ingestion must exist before conversion starts.
+the server at ingestion creation and names every bundle file, so the ingestion
+must exist before the *parquet write* — not before conversion, which needs no
+version id and runs first (see ``publish_operation``).
 
 Availability is feature-detected on two axes and the caller falls back to the
 classic send when either is missing:
