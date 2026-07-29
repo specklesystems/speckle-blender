@@ -58,6 +58,7 @@ def write_bundle(
     objects: list,  # application_id, k is the list index
     relations: list,  # (rel, src object k, dst node id)
     with_subtype_column: bool = True,
+    properties: list = None,  # (object k, eav path, scalar value)
 ) -> None:
     """Write the minimal table set the reader joins.
 
@@ -96,6 +97,33 @@ def write_bundle(
             "ord": [None] * len(relations),
         },
     )
+    if properties:
+        # numbers land in value_double, matching the real writer — an int
+        # published as 42 deliberately reads back as 42.0
+        paths = sorted({p for _, p, _ in properties})
+        path_index = {p: i for i, p in enumerate(paths)}
+        _write(
+            bundle_dir,
+            "eav.paths",
+            {"path_index": list(path_index.values()), "path": paths},
+        )
+        values = [v for _, _, v in properties]
+        _write(
+            bundle_dir,
+            "eav.eav",
+            {
+                "object_index": [k for k, _, _ in properties],
+                "path_index": [path_index[p] for _, p, _ in properties],
+                "value_string": [v if isinstance(v, str) else None for v in values],
+                "value_double": [
+                    float(v)
+                    if isinstance(v, (int, float)) and not isinstance(v, bool)
+                    else None
+                    for v in values
+                ],
+                "value_boolean": [v if isinstance(v, bool) else None for v in values],
+            },
+        )
 
 
 def build_bundle(bundle_dir: str, **kwargs: Any) -> Any:

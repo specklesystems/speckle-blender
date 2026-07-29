@@ -141,11 +141,51 @@ def unknown_subtype_is_surfaced_not_baked() -> None:
     )
 
 
+def revit_parameter_paths_bake_as_groups() -> None:
+    """A Revit parameter path is one flat eav key well past Blender's 63-byte
+    IDProperty name limit; written verbatim it aborted the whole bake. The
+    paths must come back as nested property groups, an over-long single
+    segment is fitted rather than raised, and a scalar/subtree collision is
+    tallied — never an exception.
+    """
+    keynote = (
+        "properties.Parameters.Instance Parameters.Identity Data"
+        ".Keynote Text With A Very Long Parameter Name"
+    )
+    length = "properties.Parameters.Instance Parameters.Dimensions.Length"
+    result = bake(
+        containers=[(1, "Root", None, "Collection")],
+        objects=["wall-1"],
+        relations=[(IN_COLLECTION, 0, 1)],
+        properties=[
+            (0, keynote, "K1"),
+            (0, length, 3.5),
+            (0, "properties." + "x" * 80, True),
+            (0, "properties.A", 1.0),
+            (0, "properties.A.B", 2.0),
+        ],
+    )
+    wall = result.objects["wall-1"]
+    params = wall["Parameters"]["Instance Parameters"]
+    check(
+        params["Identity Data"]["Keynote Text With A Very Long Parameter Name"] == "K1",
+        "deep parameter path must bake as nested groups",
+    )
+    check(params["Dimensions"]["Length"] == 3.5, "sibling subtree survives")
+    check(bool(wall["x" * 63]), "an over-long segment is fitted, value kept")
+    check(wall["A"] == 1.0, "first arrival wins a scalar/subtree collision")
+    check(
+        result.dropped_properties == 1,
+        f"the colliding path is tallied, got {result.dropped_properties}",
+    )
+
+
 SCENARIOS = [
     navis_federation,
     single_model_maps_onto_root,
     rhino_groups_beside_layers,
     unknown_subtype_is_surfaced_not_baked,
+    revit_parameter_paths_bake_as_groups,
 ]
 
 

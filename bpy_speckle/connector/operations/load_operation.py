@@ -110,6 +110,11 @@ def _try_load_bundle(
             for subtype, count in result.unmapped_containers.items()
         )
         print(f"[Speckle] Grouping not yet mapped on the bundle load path: {summary}")
+    if result.dropped_properties:
+        print(
+            f"[Speckle] {result.dropped_properties} custom properties could not be"
+            " stored (conflicting paths or unsupported values) and were dropped"
+        )
 
     print(f"\nLoad process completed. Imported {len(result.objects)} objects.")
     for area in context.screen.areas:

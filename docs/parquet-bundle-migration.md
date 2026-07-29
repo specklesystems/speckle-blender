@@ -296,6 +296,19 @@ parenting can resolve both ends.
 - An object whose geometry is *entirely* undecodable is **skipped outright** — no
   placeholder — and the per-type tally is printed. An object with no geometry at
   all (a metaball sibling) becomes an Empty that still carries its properties.
+- **Properties are un-flattened before baking.** The eav's dotted paths cannot
+  be written verbatim as custom-property keys: IDProperty names are capped at
+  63 *bytes* and a Revit parameter path blows through that, which used to abort
+  the whole bake (`KeyError` from Blender). `_unflatten_properties` rebuilds the
+  paths into nested dicts — baked as IDProperty groups, the shape the classic
+  receive produces — so only individual segments face the limit, and an
+  over-long segment is fitted on a UTF-8 boundary. The eav separator is a bare
+  `.` with no escaping (C# parity), so a key containing a literal dot nests one
+  level deeper than authored; the format cannot distinguish the two. A
+  scalar/subtree collision on one key keeps the first arrival and tallies the
+  loser on `BakeResult.dropped_properties` — one bad property never aborts a
+  receive. On republish, `extract_custom_properties` recurses IDProperty groups
+  back to plain dicts, which the eav walker re-flattens to the same paths.
 - Placements honour `instance_loading_mode`: `INSTANCE_PROXIES` creates a
   collection-instance empty; `LINKED_DUPLICATES` expands the placement into a
   plain empty plus real copies of the members, applied recursively — a nested

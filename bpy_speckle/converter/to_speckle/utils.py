@@ -253,10 +253,12 @@ def extract_custom_properties(blender_id: ID) -> Dict[str, Any]:
     """
     Extract custom user-defined properties from a Blender ID datablock.
 
-    Supports strings, ints, floats, bools, and arrays of these types.
-    Note: on the parquet-bundle path arrays are dropped by the eav
-    flattener (scalars and nested dicts only); they still serialize on
-    the classic send path.
+    Supports strings, ints, floats, bools, arrays of these types, and
+    nested property groups (a bundle receive bakes Revit parameter trees
+    as groups; both the classic serializer and the eav walker re-flatten
+    the resulting dicts). Note: on the parquet-bundle path arrays are
+    dropped by the eav flattener (scalars and nested dicts only); they
+    still serialize on the classic send path.
     """
     properties: Dict[str, Any] = {}
 
@@ -274,6 +276,11 @@ def extract_custom_properties(blender_id: ID) -> Dict[str, Any]:
             elif isinstance(value, (list, tuple)):
                 if all(isinstance(item, (str, int, float, bool)) for item in value):
                     properties[key] = list(value)
+            elif type(value).__name__ == "IDPropertyGroup":
+                try:
+                    properties[key] = value.to_dict()
+                except (TypeError, ValueError):
+                    continue
             elif type(value).__name__ == "IDPropertyArray":
                 # Blender IDPropertyArray (bool/int/float arrays)
                 try:
