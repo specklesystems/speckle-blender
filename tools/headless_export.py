@@ -15,14 +15,19 @@ a test as well as an inspection tool.
 """
 
 import argparse
+import glob
 import importlib.util
 import os
 import sys
 import tempfile
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURE_DIR = os.path.join(REPO_ROOT, "tools", "fixtures")
+
+# EXPECT keys checked against the real receive reader rather than
+# inspect_bundle's raw-parquet view; see check_receive.
+RECEIVE_EXPECT_KEYS = ("receive_properties", "receive_root_fields")
 
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
@@ -119,6 +124,91 @@ def export(objects: List[Any], out_dir: str, apply_modifiers: bool) -> Tuple[str
     return root_id, count
 
 
+def inject_root_fields(out_dir: str, fields_by_name: Dict[str, Dict[str, Any]]) -> None:
+    """Append bare root eav rows another producer could have written.
+
+    Blender's own publish only puts ``name``/``type``/``speckle_type`` at the
+    eav root, so covering the cross-producer case (a Rhino or Revit bundle with
+    extra root scalars) means appending rows after the export: new paths into
+    ``eav.paths``, new value rows into ``eav.eav``. Keyed by object name.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    def load(suffix: str) -> Tuple[str, Any]:
+        (path,) = glob.glob(os.path.join(out_dir, f"*.{suffix}.parquet"))
+        return path, pq.read_table(path)
+
+    objects_path, objects_table = load("eav.objects")
+    objects = objects_table.to_pydict()
+    k_by_name = {
+        app_id.split(":", 1)[-1]: k
+        for k, app_id in zip(objects["object_index"], objects["application_id"])
+    }
+
+    paths_file, paths_table = load("eav.paths")
+    eav_file, eav_table = load("eav.eav")
+    paths, eav = paths_table.to_pydict(), eav_table.to_pydict()
+    index_of = dict(zip(paths["path"], paths["path_index"]))
+
+    for name, fields in fields_by_name.items():
+        obj_k = k_by_name[name]  # a KeyError here is a fixture bug
+        for path, value in fields.items():
+            idx = index_of.get(path)
+            if idx is None:
+                idx = max(paths["path_index"], default=-1) + 1
+                paths["path_index"].append(idx)
+                paths["path"].append(path)
+                index_of[path] = idx
+            is_number = isinstance(value, (int, float)) and not isinstance(value, bool)
+            eav["object_index"].append(obj_k)
+            eav["path_index"].append(idx)
+            eav["value_string"].append(str(value))
+            eav["value_double"].append(float(value) if is_number else None)
+            eav["value_boolean"].append(value if isinstance(value, bool) else None)
+            eav["unit"].append(None)
+            eav["internal_definition_name"].append(None)
+
+    pq.write_table(pa.table(paths, schema=paths_table.schema), paths_file)
+    pq.write_table(pa.table(eav, schema=eav_table.schema), eav_file)
+
+
+def check_receive(out_dir: str, expect: Dict[str, Any]) -> List[str]:
+    """Check the receive-side EXPECT keys against the real bundle reader.
+
+    inspect_bundle re-derives its view from the raw parquet; this stage instead
+    asserts on what ``bundle_reader`` — the actual receive path — restores.
+    ``receive_properties`` is the per-object dict a bake writes back as user
+    custom properties (``properties.`` prefix stripped); ``receive_root_fields``
+    is where the non-user root scalars must land instead. Both are compared
+    exactly, not as subsets — the point is that nothing extra leaks.
+    """
+    from bpy_speckle.converter.from_bundle.bundle_reader import read_bundle
+
+    bundle = read_bundle(out_dir)
+    by_name = {o.application_id.split(":", 1)[-1]: o for o in bundle.objects}
+
+    failures: List[str] = []
+    for key in RECEIVE_EXPECT_KEYS:
+        for name, wanted in dict(expect.get(key) or {}).items():
+            obj = by_name.get(name)
+            if obj is None:
+                failures.append(f"{key}: no object {name!r} (have {sorted(by_name)})")
+                continue
+            if key == "receive_properties":
+                actual = {
+                    path[len("properties.") :]: value
+                    for path, value in obj.properties.items()
+                }
+            else:
+                actual = dict(obj.root_fields)
+            if actual != dict(wanted):
+                failures.append(
+                    f"{key}[{name}]: expected {dict(wanted)!r}, got {actual!r}"
+                )
+    return failures
+
+
 def main() -> int:
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     args = parse_args(argv)
@@ -144,6 +234,12 @@ def main() -> int:
     root_id, count = export(objects, out_dir, not args.no_modifiers)
     print(f"=== exported root={root_id} objects={count}\n")
 
+    # simulate a cross-producer bundle before anything reads it back
+    inject = getattr(fixture, "INJECT_ROOT_FIELDS", None) if fixture else None
+    if inject:
+        inject_root_fields(out_dir, inject)
+        print(f"  (injected cross-producer root fields: {inject})\n")
+
     sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
     import inspect_bundle
 
@@ -155,13 +251,16 @@ def main() -> int:
         print(f"\n(no EXPECT block — report only)  re-inspect: {out_dir}")
         return 0
 
+    expect = dict(expect)
+    receive_expect = {k: expect.pop(k) for k in RECEIVE_EXPECT_KEYS if k in expect}
     failures = inspect_bundle.check(summary, expect)
+    failures += check_receive(out_dir, receive_expect)
     if failures:
         print(f"\nFAIL {label}")
         for failure in failures:
             print(f"  - {failure}")
         return 1
-    print(f"\nPASS {label} ({len(expect)} expectation groups)")
+    print(f"\nPASS {label} ({len(expect) + len(receive_expect)} expectation groups)")
     return 0
 
 

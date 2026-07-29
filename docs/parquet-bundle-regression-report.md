@@ -1,9 +1,9 @@
 # Parquet bundle migration regression report
 
-Date: 2026-07-29  
-Branch: `bilal/parquet-bundle-migration` at `fb5ec985c464`  
-Baseline: `main` at `cc2466dec050`  
-Diff basis: `git diff main...HEAD` (the merge-base is the same `main` commit)  
+Date: 2026-07-29
+Branch: `bilal/parquet-bundle-migration` at `fb5ec985c464`
+Baseline: `main` at `cc2466dec050`
+Diff basis: `git diff main...HEAD` (the merge-base is the same `main` commit)
 Bundle specification reviewed: local `speckle-bundle-spec` `main` at
 `2af96ef`; the catalog contract was also checked against the locally available
 `origin/main` at `93fa141` and is unchanged for the findings below.
@@ -34,7 +34,7 @@ large-file download risks.
 | R3 | High | Receive | `LINKED_DUPLICATES` leaks children into the scene root and retains nested collection instances |
 | R4 | High | Receive | All CONTAINER subtypes are treated as collections, while non-collection membership axes are ignored |
 | R5 | High | Scalability | Every parquet artifact is buffered completely in memory before it is written |
-| R6 | Medium | Receive | Root schema fields are restored as user custom properties |
+| R6 | Medium | Receive | ~~Root schema fields are restored as user custom properties~~ **Resolved** (ENG-9027) |
 | R7 | Medium | Error handling | Non-404 artifact probe failures silently fall back to a receive path known to fail for bundle versions |
 | R8 | Medium | Documentation | The migration document no longer describes the branch that will be reviewed or released |
 
@@ -221,6 +221,15 @@ Other producers' root EAV fields would leak the same way.
 
 Required action: lift all recognized root fields into typed attributes and only
 round-trip paths beginning with `properties.`.
+
+**Resolved** (ENG-9027): `_read_properties` now routes only `properties.*`
+paths into `BundleObject.properties`; every other root scalar goes to an
+internal `root_fields` dict that the bake never restores. On the publish side
+`extract_custom_properties` skips `applicationId`/`speckle_type` (both receive
+paths bake those deliberately), so a receive-and-republish cycle introduces no
+new user properties. Pinned by the `receive_properties` /
+`receive_root_fields` expectations in the `cube_with_props` fixture, which
+also injects synthetic cross-producer root fields.
 
 ### R7 — Medium: artifact probe errors are masked by classic fallback
 
