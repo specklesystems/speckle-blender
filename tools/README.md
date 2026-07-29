@@ -85,6 +85,39 @@ additions.
 | `scene_views` | ordered view names |
 | `eav_paths` | property paths that must exist |
 | `properties` | `{object_name: {path: value}}`, subset |
+| `receive_properties` | `{object_name: {key: value}}` a bake restores as user custom properties, **exact** per object |
+| `receive_root_fields` | `{object_name: {path: value}}` of root schema scalars kept internal, **exact** per object |
+
+The two `receive_*` keys are checked against the real `bundle_reader`, not
+`inspect_bundle`'s raw-parquet view, and they compare exactly rather than as
+subsets — their job is proving that nothing *extra* leaks into user custom
+properties (ENG-9027). A fixture can also define `INJECT_ROOT_FIELDS =
+{object_name: {path: value}}`; the harness appends those rows to the eav
+tables after the export, simulating the bare root scalars a Rhino- or
+Revit-produced bundle carries that Blender's own publish never writes.
+
+### EXPECT_RECEIVE keys
+
+A fixture may also declare `EXPECT_RECEIVE`, keyed by instance loading mode
+(`INSTANCE_PROXIES`, `LINKED_DUPLICATES`). For each mode the harness receives
+the just-exported bundle back into a fresh empty scene through `read_bundle` +
+`bake_bundle` — the same code `load_operation` runs after downloading — and
+asserts on what the user would see in the outliner. Only scene-reachable
+objects are described; definition "library" collections stay invisible, as they
+do in Blender.
+
+| key | meaning |
+| --- | --- |
+| `collections` | exact set of scene-reachable collection names (root included) |
+| `object_collections` | exact `{object_name: [collection names]}` for every scene object |
+| `collection_instances` | exact set of objects still instancing a collection |
+| `parents` | `{child: parent_name}`, subset |
+| `translations` | `{object_name: [x, y, z]}` world position, subset, 3 decimals |
+
+Structure keys are exact on purpose: an object escaping to Scene Collection is
+an *extra* entry, which a subset check would wave through. Receive names are
+synthetic — a definition member arrives as `<definition>.<ordinal>` and copies
+pick up Blender's `.001` dedup suffixes, deterministic in a fresh scene.
 
 Three things worth knowing when writing expectations:
 
@@ -108,8 +141,11 @@ Three things worth knowing when writing expectations:
 - Assertions only catch what a fixture thought to check. There are no committed
   golden snapshots, by choice — the bundle format is still moving on this
   branch and goldens would go red on every intentional change.
-- The fixtures test publish only; the upload and the UI operators are untested
-  everywhere. The receive path has its own tests below.
+- Receive coverage stops at the connector's own code: the `receive_*` EXPECT
+  keys exercise `bundle_reader`, and `EXPECT_RECEIVE` exercises `read_bundle` +
+  `bake_bundle` on the local files — plus the synthetic cross-connector tests
+  below. The artifact probe, the download, the upload, and the UI operators
+  stay untested.
 - `--factory-startup` means user preferences are skipped and `sys.path` is
   ordered so `import bpy_speckle` resolves to the working tree rather than the
   symlinked add-on install.

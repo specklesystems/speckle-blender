@@ -242,6 +242,13 @@ def get_curve_element_id(blender_object: Object, curve_index: int = 0) -> str:
     return f"{get_object_id(blender_object)}:curve{curve_index}"
 
 
+# Keys both receive paths bake as internal schema state (see to_native and
+# bundle_to_native._apply_properties). Publishing already emits these as root
+# scalars / object columns, so re-collecting them here would mint
+# ``properties.applicationId`` etc. on every receive-and-republish cycle.
+RECEIVE_BAKED_SCHEMA_KEYS = frozenset({"applicationId", "speckle_type"})
+
+
 def extract_custom_properties(blender_id: ID) -> Dict[str, Any]:
     """
     Extract custom user-defined properties from a Blender ID datablock.
@@ -255,7 +262,8 @@ def extract_custom_properties(blender_id: ID) -> Dict[str, Any]:
 
     for key in blender_id.keys():
         # skip system properties that start with underscore (e.g. _RNA_UI)
-        if key.startswith("_"):
+        # and the schema keys a receive baked onto the object
+        if key.startswith("_") or key in RECEIVE_BAKED_SCHEMA_KEYS:
             continue
 
         try:

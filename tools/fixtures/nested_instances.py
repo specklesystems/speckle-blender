@@ -79,3 +79,43 @@ EXPECT = {
     },
     "object_collections": {"OuterPlacement": "Untitled.blend"},
 }
+
+# Round-trip (ENG-9025): LINKED_DUPLICATES must hold recursively. The nested
+# placement inside Branch may not survive as a COLLECTION-instance empty in the
+# copies — it is rebuilt as a plain empty (Leaf.002) whose child is a real copy
+# of the leaf cube (Leaf.003), and the transform parent-chains: outer placement
+# at y=100 composed with the inner one at x=5 puts both at (5, 100, 0).
+#
+# InnerPlacement and LeafCube as shapeless empties at the origin are the same
+# pre-existing properties-row wart pinned in collection_instances.
+EXPECT_RECEIVE = {
+    "INSTANCE_PROXIES": {
+        "collections": ["Received", "Scene Collection"],
+        "object_collections": {
+            "InnerPlacement": ["Received"],
+            "LeafCube": ["Received"],
+            "OuterPlacement": ["Received"],
+        },
+        "collection_instances": ["OuterPlacement"],
+        "translations": {"OuterPlacement": [0.0, 100.0, 0.0]},
+    },
+    "LINKED_DUPLICATES": {
+        "collections": ["Received", "Scene Collection"],
+        "object_collections": {
+            "InnerPlacement": ["Received"],
+            "Leaf.002": ["Received"],
+            "Leaf.003": ["Received"],
+            "LeafCube": ["Received"],
+            "OuterPlacement": ["Received"],
+        },
+        "collection_instances": [],
+        "parents": {
+            "Leaf.002": "OuterPlacement",
+            "Leaf.003": "Leaf.002",
+        },
+        "translations": {
+            "Leaf.002": [5.0, 100.0, 0.0],
+            "Leaf.003": [5.0, 100.0, 0.0],
+        },
+    },
+}

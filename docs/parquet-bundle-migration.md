@@ -123,6 +123,11 @@ without v2 endpoints still gets all of them.
    its docstring. Data-block properties are additionally applied to the
    `displayValue` geometry via `apply_cached_properties`, which serialises on a
    classic send and is dropped by SGEO geometry encoding on the bundle.
+   `extract_custom_properties` skips `applicationId` and `speckle_type` — both
+   receive paths bake those onto objects as internal bookkeeping, and
+   re-collecting them would mint `properties.applicationId` /
+   `properties.speckle_type` on every receive-and-republish cycle (ENG-9027). A
+   user property authored under either name is consequently not publishable.
 3. **Curves split by shape.** `curve_may_have_volume()` sends bevelled, extruded
    or filled curves as tessellated meshes and keeps genuine wires as exact
    splines. This changes classic-path output for solid curves, which previously
@@ -234,10 +239,12 @@ server and no account.
   `envelope.rel_types(rel, name)`, matching what specklepy's `EnvelopeWriter`
   emits. The official `bundle-spec.sql` names that column `id` — see
   [R2](#unresolved-regressions).
-- eav folding lifts `name` and `speckle_type` onto the object; every other path,
-  including the root schema field `type`, lands in the properties dict — see
-  [R6](#unresolved-regressions). `_eav_value` prefers `value_double`, which is
-  why an int published as `42` reads back as `42.0`.
+- eav folding lifts `name` and `speckle_type` onto the object; only paths under
+  the `properties.` prefix land in the user-properties dict, and every other
+  bare root scalar (`type`, plus whatever another producer writes) goes to the
+  internal `root_fields` dict, which the bake never restores as a user custom
+  property (was R6). `_eav_value` prefers `value_double`, which is why an int
+  published as `42` reads back as `42.0`.
 - The root is the parentless `CONTAINER(Collection)` with the lowest node id —
   by subtype and deterministically, never by row order. A cross-producer bundle
   holds several parentless containers at once (each model, system and top-level
@@ -290,9 +297,12 @@ parenting can resolve both ends.
   placeholder — and the per-type tally is printed. An object with no geometry at
   all (a metaball sibling) becomes an Empty that still carries its properties.
 - Placements honour `instance_loading_mode`: `INSTANCE_PROXIES` creates a
-  collection-instance empty; `LINKED_DUPLICATES` copies each member and parents
-  the copies to an empty — currently linking them to the scene root, which is
-  [R3](#unresolved-regressions).
+  collection-instance empty; `LINKED_DUPLICATES` expands the placement into a
+  plain empty plus real copies of the members, applied recursively — a nested
+  placement is rebuilt as an expanded empty rather than copied, so no
+  collection instance survives the mode. `_bake_placement` returns every object
+  it creates (primary first, like `_bake_object`) and the caller links them all
+  into the target collection, so nothing lands in the scene root (formerly R3).
 
 ### Fallback and error behaviour
 
@@ -447,10 +457,16 @@ reproductions and suggested fixes are in
 | --- | --- | --- | --- |
 | R1 | Critical | Packaging | Locked `specklepy 2026.6.0` has no bundle API, so the migration is inactive in a production-like install ([Packaging](#packaging-requirements)) |
 | R2 | Critical | Interoperability | specklepy's producer emits `rel_types(rel)` / `node_kinds(kind)` and non-exclusive EAV value columns, where `bundle-spec.sql` specifies `id` and exactly-one-value. The Blender reader follows its producer, so both sides stamp `schema_version = 5` while diverging from the spec — undetectable from the version number. Fix belongs upstream in specklepy, with the reader following. |
-| R3 | High | Receive | `LINKED_DUPLICATES` links copied members to `bpy.context.scene.collection` instead of the target collection, and `_build_definitions` always creates instancing empties for nested placements regardless of mode |
 | R5 | High | Scalability | Artifact downloads buffer each whole parquet file in memory (`response.content`), so a sharded geometry file can need ~1.5 GiB of headroom per download |
-| R6 | Medium | Receive | Root schema fields other than `name`/`speckle_type` — notably `type` — are restored as user custom properties, indistinguishable from authored data |
 | R7 | Medium | Error handling | Non-404 probe failures (auth, 5xx, transport, bad JSON) fall back to a receive path that provably cannot serve a bundle version, surfacing later as an unrelated object 404 |
+
+R3 (linked-duplicate copies escaping to the scene root; nested placements
+staying instanced regardless of mode) was resolved on this branch (ENG-9025):
+placements return every created object for the caller to link, nested
+placements expand recursively under `LINKED_DUPLICATES`, and `EXPECT_RECEIVE`
+round-trip assertions in the `collection_instances` and `nested_instances`
+fixtures pin both loading modes. The ID stays retired so the report's numbering
+holds.
 
 R4 (cross-connector CONTAINER axes, ENG-9026) is resolved: `subtype` is read,
 all four membership relations bake to the documented mapping above, and the

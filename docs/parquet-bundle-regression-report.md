@@ -31,10 +31,10 @@ large-file download risks.
 | --- | --- | --- | --- |
 | R1 | Critical | Packaging | Locked `specklepy` has no bundle API; migration is inactive in a production-like install |
 | R2 | Critical | Interoperability | Producer and reader use catalog schemas that do not match bundle-spec v5 |
-| R3 | High | Receive | `LINKED_DUPLICATES` leaks children into the scene root and retains nested collection instances |
+| R3 | High | Receive | **Resolved (ENG-9025)** — `LINKED_DUPLICATES` leaked children into the scene root and retained nested collection instances |
 | R4 | High | Receive | **Resolved** (ENG-9026) — all CONTAINER subtypes are read and each membership axis bakes to a documented mapping |
 | R5 | High | Scalability | Every parquet artifact is buffered completely in memory before it is written |
-| R6 | Medium | Receive | Root schema fields are restored as user custom properties |
+| R6 | Medium | Receive | ~~Root schema fields are restored as user custom properties~~ **Resolved** (ENG-9027) |
 | R7 | Medium | Error handling | Non-404 artifact probe failures silently fall back to a receive path known to fail for bundle versions |
 | R8 | Medium | Documentation | The migration document no longer describes the branch that will be reviewed or released |
 
@@ -120,6 +120,13 @@ Required action:
    and reader cannot drift together unnoticed.
 
 ### R3 — High: linked-duplicate receive escapes the imported model collection
+
+**Resolved (ENG-9025).** `_bake_placement` now returns every object it creates
+and the caller links them into the target collection; nested placements are
+expanded recursively under `LINKED_DUPLICATES` instead of being copied as
+instancing empties. `EXPECT_RECEIVE` assertions in `collection_instances` and
+`nested_instances` pin top-level and nested behaviour for both loading modes.
+The original report follows.
 
 In `bundle_to_native.py:866-874`, the placement parent is returned to the caller
 and linked to the imported target collection, but each copied definition member
@@ -228,6 +235,15 @@ Other producers' root EAV fields would leak the same way.
 
 Required action: lift all recognized root fields into typed attributes and only
 round-trip paths beginning with `properties.`.
+
+**Resolved** (ENG-9027): `_read_properties` now routes only `properties.*`
+paths into `BundleObject.properties`; every other root scalar goes to an
+internal `root_fields` dict that the bake never restores. On the publish side
+`extract_custom_properties` skips `applicationId`/`speckle_type` (both receive
+paths bake those deliberately), so a receive-and-republish cycle introduces no
+new user properties. Pinned by the `receive_properties` /
+`receive_root_fields` expectations in the `cube_with_props` fixture, which
+also injects synthetic cross-producer root fields.
 
 ### R7 — Medium: artifact probe errors are masked by classic fallback
 

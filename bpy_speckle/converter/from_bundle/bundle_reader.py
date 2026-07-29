@@ -103,8 +103,14 @@ class BundleObject:
     application_id: str
     name: Optional[str] = None
     speckle_type: Optional[str] = None
-    # user properties, keyed by their flattened eav path ("properties.foo.bar")
+    # user properties, keyed by their flattened eav path ("properties.foo.bar").
+    # Only paths under the "properties." prefix land here — this dict is what a
+    # bake restores as user custom properties, nothing else.
     properties: Dict[str, Any] = field(default_factory=dict)
+    # bare root scalars other than name/speckle_type ("type", plus whatever
+    # another producer writes). Internal schema state: kept for diagnostics and
+    # cross-connector consumers, never baked as user custom properties.
+    root_fields: Dict[str, Any] = field(default_factory=dict)
     # DISPLAY targets in ord order
     geometry_ks: List[int] = field(default_factory=list)
     # the CONTAINER(Collection) this object sits in, via IN_COLLECTION
@@ -392,16 +398,14 @@ def _read_relations(
 def _read_properties(bundle_dir: str, by_k: Dict[int, BundleObject]) -> None:
     """Fold the eav rows back onto their objects.
 
-    ``name`` and ``speckle_type`` are lifted onto the object; everything else
-    stays in the dict.
-
-    Only paths under the ``properties.`` prefix are genuinely user data, but the
-    producer also writes bare root scalars (``type``, ``applicationId``, and
-    whatever other producers put there), and those currently land in the dict
-    too — so a bake cannot tell the schema field ``type`` from an authored
-    custom property of the same name. Fixing that means lifting every recognised
-    root field into a typed attribute and round-tripping only ``properties.*``;
-    see R6 in ``docs/parquet-bundle-regression-report.md``.
+    Only paths under the ``properties.`` prefix are user data. ``name`` and
+    ``speckle_type`` are lifted onto the object; every other bare root scalar
+    (``type``, plus whatever another producer writes) goes to ``root_fields``,
+    which a bake never restores as user custom properties — otherwise the
+    schema field ``type`` would be indistinguishable from an authored custom
+    property of the same name, and a receive-and-republish cycle would mint
+    properties the user never wrote (was R6 in
+    ``docs/parquet-bundle-regression-report.md``).
     """
     paths = _read(bundle_dir, "eav.paths") or {"path_index": [], "path": []}
     path_name = dict(zip(paths["path_index"], paths["path"]))
@@ -422,5 +426,7 @@ def _read_properties(bundle_dir: str, by_k: Dict[int, BundleObject]) -> None:
             obj.name = value
         elif path == "speckle_type":
             obj.speckle_type = value
-        else:
+        elif path.startswith("properties."):
             obj.properties[path] = value
+        else:
+            obj.root_fields[path] = value
