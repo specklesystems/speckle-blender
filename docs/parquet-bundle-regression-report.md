@@ -1,9 +1,9 @@
 # Parquet bundle migration regression report
 
-Date: 2026-07-29  
-Branch: `bilal/parquet-bundle-migration` at `fb5ec985c464`  
-Baseline: `main` at `cc2466dec050`  
-Diff basis: `git diff main...HEAD` (the merge-base is the same `main` commit)  
+Date: 2026-07-29
+Branch: `bilal/parquet-bundle-migration` at `fb5ec985c464`
+Baseline: `main` at `cc2466dec050`
+Diff basis: `git diff main...HEAD` (the merge-base is the same `main` commit)
 Bundle specification reviewed: local `speckle-bundle-spec` `main` at
 `2af96ef`; the catalog contract was also checked against the locally available
 `origin/main` at `93fa141` and is unchanged for the findings below.
@@ -31,7 +31,7 @@ large-file download risks.
 | --- | --- | --- | --- |
 | R1 | Critical | Packaging | Locked `specklepy` has no bundle API; migration is inactive in a production-like install |
 | R2 | Critical | Interoperability | Producer and reader use catalog schemas that do not match bundle-spec v5 |
-| R3 | High | Receive | `LINKED_DUPLICATES` leaks children into the scene root and retains nested collection instances |
+| R3 | High | Receive | **Resolved (ENG-9025)** — `LINKED_DUPLICATES` leaked children into the scene root and retained nested collection instances |
 | R4 | High | Receive | All CONTAINER subtypes are treated as collections, while non-collection membership axes are ignored |
 | R5 | High | Scalability | Every parquet artifact is buffered completely in memory before it is written |
 | R6 | Medium | Receive | Root schema fields are restored as user custom properties |
@@ -120,6 +120,13 @@ Required action:
    and reader cannot drift together unnoticed.
 
 ### R3 — High: linked-duplicate receive escapes the imported model collection
+
+**Resolved (ENG-9025).** `_bake_placement` now returns every object it creates
+and the caller links them into the target collection; nested placements are
+expanded recursively under `LINKED_DUPLICATES` instead of being copied as
+instancing empties. `EXPECT_RECEIVE` assertions in `collection_instances` and
+`nested_instances` pin top-level and nested behaviour for both loading modes.
+The original report follows.
 
 In `bundle_to_native.py:866-874`, the placement parent is returned to the caller
 and linked to the imported target collection, but each copied definition member

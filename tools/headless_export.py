@@ -151,17 +151,33 @@ def main() -> int:
     print(inspect_bundle.format_report(summary))
 
     expect = getattr(fixture, "EXPECT", None) if fixture else None
-    if not expect:
+    failures = list(inspect_bundle.check(summary, expect)) if expect else []
+
+    # EXPECT_RECEIVE round-trips the bundle back through the receive bake, once
+    # per instance loading mode — the same parquet the publish check just read.
+    expect_receive = getattr(fixture, "EXPECT_RECEIVE", None) if fixture else None
+    if expect_receive:
+        import receive_probe
+
+        for mode in sorted(expect_receive):
+            facts = receive_probe.bake_and_probe(out_dir, mode)
+            print(receive_probe.format_report(mode, facts))
+            failures += [
+                f"receive[{mode}]: {failure}"
+                for failure in receive_probe.check(facts, expect_receive[mode])
+            ]
+
+    if not expect and not expect_receive:
         print(f"\n(no EXPECT block — report only)  re-inspect: {out_dir}")
         return 0
 
-    failures = inspect_bundle.check(summary, expect)
     if failures:
         print(f"\nFAIL {label}")
         for failure in failures:
             print(f"  - {failure}")
         return 1
-    print(f"\nPASS {label} ({len(expect)} expectation groups)")
+    groups = len(expect or {}) + sum(len(v) for v in (expect_receive or {}).values())
+    print(f"\nPASS {label} ({groups} expectation groups)")
     return 0
 
 

@@ -624,10 +624,9 @@ def bake_bundle(
         target = collections.get(obj.collection_id, root_collection)
 
         if obj.is_placement:
-            placement = _bake_placement(
+            built = _bake_placement(
                 obj, bundle, definition_collections, instance_loading_mode
             )
-            built = [placement] if placement is not None else []
         else:
             built = _bake_object(obj, bundle, materials, result)
 
@@ -847,37 +846,79 @@ def _bake_placement(
     bundle: ReceivedBundle,
     definition_collections: Dict[int, bpy.types.Collection],
     instance_loading_mode: str,
-) -> Optional[bpy.types.Object]:
+) -> List[bpy.types.Object]:
     """A collection instance: an empty pointing at the definition's collection.
 
     The publish side removed the collection's ``instance_offset`` from the
     placement transform and baked each member's ``matrix_world`` as
     definition-local geometry, so the transform applies here with no pivot
     correction — Blender's own offset is zero on a collection we created.
+
+    Returns the objects to link, primary first, like ``_bake_object`` — the
+    caller owns collection membership, so linked-duplicate copies land in the
+    model's collection alongside their parent rather than in the scene root.
     """
     instance = bundle.instances.get(obj.instance_id or -1)
     if instance is None or instance.def_ref is None:
-        return None
+        return []
     definition = definition_collections.get(instance.def_ref)
     if definition is None:
-        return None
+        return []
 
     name = obj.name or obj.application_id
+    matrix = _placement_matrix(instance.transform, instance.units)
     if instance_loading_mode == "LINKED_DUPLICATES":
-        # bake a real copy per member instead of one instancing empty
-        parent = bpy.data.objects.new(name, None)
-        parent.matrix_world = _placement_matrix(instance.transform, instance.units)
-        for member in definition.objects:
-            copy = member.copy()
-            copy.parent = parent
-            bpy.context.scene.collection.objects.link(copy)
-        return parent
+        return _duplicate_definition(name, definition, matrix, frozenset())
 
     empty = bpy.data.objects.new(name, None)
     empty.instance_type = "COLLECTION"
     empty.instance_collection = definition
-    empty.matrix_world = _placement_matrix(instance.transform, instance.units)
-    return empty
+    empty.matrix_world = matrix
+    return [empty]
+
+
+def _duplicate_definition(
+    name: str,
+    definition: bpy.types.Collection,
+    matrix: Matrix,
+    expanding: frozenset,
+) -> List[bpy.types.Object]:
+    """Expand one placement into a parent empty plus copies of the members.
+
+    A copy shares its member's data-block — that is the "linked" in linked
+    duplicates. A nested placement is the one member that must NOT be copied
+    as-is: the copy would still be a COLLECTION-instance empty, leaving the
+    nesting instanced when the user asked for editable objects. It is rebuilt
+    instead as a plain empty whose children are themselves expanded copies, so
+    the mode holds all the way down.
+
+    ``expanding`` carries the definitions on the current expansion stack; a
+    self-referential bundle (impossible from a real publisher, cheap to guard)
+    stops instead of recursing forever.
+
+    Transforms parent-chain: matrices here are definition-local ``matrix_basis``
+    values, and only the outermost call passes a world-space placement — its
+    empty has no parent, so basis and world coincide.
+    """
+    parent = bpy.data.objects.new(name, None)
+    parent.matrix_basis = matrix
+    built = [parent]
+    if definition.name in expanding:
+        return built
+    expanding = expanding | {definition.name}
+
+    for member in definition.objects:
+        if member.instance_type == "COLLECTION" and member.instance_collection:
+            children = _duplicate_definition(
+                member.name, member.instance_collection, member.matrix_basis, expanding
+            )
+            children[0].parent = parent
+            built.extend(children)
+        else:
+            copy = member.copy()
+            copy.parent = parent
+            built.append(copy)
+    return built
 
 
 def _parent_subelements(bundle: ReceivedBundle, result: BakeResult) -> None:

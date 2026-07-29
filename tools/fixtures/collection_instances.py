@@ -122,3 +122,62 @@ EXPECT = {
         "GadgetCube": "Gadget",
     },
 }
+
+# Round-trip: the bundle above, received back through bake_bundle. Two things
+# these pins guard (ENG-9025): linked-duplicate copies must land inside the
+# received model's collection — never in Scene Collection, where deleting the
+# model would orphan them — and INSTANCE_PROXIES must stay untouched by that
+# fix. Definition members are synthesized as "<definition>.<ordinal>" on
+# receive (their original names never reach the bundle), so a copy of
+# Widget's member arrives as "Widget.001".
+#
+# WidgetCube appearing as a shapeless empty at the origin is a pre-existing
+# wart, pinned so a change to it is loud: a definition-only member's
+# properties row has no DISPLAY edge, and the properties-only bake path
+# (meant for metaball siblings) gives it an empty.
+EXPECT_RECEIVE = {
+    "INSTANCE_PROXIES": {
+        "collections": ["Gadget", "Received", "Scene Collection"],
+        "object_collections": {
+            "GadgetCube": ["Gadget"],
+            "PlacementA": ["Received"],
+            "PlacementB": ["Received"],
+            "PlacementC": ["Received"],
+            "WidgetCube": ["Received"],
+        },
+        "collection_instances": ["PlacementA", "PlacementB", "PlacementC"],
+        "translations": {
+            "PlacementA": [9.0, 0.0, 0.0],
+            "PlacementB": [-1.0, 20.0, 0.0],
+            "PlacementC": [0.0, 0.0, 30.0],
+        },
+    },
+    "LINKED_DUPLICATES": {
+        "collections": ["Gadget", "Received", "Scene Collection"],
+        "object_collections": {
+            "Gadget.001": ["Received"],
+            "GadgetCube": ["Gadget"],
+            "PlacementA": ["Received"],
+            "PlacementB": ["Received"],
+            "PlacementC": ["Received"],
+            "Widget.001": ["Received"],
+            "Widget.002": ["Received"],
+            "WidgetCube": ["Received"],
+        },
+        # fully de-instanced: every placement became an empty with real copies
+        "collection_instances": [],
+        "parents": {
+            "Widget.001": "PlacementA",
+            "Widget.002": "PlacementB",
+            "Gadget.001": "PlacementC",
+        },
+        # copies inherit the placement's pivot-corrected position: the member
+        # geometry is definition-local at the origin, so each copy sits exactly
+        # where its placement empty does
+        "translations": {
+            "Widget.001": [9.0, 0.0, 0.0],
+            "Widget.002": [-1.0, 20.0, 0.0],
+            "Gadget.001": [0.0, 0.0, 30.0],
+        },
+    },
+}

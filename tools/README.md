@@ -77,6 +77,29 @@ additions.
 | `eav_paths` | property paths that must exist |
 | `properties` | `{object_name: {path: value}}`, subset |
 
+### EXPECT_RECEIVE keys
+
+A fixture may also declare `EXPECT_RECEIVE`, keyed by instance loading mode
+(`INSTANCE_PROXIES`, `LINKED_DUPLICATES`). For each mode the harness receives
+the just-exported bundle back into a fresh empty scene through `read_bundle` +
+`bake_bundle` — the same code `load_operation` runs after downloading — and
+asserts on what the user would see in the outliner. Only scene-reachable
+objects are described; definition "library" collections stay invisible, as they
+do in Blender.
+
+| key | meaning |
+| --- | --- |
+| `collections` | exact set of scene-reachable collection names (root included) |
+| `object_collections` | exact `{object_name: [collection names]}` for every scene object |
+| `collection_instances` | exact set of objects still instancing a collection |
+| `parents` | `{child: parent_name}`, subset |
+| `translations` | `{object_name: [x, y, z]}` world position, subset, 3 decimals |
+
+Structure keys are exact on purpose: an object escaping to Scene Collection is
+an *extra* entry, which a subset check would wave through. Receive names are
+synthetic — a definition member arrives as `<definition>.<ordinal>` and copies
+pick up Blender's `.001` dedup suffixes, deterministic in a fresh scene.
+
 Three things worth knowing when writing expectations:
 
 - **Collection parentage is not a relation.** A `CONTAINER` node's `def_ref`
@@ -99,7 +122,9 @@ Three things worth knowing when writing expectations:
 - Assertions only catch what a fixture thought to check. There are no committed
   golden snapshots, by choice — the bundle format is still moving on this
   branch and goldens would go red on every intentional change.
-- Nothing here tests the receive path, the upload, or the UI operators.
+- Receive coverage stops at the bake: `EXPECT_RECEIVE` exercises `read_bundle`
+  + `bake_bundle` on the local files, not the artifact probe, the download, or
+  the UI operators.
 - `--factory-startup` means user preferences are skipped and `sys.path` is
   ordered so `import bpy_speckle` resolves to the working tree rather than the
   symlinked add-on install.
