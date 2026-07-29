@@ -9,6 +9,7 @@ from ..utils.account_manager import (
     get_active_workspace,
     get_account_from_id,
 )
+from ..utils.config_store import set_user_selected_account_id
 from ..utils.project_manager import get_projects_for_account
 from ..ui.project_selection_dialog import speckle_project
 from ..utils.dialog import DIALOG_WIDTH
@@ -105,6 +106,7 @@ class SPECKLE_OT_account_selection_dialog(bpy.types.Operator):
         # update the selected account id
         account = get_account_from_id(wm.speckle_accounts[self.account_index].id)
         wm.selected_account_id = account.id
+        set_user_selected_account_id(account.id)
         self.report(
             {"INFO"},
             f"Selected account: {account.userInfo.name} - {account.userInfo.email} - {account.serverInfo.url}",

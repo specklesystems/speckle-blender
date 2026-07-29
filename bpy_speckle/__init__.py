@@ -90,7 +90,7 @@ from .connector.blender_operators.version_check import SPECKLE_OT_version_check
 from .connector.blender_operators.update_button import SPECKLE_OT_update_button
 from .connector.utils.account_manager import (
     speckle_account,
-    get_default_account_id,
+    get_startup_account_id,
     _client_cache,
 )
 
@@ -215,16 +215,14 @@ def register():
 
     invoke_window_manager_properties()
 
-    # Pre-warm client cache for default account
+    # Pre-warm client cache for the account the UI will pre-select
     try:
-        default_account_id = get_default_account_id()
-        if default_account_id:
+        startup_account_id = get_startup_account_id()
+        if startup_account_id and startup_account_id != "NO_ACCOUNTS":
+            print(f"[Speckle] Pre-warming client for account: {startup_account_id}")
+            _client_cache.get_client(startup_account_id)
             print(
-                f"[Speckle] Pre-warming client for default account: {default_account_id}"
-            )
-            _client_cache.get_client(default_account_id)
-            print(
-                f"[Speckle] Client pre-warming complete for account: {default_account_id}"
+                f"[Speckle] Client pre-warming complete for account: {startup_account_id}"
             )
     except Exception as e:
         print(f"[Speckle] Failed to pre-warm client: {e}")

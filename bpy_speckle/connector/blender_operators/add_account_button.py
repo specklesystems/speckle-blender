@@ -138,6 +138,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
 
             # Import account management functions
             from ..utils.account_manager import get_account_enum_items, _client_cache
+            from ..utils.config_store import set_user_selected_account_id
             from ..ui.account_selection_dialog import (
                 update_workspaces_list,
                 update_projects_list,
@@ -150,6 +151,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
 
                 # Set as selected account
                 context.window_manager.selected_account_id = new_account_id
+                set_user_selected_account_id(new_account_id)
 
                 # Clear client cache to force re-authentication
                 _client_cache.clear()

@@ -4,7 +4,7 @@ from typing import List, Tuple
 from ..utils.account_manager import (
     can_create_project_in_workspace,
     get_active_workspace,
-    get_default_account_id,
+    get_startup_account_id,
     get_account_from_id,
 )
 from ..utils.project_manager import get_projects_for_account
@@ -132,7 +132,7 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
         wm.speckle_projects.clear()
 
         if wm.selected_account_id == "":
-            wm.selected_account_id = get_default_account_id()
+            wm.selected_account_id = get_startup_account_id()
 
         active_workspace = get_active_workspace(wm.selected_account_id)
         if active_workspace:

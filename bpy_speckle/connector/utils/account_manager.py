@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from specklepy.core.api.credentials import Account
 from specklepy.core.api.client import SpeckleClient
 from specklepy.core.api.wrapper import StreamWrapper
+from .config_store import get_user_selected_account_id
 from .misc import strip_non_ascii
 
 
@@ -124,6 +125,19 @@ def get_default_account_id() -> Optional[str]:
     return next(
         (acc.id for acc in get_local_accounts() if acc.isDefault), "NO_ACCOUNTS"
     )
+
+
+def get_startup_account_id() -> Optional[str]:
+    """
+    retrieves the account to pre-select when the UI first needs one:
+    the machine-wide last selected account (shared with the other
+    connectors via DUI3Config), falling back to the default account
+    when nothing was persisted or the account no longer exists
+    """
+    persisted_id = get_user_selected_account_id()
+    if persisted_id and any(acc.id == persisted_id for acc in get_local_accounts()):
+        return persisted_id
+    return get_default_account_id()
 
 
 def get_server_url_by_account_id(account_id: str) -> Optional[str]:
