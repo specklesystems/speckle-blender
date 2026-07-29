@@ -27,10 +27,12 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
 import bpy  # noqa: E402
 
 from test_bundle_reader import (  # noqa: E402
+    DISPLAY_INSTANCE,
     IN_COLLECTION,
     IN_GROUP,
     IN_MODEL,
     IN_SYSTEM,
+    SUBELEMENT,
     write_bundle,
 )
 
@@ -58,6 +60,10 @@ def children(collection) -> set:
 
 def homes(result, application_id: str) -> set:
     return {c.name for c in result.objects[application_id].users_collection}
+
+
+def translation(x: float, y: float, z: float) -> str:
+    return f"1,0,0,{x},0,1,0,{y},0,0,1,{z},0,0,0,1"
 
 
 def navis_federation() -> None:
@@ -180,12 +186,54 @@ def revit_parameter_paths_bake_as_groups() -> None:
     )
 
 
+def revit_subelement_parenting_preserves_world_transform() -> None:
+    """Hierarchy metadata must not reinterpret absolute Revit placements.
+
+    Revit family subelements are independent INSTANCE nodes whose transforms
+    are already world-space. Reconstructing the SUBELEMENT hierarchy in Blender
+    must preserve that world transform rather than applying the parent's
+    placement a second time.
+    """
+    result = bake(
+        containers=[],
+        objects=["window", "frame", "metadata"],
+        definitions=[(1, "window-definition"), (3, "frame-definition")],
+        instances=[
+            (2, 1, translation(20, 30, 0), "m"),
+            (4, 3, translation(20, 31, 2), "m"),
+        ],
+        relations=[
+            (DISPLAY_INSTANCE, 0, 2),
+            (DISPLAY_INSTANCE, 1, 4),
+            (SUBELEMENT, 0, 1),
+            (SUBELEMENT, 0, 2),
+        ],
+    )
+    bpy.context.view_layer.update()
+
+    window = result.objects["window"]
+    frame = result.objects["frame"]
+    metadata = result.objects["metadata"]
+    check(frame.parent is window, "SUBELEMENT hierarchy must be reconstructed")
+    check(
+        tuple(round(v, 6) for v in frame.matrix_world.translation) == (20.0, 31.0, 2.0),
+        f"frame world transform must survive parenting, got {frame.matrix_world.translation}",
+    )
+    check(metadata.parent is window, "properties-only subelement must be parented")
+    check(
+        tuple(round(v, 6) for v in metadata.matrix_world.translation)
+        == (20.0, 30.0, 0.0),
+        "properties-only subelement must remain identity-local to its owner",
+    )
+
+
 SCENARIOS = [
     navis_federation,
     single_model_maps_onto_root,
     rhino_groups_beside_layers,
     unknown_subtype_is_surfaced_not_baked,
     revit_parameter_paths_bake_as_groups,
+    revit_subelement_parenting_preserves_world_transform,
 ]
 
 

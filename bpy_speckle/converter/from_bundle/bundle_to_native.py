@@ -1151,11 +1151,13 @@ def _duplicate_definition(
 def _parent_subelements(bundle: ReceivedBundle, result: BakeResult) -> None:
     """Re-establish SUBELEMENT parenting once every object exists.
 
-    Only metaball families use this today: the basis owns the merged blob and
-    its siblings hang off it carrying properties only. Parenting is set with
-    ``matrix_parent_inverse`` left at identity because the children have no
-    geometry to displace.
+    Revit family subelements with geometry can be independent placements whose
+    matrices are already world-space, so assigning a parent must not apply the
+    parent's placement a second time. Properties-only siblings have no spatial
+    placement of their own and remain identity-local so they follow their owner,
+    matching the original metaball-family behaviour.
     """
+    objects_by_id = bundle.objects_by_id()
     for obj in bundle.objects:
         if not obj.subelement_ids:
             continue
@@ -1165,4 +1167,13 @@ def _parent_subelements(bundle: ReceivedBundle, result: BakeResult) -> None:
         for child_id in obj.subelement_ids:
             child = result.objects.get(child_id)
             if child is not None and child is not parent:
+                child_obj = objects_by_id.get(child_id)
+                world_matrix = (
+                    child.matrix_world.copy()
+                    if child_obj
+                    and (child_obj.is_placement or child_obj.geometry_ks)
+                    else None
+                )
                 child.parent = parent
+                if world_matrix is not None:
+                    child.matrix_world = world_matrix

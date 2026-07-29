@@ -36,9 +36,10 @@ _spec.loader.exec_module(bundle_reader)
 
 # rel/kind ids as catalogued in the bundle spec's rel_types / node_kinds
 DEFINITION, INSTANCE, CONTAINER = 1, 2, 7
-DEFINES, DISPLAY_INSTANCE = 4, 8
+SUBELEMENT, DEFINES, DISPLAY_INSTANCE = 3, 4, 8
 IN_COLLECTION, IN_MODEL, IN_SYSTEM, IN_GROUP = 10, 11, 14, 17
 REL_NAMES = {
+    SUBELEMENT: "SUBELEMENT",
     DEFINES: "DEFINES",
     DISPLAY_INSTANCE: "DISPLAY_INSTANCE",
     IN_COLLECTION: "IN_COLLECTION",
