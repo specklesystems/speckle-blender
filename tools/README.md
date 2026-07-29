@@ -12,6 +12,15 @@ tools/run_fixture.sh --blend ~/scenes/x.blend --objects Cube,Sphere
 python tools/inspect_bundle.py <bundle_dir>   # re-read a bundle later
 ```
 
+The receive path is tested separately, against synthetic bundles (see
+[Receive tests](#receive-tests)):
+
+```bash
+uv run python tools/test_bundle_reader.py     # parquet -> dataclasses, no Blender
+/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup \
+  -noaudio --python tools/test_bundle_bake.py # dataclasses -> Outliner shape
+```
+
 Exits nonzero when conversion fails or an expectation is unmet.
 
 ## Why this works
@@ -99,7 +108,31 @@ Three things worth knowing when writing expectations:
 - Assertions only catch what a fixture thought to check. There are no committed
   golden snapshots, by choice — the bundle format is still moving on this
   branch and goldens would go red on every intentional change.
-- Nothing here tests the receive path, the upload, or the UI operators.
+- The fixtures test publish only; the upload and the UI operators are untested
+  everywhere. The receive path has its own tests below.
 - `--factory-startup` means user preferences are skipped and `sys.path` is
   ordered so `import bpy_speckle` resolves to the working tree rather than the
   symlinked add-on install.
+
+## Receive tests
+
+The fixtures above can only make Blender-shaped bundles — one authored
+collection tree, nothing else. Cross-connector receive regressions live exactly
+in the shapes Blender never writes (multiple parentless CONTAINER axes,
+`IN_MODEL`/`IN_SYSTEM`/`IN_GROUP` membership, adversarial node row order), so
+those bundles are fabricated table-by-table with pyarrow instead:
+
+- `test_bundle_reader.py` asserts on what `bundle_reader` joins back — root
+  selection, subtype survival, per-axis membership. It runs in the repo venv
+  (`uv run`) with no Blender, which is the point of keeping `bundle_reader`
+  free of `bpy`.
+- `test_bundle_bake.py` pushes the same shapes through the real
+  `read_bundle -> bake_bundle` receive inside headless Blender and asserts the
+  Outliner shape: model tier, `Groups`/`Systems` branches, additive
+  multi-linking, unknown-subtype tally. Objects carry no geometry on purpose —
+  a geometry-less object bakes to a real (shapeless) Blender object, which is
+  all placement assertions need.
+
+Both exit nonzero on failure. What they cannot cover: whether a *real*
+Revit/Navisworks producer writes what the synthetic tables assume — that check
+stays manual, once per feature, against a server-published bundle.

@@ -63,6 +63,16 @@ tools/run_fixture.sh --blend ~/scenes/test.blend  # a real file, report only
 python tools/inspect_bundle.py <bundle_dir>       # re-read a bundle
 ```
 
+The receive path has its own synthetic-bundle tests, built with pyarrow because
+the publish harness can only produce Blender-shaped bundles — cross-connector
+shapes (models, systems, groups, adversarial row order) have to be fabricated:
+
+```bash
+uv run python tools/test_bundle_reader.py         # reader joins, no Blender needed
+/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup \
+  -noaudio --python tools/test_bundle_bake.py     # bake -> Outliner shape
+```
+
 **This is a local development tool by deliberate choice. Do not add it to
 `.github/workflows/`.** PR CI runs pre-commit (ruff) only, and should stay that
 way; the bundle format is still moving and CI assertions would churn. Ruff does
@@ -176,6 +186,20 @@ Three modules, split so most of it runs without Blender:
   fixtures, wrong for a real model.)
 - The published root CONTAINER maps *onto* the caller's root collection rather
   than nesting inside it, so a load does not add a redundant folder level.
+- **CONTAINER is polymorphic and each subtype is its own grouping axis.**
+  `subtype` (`Collection` | `Model` | `MEP System` | `Network` | `Group`)
+  discriminates; membership comes via `IN_COLLECTION`/`IN_MODEL` (scalar) and
+  `IN_SYSTEM`/`IN_GROUP` (accumulating — systems and groups overlap by design).
+  The root is the parentless `CONTAINER(Collection)` with the lowest node id,
+  **never** "first parentless row": a cross-producer bundle roots every axis, so
+  row order would crown a random model or system. The bake maps models to the
+  outermost tier (>1) or onto the root (1), and parks groups/systems under
+  `Groups`/`Systems` branches that objects multi-link into; unknown subtypes are
+  tallied, not baked as empty folders. Full contract in
+  `docs/parquet-bundle-migration.md` ("Container axes map per subtype").
+  Cross-connector shapes are tested by `tools/test_bundle_reader.py` (no
+  Blender) and `tools/test_bundle_bake.py` (headless Blender) — the publish
+  harness cannot produce them.
 
 ## Bundle gotchas
 

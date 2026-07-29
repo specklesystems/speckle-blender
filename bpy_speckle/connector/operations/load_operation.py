@@ -104,6 +104,12 @@ def _try_load_bundle(
         )
     for app_id, error in result.decode_errors:
         print(f"[Speckle] Could not decode geometry for '{app_id}': {error}")
+    if result.unmapped_containers:
+        summary = ", ".join(
+            f"{count} {subtype}"
+            for subtype, count in result.unmapped_containers.items()
+        )
+        print(f"[Speckle] Grouping not yet mapped on the bundle load path: {summary}")
 
     print(f"\nLoad process completed. Imported {len(result.objects)} objects.")
     for area in context.screen.areas:

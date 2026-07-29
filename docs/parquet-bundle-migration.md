@@ -220,9 +220,16 @@ server and no account.
   object→geometry while `IN_COLLECTION` is object→node. Resolving an edge against
   the wrong table yields a plausible-looking wrong answer rather than an error,
   so every lookup goes through its own dict.
-- Relations resolved: `DISPLAY`, `IN_COLLECTION`, `DISPLAY_INSTANCE`,
-  `SUBELEMENT`, `DEFINES`, `DEFINES_INSTANCE`, `HAS_MATERIAL`. Everything else
-  in the v5 vocabulary is ignored — see [R4](#unresolved-regressions).
+- Relations resolved: `DISPLAY`, `IN_COLLECTION`, `IN_MODEL`, `IN_SYSTEM`,
+  `IN_GROUP`, `DISPLAY_INSTANCE`, `SUBELEMENT`, `DEFINES`, `DEFINES_INSTANCE`,
+  `HAS_MATERIAL`. Still ignored from the v5 vocabulary: `HAS_COLOR`, `ON_LEVEL`,
+  `IN_ROOM`, `CONNECTS_TO`, `BOUNDS`.
+- `CONTAINER` is **polymorphic** — `subtype` (`Collection` | `Model` |
+  `MEP System` | `Network` | `Group`) picks the grouping axis, and each axis has
+  its own membership relation. `IN_COLLECTION`/`IN_MODEL` are scalar on the
+  object; `IN_SYSTEM`/`IN_GROUP` accumulate, because systems and groups overlap
+  by design. A missing `subtype` column (pre-polymorphism bundle) reads as
+  authored collections, which is what those bundles were.
 - Catalog columns read are `envelope.node_kinds(kind, name)` and
   `envelope.rel_types(rel, name)`, matching what specklepy's `EnvelopeWriter`
   emits. The official `bundle-spec.sql` names that column `id` — see
@@ -231,7 +238,12 @@ server and no account.
   including the root schema field `type`, lands in the properties dict — see
   [R6](#unresolved-regressions). `_eav_value` prefers `value_double`, which is
   why an int published as `42` reads back as `42.0`.
-- The root collection is chosen as the first `CONTAINER` with no parent.
+- The root is the parentless `CONTAINER(Collection)` with the lowest node id —
+  by subtype and deterministically, never by row order. A cross-producer bundle
+  holds several parentless containers at once (each model, system and top-level
+  group roots its own axis), so "first parentless row" would crown whichever
+  axis the producer happened to write first. `None` when the bundle has no
+  authored collections at all, e.g. a bare Navis federation.
 
 ### Direct bake
 
@@ -248,6 +260,23 @@ parenting can resolve both ends.
 
 - The published root CONTAINER maps *onto* the caller's root collection rather
   than nesting inside it, so a load does not add a redundant folder level.
+- **Container axes map per subtype** (the Outliner contract, pending product
+  approval). Blender has one grouping concept, but an object may live in many
+  collections at once — which is exactly the spec's multi-axis membership:
+  - `Collection` → the authored tree under the root, as always.
+  - `Model` → the federation tier. One model maps onto the root like a lone
+    authored root does; several become the outermost tier of collections (the
+    spec's "outermost scene-view tier when >1 model").
+  - `Group` → a `Groups` branch under the root; groups nest via `def_ref` and
+    objects link in *additively*, keeping their authored collection.
+  - `MEP System` / `Network` → a `Systems` branch, likewise additive.
+  - Any other subtype is **not baked**: it is tallied on
+    `BakeResult.unmapped_containers` and printed, because an empty folder would
+    misread as "this grouping arrived intact". The `Groups`/`Systems` branches
+    only exist when their axis does, so a Blender-published bundle gains
+    nothing.
+  - An object with no resolvable collection sits in its model's tier, else at
+    the root.
 - **All 11 SGEO primitives decode.** Blender only *publishes* mesh / curve /
   polyline / points, but a Rhino or Revit bundle carries the rest.
 - Geometry types map to three data-blocks: `mesh`/`box` → Mesh, the curve family
@@ -419,10 +448,14 @@ reproductions and suggested fixes are in
 | R1 | Critical | Packaging | Locked `specklepy 2026.6.0` has no bundle API, so the migration is inactive in a production-like install ([Packaging](#packaging-requirements)) |
 | R2 | Critical | Interoperability | specklepy's producer emits `rel_types(rel)` / `node_kinds(kind)` and non-exclusive EAV value columns, where `bundle-spec.sql` specifies `id` and exactly-one-value. The Blender reader follows its producer, so both sides stamp `schema_version = 5` while diverging from the spec — undetectable from the version number. Fix belongs upstream in specklepy, with the reader following. |
 | R3 | High | Receive | `LINKED_DUPLICATES` links copied members to `bpy.context.scene.collection` instead of the target collection, and `_build_definitions` always creates instancing empties for nested placements regardless of mode |
-| R4 | High | Receive | Every `CONTAINER` is treated as a collection without reading `subtype`, only `IN_COLLECTION` is resolved, and the root is the first parentless container. A Revit/Navisworks bundle's Model/System/Network/Group containers are misread. |
 | R5 | High | Scalability | Artifact downloads buffer each whole parquet file in memory (`response.content`), so a sharded geometry file can need ~1.5 GiB of headroom per download |
 | R6 | Medium | Receive | Root schema fields other than `name`/`speckle_type` — notably `type` — are restored as user custom properties, indistinguishable from authored data |
 | R7 | Medium | Error handling | Non-404 probe failures (auth, 5xx, transport, bad JSON) fall back to a receive path that provably cannot serve a bundle version, surfacing later as an unrelated object 404 |
+
+R4 (cross-connector CONTAINER axes, ENG-9026) is resolved: `subtype` is read,
+all four membership relations bake to the documented mapping above, and the
+root is chosen by subtype. Covered by `tools/test_bundle_reader.py` and
+`tools/test_bundle_bake.py`; the id is retired, not renumbered.
 
 ## Review and release gate
 
@@ -431,8 +464,10 @@ with the classic path, also require:
 
 1. Passing asserted publish **and** receive round trips for both instance
    loading modes.
-2. One official-spec cross-producer fixture (Model/System/Network/Group
-   containers).
+2. A receive check against a **real** Revit or Navisworks bundle. The synthetic
+   multi-axis tables in `tools/test_bundle_reader.py` / `tools/test_bundle_bake.py`
+   pin the Model/System/Network/Group semantics, but only a producer-written
+   bundle validates the assumptions baked into them.
 3. Streamed artifact download coverage with a measured peak RSS.
 4. Explicit **product** acceptance of the
    [known data losses](#known-data-losses-and-approximation-limits) — in

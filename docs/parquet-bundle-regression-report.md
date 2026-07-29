@@ -1,9 +1,9 @@
 # Parquet bundle migration regression report
 
-Date: 2026-07-29  
-Branch: `bilal/parquet-bundle-migration` at `fb5ec985c464`  
-Baseline: `main` at `cc2466dec050`  
-Diff basis: `git diff main...HEAD` (the merge-base is the same `main` commit)  
+Date: 2026-07-29
+Branch: `bilal/parquet-bundle-migration` at `fb5ec985c464`
+Baseline: `main` at `cc2466dec050`
+Diff basis: `git diff main...HEAD` (the merge-base is the same `main` commit)
 Bundle specification reviewed: local `speckle-bundle-spec` `main` at
 `2af96ef`; the catalog contract was also checked against the locally available
 `origin/main` at `93fa141` and is unchanged for the findings below.
@@ -32,7 +32,7 @@ large-file download risks.
 | R1 | Critical | Packaging | Locked `specklepy` has no bundle API; migration is inactive in a production-like install |
 | R2 | Critical | Interoperability | Producer and reader use catalog schemas that do not match bundle-spec v5 |
 | R3 | High | Receive | `LINKED_DUPLICATES` leaks children into the scene root and retains nested collection instances |
-| R4 | High | Receive | All CONTAINER subtypes are treated as collections, while non-collection membership axes are ignored |
+| R4 | High | Receive | **Resolved** (ENG-9026) — all CONTAINER subtypes are read and each membership axis bakes to a documented mapping |
 | R5 | High | Scalability | Every parquet artifact is buffered completely in memory before it is written |
 | R6 | Medium | Receive | Root schema fields are restored as user custom properties |
 | R7 | Medium | Error handling | Non-404 artifact probe failures silently fall back to a receive path known to fail for bundle versions |
@@ -180,6 +180,13 @@ drop the grouping relations that actually place objects in them.
 Required action: model each grouping axis explicitly, choose the authored
 collection root by subtype/relation rather than iteration order, and define how
 non-collection axes map into Blender.
+
+**Resolved** (ENG-9026): the reader keeps `subtype` on `BundleContainer` and
+resolves all four membership relations; the root is the parentless
+`CONTAINER(Collection)` with the lowest node id; the bake maps each axis per
+the contract in `parquet-bundle-migration.md` ("Container axes map per
+subtype") and tallies unknown subtypes instead of baking empty folders.
+Covered by `tools/test_bundle_reader.py` and `tools/test_bundle_bake.py`.
 
 ### R5 — High: artifact downloads buffer whole parquet shards in RAM
 

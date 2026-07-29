@@ -48,12 +48,31 @@ class BundleMaterial:
     roughness: float
 
 
+# CONTAINER subtypes that belong to the authored collection tree. None covers
+# bundles written before the subtype column existed, which were all collections.
+_COLLECTION_SUBTYPES = frozenset({None, "Collection"})
+
+
 @dataclass
-class BundleCollection:
+class BundleContainer:
+    """A CONTAINER node — the spec's single polymorphic grouping vertex.
+
+    ``subtype`` is its only discriminator: an authored ``Collection``, a
+    federation ``Model``, an ``MEP System`` / ``Network``, or a scene ``Group``.
+    Each subtype is a separate grouping *axis* with its own membership relation,
+    so one object can legitimately sit in several containers at once.
+    """
+
     node_id: int
     name: str
     # a CONTAINER's parent is a node field (def_ref), not a relation
     parent_id: Optional[int]
+    subtype: Optional[str] = None
+
+    @property
+    def is_collection(self) -> bool:
+        """Part of the authored collection tree, as opposed to another axis."""
+        return self.subtype in _COLLECTION_SUBTYPES
 
 
 @dataclass
@@ -88,8 +107,14 @@ class BundleObject:
     properties: Dict[str, Any] = field(default_factory=dict)
     # DISPLAY targets in ord order
     geometry_ks: List[int] = field(default_factory=list)
-    # the CONTAINER node this object sits in, via IN_COLLECTION
+    # the CONTAINER(Collection) this object sits in, via IN_COLLECTION
     collection_id: Optional[int] = None
+    # the CONTAINER(Model) federation tier, via IN_MODEL
+    model_id: Optional[int] = None
+    # CONTAINER(MEP System | Network) memberships, via IN_SYSTEM
+    system_ids: List[int] = field(default_factory=list)
+    # CONTAINER(Group) memberships, via IN_GROUP — groups overlap, hence a list
+    group_ids: List[int] = field(default_factory=list)
     # the INSTANCE node this object places, via DISPLAY_INSTANCE
     instance_id: Optional[int] = None
     # SUBELEMENT children, in ord order, as application_ids
@@ -107,7 +132,7 @@ class ReceivedBundle:
     schema_version: Optional[int] = None
     objects: List[BundleObject] = field(default_factory=list)
     geometries: Dict[int, BundleGeometry] = field(default_factory=dict)
-    collections: Dict[int, BundleCollection] = field(default_factory=dict)
+    containers: Dict[int, BundleContainer] = field(default_factory=dict)
     materials: Dict[int, BundleMaterial] = field(default_factory=dict)
     instances: Dict[int, BundleInstance] = field(default_factory=dict)
     definitions: Dict[int, BundleDefinition] = field(default_factory=dict)
@@ -116,17 +141,29 @@ class ReceivedBundle:
 
     @property
     def root_collection_id(self) -> Optional[int]:
-        """The one CONTAINER with no parent — the published root collection."""
-        for node_id, collection in self.collections.items():
-            if collection.parent_id is None:
-                return node_id
-        return None
+        """The authored collection root, selected by subtype — never row order.
+
+        A cross-connector bundle can hold several parentless CONTAINERs at once
+        (each model, system and top-level group is the root of its own axis), so
+        "first parentless row" would crown whichever axis the producer happened
+        to write first. Only ``Collection`` containers qualify; ties break on the
+        lowest node id so the choice is deterministic. ``None`` when the bundle
+        has no authored collections at all (a bare Navis federation, say).
+        """
+        roots = [
+            c
+            for c in self.containers.values()
+            if c.parent_id is None and c.is_collection
+        ]
+        if not roots:
+            return None
+        return min(roots, key=lambda c: c.node_id).node_id
 
     def objects_by_id(self) -> Dict[str, BundleObject]:
         return {obj.application_id: obj for obj in self.objects}
 
-    def child_collections(self, parent_id: Optional[int]) -> List[BundleCollection]:
-        return [c for c in self.collections.values() if c.parent_id == parent_id]
+    def child_containers(self, parent_id: Optional[int]) -> List[BundleContainer]:
+        return [c for c in self.containers.values() if c.parent_id == parent_id]
 
 
 def _read(bundle_dir: str, suffix: str) -> Optional[Dict[str, List[Any]]]:
@@ -227,13 +264,17 @@ def _read_nodes(bundle_dir: str, bundle: ReceivedBundle) -> None:
     if not nodes:
         return
 
+    # absent on bundles written before CONTAINER polymorphism landed
+    subtypes = nodes.get("subtype")
+
     for i, node_id in enumerate(nodes["id"]):
         name = kind_name.get(nodes["kind"][i])
         if name == "CONTAINER":
-            bundle.collections[node_id] = BundleCollection(
+            bundle.containers[node_id] = BundleContainer(
                 node_id=node_id,
                 name=nodes["name"][i] or f"Collection_{node_id}",
                 parent_id=nodes["def_ref"][i],
+                subtype=subtypes[i] if subtypes else None,
             )
         elif name == "DEFINITION":
             bundle.definitions[node_id] = BundleDefinition(
@@ -290,9 +331,26 @@ def _read_relations(
                 display.setdefault(src, []).append((ordinal(i), dst))
 
         elif name == "IN_COLLECTION":
-            # object K -> CONTAINER node id
-            if src in by_k and dst in bundle.collections:
+            # object K -> CONTAINER(Collection) node id
+            if src in by_k and dst in bundle.containers:
                 by_k[src].collection_id = dst
+
+        elif name == "IN_MODEL":
+            # object K -> CONTAINER(Model) node id — the federation tier
+            if src in by_k and dst in bundle.containers:
+                by_k[src].model_id = dst
+
+        elif name == "IN_SYSTEM":
+            # object K -> CONTAINER(MEP System | Network) node id. An MEP object
+            # belongs to every system that runs through it, so this accumulates.
+            if src in by_k and dst in bundle.containers:
+                by_k[src].system_ids.append(dst)
+
+        elif name == "IN_GROUP":
+            # object K -> CONTAINER(Group) node id. Groups overlap by design —
+            # an object keeps its collection AND all of its groups.
+            if src in by_k and dst in bundle.containers:
+                by_k[src].group_ids.append(dst)
 
         elif name == "DISPLAY_INSTANCE":
             # object K -> INSTANCE node id
