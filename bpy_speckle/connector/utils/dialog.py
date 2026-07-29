@@ -1,4 +1,4 @@
-"""Shared plumbing for the connector's popup dialogs — sizing and chaining.
+"""Shared plumbing for the connector's popup dialogs — sizing.
 
 Blender fixes a dialog's width at invoke time — `draw()` has no say in it — so
 every `invoke_props_dialog` / `invoke_popup` call site has to pass the width
@@ -9,8 +9,6 @@ The unit is Blender UI units, not pixels: the value is multiplied by the user's
 Resolution Scale before it reaches the screen. Blender's own default is 300.
 """
 
-import bpy
-
 # Standard width for connector dialogs (account, project, model, version, ...).
 DIALOG_WIDTH = 400
 
@@ -19,36 +17,13 @@ DIALOG_WIDTH = 400
 WIDE_DIALOG_WIDTH = 500
 
 
-def open_dialog_deferred(operator, **properties) -> None:
-    """Open `operator` as a dialog once the current dialog has closed.
-
-    Chaining one selection dialog into the next cannot be done directly:
-    Blender tears down a popup's region *after* its `execute()` returns, so a
-    dialog invoked from inside `execute()` is spawned into a context that is
-    about to be freed, and it flickers shut instead of drawing. A one-shot
-    timer puts the call back on the main loop, by which point the first dialog
-    is properly gone.
-
-    Pass every property the chained operator cares about explicitly. Blender
-    remembers the last-used values for an operator type and reuses them on the
-    next `bpy.ops` call, so an omitted property is not a default — it is
-    whatever the previous invocation happened to leave behind.
-    """
-
-    def _open() -> None:
-        operator("INVOKE_DEFAULT", **properties)
-        return None  # returning None unregisters the timer: fire once
-
-    bpy.app.timers.register(_open, first_interval=0.01)
-
-
 def redraw_ui(context) -> None:
-    """Tag the Speckle panel for redraw, from a dialog or a timer alike.
+    """Tag the Speckle panel for redraw, whatever context the caller runs in.
 
-    `context.area` is the area a popup was spawned from — but a dialog opened
-    by `open_dialog_deferred` runs off a timer, where `bpy.context.area` is
-    whatever the mouse happens to be over, and may be None. Walking the window
-    manager instead makes the redraw independent of how the dialog was opened.
+    `context.area` is the area a popup was spawned from and is normally set,
+    but code running off the main loop (timers, handlers) sees whatever the
+    mouse happens to be over, which may be None. Walking the window manager
+    keeps the redraw working in both cases.
     """
     if context.area is not None:
         context.area.tag_redraw()

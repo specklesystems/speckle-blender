@@ -12,7 +12,6 @@ from ..utils.property_groups import speckle_project
 from ..utils.dialog import (
     DIALOG_WIDTH,
     invalidate_downstream_selection,
-    open_dialog_deferred,
     redraw_ui,
 )
 
@@ -116,13 +115,6 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             print(f"Selected project: {selected_project.name} ({selected_project.id})")
 
             redraw_ui(context)
-
-            # Picking a project is never the goal in itself — a model always
-            # comes next, in both modes. Cancelling the chained dialog stops
-            # here, since only a confirmed selection reaches execute().
-            open_dialog_deferred(
-                bpy.ops.speckle.model_selection_dialog, search_query=""
-            )
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:

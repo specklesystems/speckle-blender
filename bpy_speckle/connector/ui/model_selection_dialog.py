@@ -7,7 +7,6 @@ from ..blender_operators.create_model import SPECKLE_OT_create_model
 from ..utils.dialog import (
     DIALOG_WIDTH,
     invalidate_downstream_selection,
-    open_dialog_deferred,
     redraw_ui,
 )
 
@@ -98,18 +97,6 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
             print(f"Selected model: {selected_model.name} ({selected_model.id})")
 
             redraw_ui(context)
-
-            # Only LOAD needs a version; PUBLISH always writes a new one, so
-            # the chain ends at the model and the user moves on to selecting
-            # objects. model_card_id must be passed explicitly — the version
-            # dialog's properties are sticky, and a stale card id would send
-            # the result to that card instead of the panel.
-            if wm.ui_mode == "LOAD":
-                open_dialog_deferred(
-                    bpy.ops.speckle.version_selection_dialog,
-                    model_card_id="",
-                    load_option=wm.selected_version_load_option or "LATEST",
-                )
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: Event) -> set[str]:
