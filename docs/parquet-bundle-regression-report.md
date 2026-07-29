@@ -34,7 +34,7 @@ large-file download risks.
 | R3 | High | Receive | **Resolved (ENG-9025)** — `LINKED_DUPLICATES` leaked children into the scene root and retained nested collection instances |
 | R4 | High | Receive | All CONTAINER subtypes are treated as collections, while non-collection membership axes are ignored |
 | R5 | High | Scalability | Every parquet artifact is buffered completely in memory before it is written |
-| R6 | Medium | Receive | Root schema fields are restored as user custom properties |
+| R6 | Medium | Receive | ~~Root schema fields are restored as user custom properties~~ **Resolved** (ENG-9027) |
 | R7 | Medium | Error handling | Non-404 artifact probe failures silently fall back to a receive path known to fail for bundle versions |
 | R8 | Medium | Documentation | The migration document no longer describes the branch that will be reviewed or released |
 
@@ -228,6 +228,15 @@ Other producers' root EAV fields would leak the same way.
 
 Required action: lift all recognized root fields into typed attributes and only
 round-trip paths beginning with `properties.`.
+
+**Resolved** (ENG-9027): `_read_properties` now routes only `properties.*`
+paths into `BundleObject.properties`; every other root scalar goes to an
+internal `root_fields` dict that the bake never restores. On the publish side
+`extract_custom_properties` skips `applicationId`/`speckle_type` (both receive
+paths bake those deliberately), so a receive-and-republish cycle introduces no
+new user properties. Pinned by the `receive_properties` /
+`receive_root_fields` expectations in the `cube_with_props` fixture, which
+also injects synthetic cross-producer root fields.
 
 ### R7 — Medium: artifact probe errors are masked by classic fallback
 

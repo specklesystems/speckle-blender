@@ -123,6 +123,11 @@ without v2 endpoints still gets all of them.
    its docstring. Data-block properties are additionally applied to the
    `displayValue` geometry via `apply_cached_properties`, which serialises on a
    classic send and is dropped by SGEO geometry encoding on the bundle.
+   `extract_custom_properties` skips `applicationId` and `speckle_type` — both
+   receive paths bake those onto objects as internal bookkeeping, and
+   re-collecting them would mint `properties.applicationId` /
+   `properties.speckle_type` on every receive-and-republish cycle (ENG-9027). A
+   user property authored under either name is consequently not publishable.
 3. **Curves split by shape.** `curve_may_have_volume()` sends bevelled, extruded
    or filled curves as tessellated meshes and keeps genuine wires as exact
    splines. This changes classic-path output for solid curves, which previously
@@ -227,10 +232,12 @@ server and no account.
   `envelope.rel_types(rel, name)`, matching what specklepy's `EnvelopeWriter`
   emits. The official `bundle-spec.sql` names that column `id` — see
   [R2](#unresolved-regressions).
-- eav folding lifts `name` and `speckle_type` onto the object; every other path,
-  including the root schema field `type`, lands in the properties dict — see
-  [R6](#unresolved-regressions). `_eav_value` prefers `value_double`, which is
-  why an int published as `42` reads back as `42.0`.
+- eav folding lifts `name` and `speckle_type` onto the object; only paths under
+  the `properties.` prefix land in the user-properties dict, and every other
+  bare root scalar (`type`, plus whatever another producer writes) goes to the
+  internal `root_fields` dict, which the bake never restores as a user custom
+  property (was R6). `_eav_value` prefers `value_double`, which is why an int
+  published as `42` reads back as `42.0`.
 - The root collection is chosen as the first `CONTAINER` with no parent.
 
 ### Direct bake
@@ -423,7 +430,6 @@ reproductions and suggested fixes are in
 | R2 | Critical | Interoperability | specklepy's producer emits `rel_types(rel)` / `node_kinds(kind)` and non-exclusive EAV value columns, where `bundle-spec.sql` specifies `id` and exactly-one-value. The Blender reader follows its producer, so both sides stamp `schema_version = 5` while diverging from the spec — undetectable from the version number. Fix belongs upstream in specklepy, with the reader following. |
 | R4 | High | Receive | Every `CONTAINER` is treated as a collection without reading `subtype`, only `IN_COLLECTION` is resolved, and the root is the first parentless container. A Revit/Navisworks bundle's Model/System/Network/Group containers are misread. |
 | R5 | High | Scalability | Artifact downloads buffer each whole parquet file in memory (`response.content`), so a sharded geometry file can need ~1.5 GiB of headroom per download |
-| R6 | Medium | Receive | Root schema fields other than `name`/`speckle_type` — notably `type` — are restored as user custom properties, indistinguishable from authored data |
 | R7 | Medium | Error handling | Non-404 probe failures (auth, 5xx, transport, bad JSON) fall back to a receive path that provably cannot serve a bundle version, surfacing later as an unrelated object 404 |
 
 R3 (linked-duplicate copies escaping to the scene root; nested placements

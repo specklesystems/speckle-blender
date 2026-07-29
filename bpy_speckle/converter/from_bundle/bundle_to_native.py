@@ -565,16 +565,20 @@ def _assign_materials(
 
 
 def _apply_properties(blender_object: bpy.types.Object, obj: BundleObject) -> None:
-    """Write the object's eav properties back as Blender custom properties.
+    """Write the object's eav user properties back as Blender custom properties.
 
-    Only the ``properties.`` subtree round-trips: ``name`` and ``speckle_type``
-    were bare root scalars describing the object itself, not user data.
+    Only the ``properties.`` subtree round-trips — the reader routes bare root
+    scalars (``type`` and any cross-producer extras) into ``root_fields``, and
+    those stay internal. ``applicationId`` and ``speckle_type`` are baked
+    deliberately, matching the classic receive path; the publish side's
+    ``extract_custom_properties`` skips both, so they do not re-enter
+    ``properties.*`` on a republish.
     """
     blender_object["applicationId"] = obj.application_id
     if obj.speckle_type:
         blender_object["speckle_type"] = obj.speckle_type
     for path, value in obj.properties.items():
-        key = path[len("properties.") :] if path.startswith("properties.") else path
+        key = path[len("properties.") :]
         if key and value is not None:
             blender_object[key] = value
 
