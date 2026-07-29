@@ -121,14 +121,17 @@ class BundleObject:
     system_ids: List[int] = field(default_factory=list)
     # CONTAINER(Group) memberships, via IN_GROUP — groups overlap, hence a list
     group_ids: List[int] = field(default_factory=list)
-    # the INSTANCE node this object places, via DISPLAY_INSTANCE
-    instance_id: Optional[int] = None
+    # the INSTANCE nodes this object places, via DISPLAY_INSTANCE, in ord order.
+    # A list, not a scalar: Revit atomizes a family instance into one
+    # DEFINITION/INSTANCE pair per material, so one object legitimately carries
+    # several placements. Blender's own publishes only ever write one.
+    instance_ids: List[int] = field(default_factory=list)
     # SUBELEMENT children, in ord order, as application_ids
     subelement_ids: List[str] = field(default_factory=list)
 
     @property
     def is_placement(self) -> bool:
-        return self.instance_id is not None
+        return bool(self.instance_ids)
 
 
 @dataclass
@@ -325,6 +328,7 @@ def _read_relations(
         return 0 if value is None else value
 
     display: Dict[int, List[Tuple[int, int]]] = {}
+    placements: Dict[int, List[Tuple[int, int]]] = {}
     subelements: Dict[int, List[Tuple[int, int]]] = {}
 
     for i, rel in enumerate(relations["rel"]):
@@ -359,9 +363,11 @@ def _read_relations(
                 by_k[src].group_ids.append(dst)
 
         elif name == "DISPLAY_INSTANCE":
-            # object K -> INSTANCE node id
+            # object K -> INSTANCE node id. Accumulates like DISPLAY: a Revit
+            # family instance arrives as one placement per material atom, and
+            # keeping only one would drop the rest of the element's geometry.
             if src in by_k and dst in bundle.instances:
-                by_k[src].instance_id = dst
+                placements.setdefault(src, []).append((ordinal(i), dst))
 
         elif name == "SUBELEMENT":
             # object K -> object K
@@ -388,6 +394,9 @@ def _read_relations(
 
     for obj_k, pairs in display.items():
         by_k[obj_k].geometry_ks = [geo_k for _, geo_k in sorted(pairs)]
+
+    for obj_k, pairs in placements.items():
+        by_k[obj_k].instance_ids = [inst_id for _, inst_id in sorted(pairs)]
 
     for obj_k, pairs in subelements.items():
         by_k[obj_k].subelement_ids = [

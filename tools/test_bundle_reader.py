@@ -35,14 +35,19 @@ sys.modules["bundle_reader"] = bundle_reader
 _spec.loader.exec_module(bundle_reader)
 
 # rel/kind ids as catalogued in the bundle spec's rel_types / node_kinds
-CONTAINER = 7
+DEFINITION, INSTANCE, CONTAINER = 1, 2, 7
+DEFINES, DISPLAY_INSTANCE = 4, 8
 IN_COLLECTION, IN_MODEL, IN_SYSTEM, IN_GROUP = 10, 11, 14, 17
 REL_NAMES = {
+    DEFINES: "DEFINES",
+    DISPLAY_INSTANCE: "DISPLAY_INSTANCE",
     IN_COLLECTION: "IN_COLLECTION",
     IN_MODEL: "IN_MODEL",
     IN_SYSTEM: "IN_SYSTEM",
     IN_GROUP: "IN_GROUP",
 }
+
+IDENTITY = "1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1"
 
 
 def _write(bundle_dir: str, table: str, columns: Dict[str, list]) -> None:
@@ -56,25 +61,51 @@ def write_bundle(
     bundle_dir: str,
     containers: list,  # (id, name, def_ref, subtype)
     objects: list,  # application_id, k is the list index
-    relations: list,  # (rel, src object k, dst node id)
+    relations: list,  # (rel, src, dst) or (rel, src, dst, ord)
     with_subtype_column: bool = True,
     properties: list = None,  # (object k, eav path, scalar value)
+    definitions: list = None,  # (node id, name)
+    instances: list = None,  # (node id, def_ref, transform csv, units)
+    geometries: list = None,  # (geometry k, sgeo type, content bytes)
 ) -> None:
     """Write the minimal table set the reader joins.
 
     Shared with ``test_bundle_bake.py``, which bakes these same shapes inside
     headless Blender.
     """
+    definitions = definitions or []
+    instances = instances or []
     nodes: Dict[str, list] = {
-        "id": [c[0] for c in containers],
-        "kind": [CONTAINER] * len(containers),
-        "name": [c[1] for c in containers],
-        "def_ref": [c[2] for c in containers],
+        "id": [c[0] for c in containers]
+        + [d[0] for d in definitions]
+        + [i[0] for i in instances],
+        "kind": [CONTAINER] * len(containers)
+        + [DEFINITION] * len(definitions)
+        + [INSTANCE] * len(instances),
+        "name": [c[1] for c in containers]
+        + [d[1] for d in definitions]
+        + [None] * len(instances),
+        "def_ref": [c[2] for c in containers]
+        + [None] * len(definitions)
+        + [i[1] for i in instances],
     }
+    if instances:
+        # the reader only touches these columns on INSTANCE rows, and the real
+        # writer only emits them when instances exist
+        pad = [None] * (len(containers) + len(definitions))
+        nodes["transform"] = pad + [i[2] for i in instances]
+        nodes["units"] = pad + [i[3] for i in instances]
     if with_subtype_column:
-        nodes["subtype"] = [c[3] for c in containers]
+        nodes["subtype"] = [c[3] for c in containers] + [None] * (
+            len(definitions) + len(instances)
+        )
     _write(
-        bundle_dir, "envelope.node_kinds", {"kind": [CONTAINER], "name": ["CONTAINER"]}
+        bundle_dir,
+        "envelope.node_kinds",
+        {
+            "kind": [DEFINITION, INSTANCE, CONTAINER],
+            "name": ["DEFINITION", "INSTANCE", "CONTAINER"],
+        },
     )
     _write(bundle_dir, "envelope.nodes", nodes)
     _write(
@@ -94,9 +125,19 @@ def write_bundle(
             "rel": [r[0] for r in relations],
             "src": [r[1] for r in relations],
             "dst": [r[2] for r in relations],
-            "ord": [None] * len(relations),
+            "ord": [r[3] if len(r) > 3 else None for r in relations],
         },
     )
+    if geometries:
+        _write(
+            bundle_dir,
+            "geometries",
+            {
+                "geometryIndex": [g[0] for g in geometries],
+                "content": [g[2] for g in geometries],
+                "type": [g[1] for g in geometries],
+            },
+        )
     if properties:
         # numbers land in value_double, matching the real writer — an int
         # published as 42 deliberately reads back as 42.0
@@ -262,12 +303,55 @@ def multiple_collection_roots() -> None:
     check(bundle.root_collection_id == 3, "lowest Collection node id wins")
 
 
+def revit_family_instance_atomized() -> None:
+    """One object, several DISPLAY_INSTANCE edges — every placement survives.
+
+    Revit atomizes a family instance into one DEFINITION/INSTANCE pair per
+    material, so a chair arrives as a cushions placement plus a frame
+    placement on the same object. A scalar reading kept only the last row and
+    silently dropped the rest of the element's geometry (the
+    chairs-without-cushions regression). The edges are written frame-first
+    here so that ord, not row order, must decide the sequence.
+    """
+    with tempfile.TemporaryDirectory() as bundle_dir:
+        bundle = build_bundle(
+            bundle_dir,
+            containers=[],
+            objects=["chair-1"],
+            definitions=[(1, "chair-cushions"), (3, "chair-frame")],
+            instances=[(2, 1, IDENTITY, "m"), (4, 3, IDENTITY, "m")],
+            geometries=[(0, "mesh", b"\x00"), (1, "mesh", b"\x00")],
+            relations=[
+                (DEFINES, 1, 0, 0),
+                (DEFINES, 3, 1, 0),
+                (DISPLAY_INSTANCE, 0, 4, 1),
+                (DISPLAY_INSTANCE, 0, 2, 0),
+            ],
+        )
+    chair = bundle.objects[0]
+    check(chair.is_placement, "an object with placements is a placement")
+    check(
+        chair.instance_ids == [2, 4],
+        f"every placement must survive in ord order, got {chair.instance_ids}",
+    )
+    check(
+        bundle.instances[2].def_ref == 1 and bundle.instances[4].def_ref == 3,
+        "each instance keeps its own definition",
+    )
+    check(
+        bundle.definitions[1].members == {0: [0]}
+        and bundle.definitions[3].members == {0: [1]},
+        "DEFINES resolves definition node ids against geometry Ks",
+    )
+
+
 SCENARIOS = [
     navis_federation,
     revit_systems_overlap,
     rhino_groups_beside_layers,
     legacy_bundle_without_subtype,
     multiple_collection_roots,
+    revit_family_instance_atomized,
 ]
 
 

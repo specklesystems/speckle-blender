@@ -1060,27 +1060,48 @@ def _bake_placement(
     definition-local geometry, so the transform applies here with no pivot
     correction — Blender's own offset is zero on a collection we created.
 
+    One object can carry several placements: Revit atomizes a family instance
+    into one DEFINITION/INSTANCE pair per material, so a chair arrives as a
+    cushions placement plus a frame placement. Every placement bakes; the
+    extras parent to the primary so the Outliner still reads as one element.
+    Each empty keeps its own world transform — the atoms of one element share
+    a transform in practice, but the bundle does not promise it, so parenting
+    must not re-interpret the extras' matrices as primary-local.
+
     Returns the objects to link, primary first, like ``_bake_object`` — the
     caller owns collection membership, so linked-duplicate copies land in the
     model's collection alongside their parent rather than in the scene root.
     """
-    instance = bundle.instances.get(obj.instance_id or -1)
-    if instance is None or instance.def_ref is None:
-        return []
-    definition = definition_collections.get(instance.def_ref)
-    if definition is None:
-        return []
-
     name = obj.name or obj.application_id
-    matrix = _placement_matrix(instance.transform, instance.units)
-    if instance_loading_mode == "LINKED_DUPLICATES":
-        return _duplicate_definition(name, definition, matrix, frozenset())
+    built: List[bpy.types.Object] = []
+    for instance_id in obj.instance_ids:
+        instance = bundle.instances.get(instance_id)
+        if instance is None or instance.def_ref is None:
+            continue
+        definition = definition_collections.get(instance.def_ref)
+        if definition is None:
+            continue
+        matrix = _placement_matrix(instance.transform, instance.units)
+        if instance_loading_mode == "LINKED_DUPLICATES":
+            built.extend(_duplicate_definition(name, definition, matrix, frozenset()))
+        else:
+            empty = bpy.data.objects.new(name, None)
+            empty.instance_type = "COLLECTION"
+            empty.instance_collection = definition
+            empty.matrix_world = matrix
+            built.append(empty)
 
-    empty = bpy.data.objects.new(name, None)
-    empty.instance_type = "COLLECTION"
-    empty.instance_collection = definition
-    empty.matrix_world = matrix
-    return [empty]
+    # only batch roots are unparented here — linked-duplicate members already
+    # hang off their own batch root with definition-local matrices
+    primary_inverse = None
+    for extra in built[1:]:
+        if extra.parent is not None:
+            continue
+        if primary_inverse is None:
+            primary_inverse = built[0].matrix_world.inverted(Matrix.Identity(4))
+        extra.parent = built[0]
+        extra.matrix_parent_inverse = primary_inverse
+    return built
 
 
 def _duplicate_definition(
