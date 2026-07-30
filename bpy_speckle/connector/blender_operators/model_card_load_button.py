@@ -1,5 +1,7 @@
-import bpy
+import traceback
 from typing import Set
+
+import bpy
 from bpy.types import Context
 from ..utils.version_manager import get_latest_version
 from ..operations.load_operation import load_operation
@@ -7,6 +9,7 @@ from ..utils.model_card_utils import (
     delete_model_card_objects,
     update_model_card_objects,
     collect_objects_with_properties,
+    format_load_summary,
 )
 
 
@@ -29,53 +32,54 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
             return {"CANCELLED"}
 
         old_properties = collect_objects_with_properties(model_card)
+        # The delete has to precede the load: the replacements carry the same
+        # applicationIds, and delete_model_card_objects resolves by
+        # applicationId. Clear the card's lists to match, so a failed load
+        # below does not leave it referencing deleted data-blocks.
         delete_model_card_objects(model_card, context)
+        model_card.objects.clear()
+        model_card.collections.clear()
 
         # set wm
         wm.selected_account_id = model_card.account_id
         wm.selected_project_id = model_card.project_id
         wm.selected_model_name = model_card.model_name
 
-        # if load option is set to "LATEST"
-        if model_card.load_option == "LATEST":
-            # get latest version from speckle
-            latest_version_id, message, timestamp = get_latest_version(
-                model_card.account_id, model_card.project_id, model_card.model_id
-            )
-            # set version id in wm
-            wm.selected_version_id = latest_version_id
+        # A bundle version that fails to read raises by design, so guard the
+        # load and leave model_card.version_id untouched until it succeeds.
+        # The finally clears the window manager on every exit path.
+        try:
+            if model_card.load_option == "LATEST":
+                # get latest version from speckle
+                version_id, message, timestamp = get_latest_version(
+                    model_card.account_id, model_card.project_id, model_card.model_id
+                )
+                if not version_id:
+                    self.report({"ERROR"}, "Could not find the latest version")
+                    return {"CANCELLED"}
+            else:
+                version_id = model_card.version_id
 
-            # load latest version
+            wm.selected_version_id = version_id
+
             converted_objects = load_operation(
                 context, model_card.instance_loading_mode
             )
-            # update model card details
-            update_model_card_objects(model_card, converted_objects, old_properties)
-            model_card.version_id = latest_version_id
+        except Exception as e:
+            traceback.print_exc()
+            self.report({"ERROR"}, f"Load failed: {e}")
+            return {"CANCELLED"}
+        finally:
+            # Clear selected model details from Window Manager
+            wm.selected_account_id = ""
+            wm.selected_project_id = ""
+            wm.selected_version_id = ""
+            wm.selected_model_name = ""
 
-        else:
-            # set version id in wm
-            wm.selected_version_id = model_card.version_id
+        # update model card details
+        update_model_card_objects(model_card, converted_objects, old_properties)
+        model_card.version_id = version_id
 
-            # load version id
-            converted_objects = load_operation(
-                context, model_card.instance_loading_mode
-            )
-            if not converted_objects:
-                self.report({"ERROR"}, "Load operation failed")
-                return {"CANCELLED"}
-            # update model card details
-            update_model_card_objects(model_card, converted_objects, old_properties)
-
-        # Clear selected model details from Window Manager
-        wm.selected_account_id = ""
-        wm.selected_project_id = ""
-        wm.selected_version_id = ""
-        wm.selected_model_name = ""
-
-        self.report(
-            {"INFO"},
-            f"{len(converted_objects)} objects loaded from Speckle. Model: {model_card.model_name}, Version: {model_card.version_id}",
-        )
+        self.report({"INFO"}, format_load_summary(model_card))
 
         return {"FINISHED"}

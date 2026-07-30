@@ -362,6 +362,21 @@ def update_model_card_objects(
                 transfer_object_properties(obj, old_obj_data)
 
 
+def format_load_summary(model_card: speckle_model_card) -> str:
+    """
+    Build the status-bar summary for a finished load.
+
+    Counts the model card's own lists rather than the converted_objects dict:
+    that dict keys objects under both their id and their applicationId, so its
+    length overstates what actually arrived. Zero is a legitimate result for a
+    version with no objects.
+    """
+    return (
+        f"{len(model_card.objects)} objects loaded from Speckle. "
+        f"Model: {model_card.model_name}, Version: {model_card.version_id}"
+    )
+
+
 def delete_model_card_objects(model_card: speckle_model_card, context: Context) -> None:
     """
     deletes the model card objects

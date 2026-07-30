@@ -137,10 +137,11 @@ def load_operation(
     versionId: str = wm.selected_version_id  # type: ignore
 
     # get cached client
+    # Raise rather than return {}: an empty result is a legitimate success for a
+    # version with no objects, so it cannot double as the failure signal.
     client = _client_cache.get_client(accountId)
     if not client:
-        print("No Speckle client found")
-        return {}
+        raise ValueError(f"No Speckle client found for account {accountId}")
 
     print(f"Using client for account: {accountId}")
 

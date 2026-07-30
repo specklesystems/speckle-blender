@@ -351,6 +351,22 @@ The probe does not yet implement that contract fully: auth failures, 5xx,
 transport errors and malformed JSON are all collapsed into "no bundle" and fall
 back. That is [R7](#unresolved-regressions).
 
+Because that raise is by design, both load operators (`SPECKLE_OT_load`,
+`SPECKLE_OT_load_model_card`) guard `load_operation()` and turn any exception
+into `self.report({"ERROR"}, …)` + `{"CANCELLED"}`, so the user sees a status-bar
+error rather than a bare console traceback. A re-load has to delete the previous
+objects *before* loading — replacements carry the same applicationIds, and
+`delete_model_card_objects` resolves by applicationId — so on failure the card's
+`objects`/`collections` lists are cleared and `version_id` is left untouched,
+leaving a card that honestly points at nothing instead of at deleted
+data-blocks. The deleted geometry is not restored (declined: an undo push would
+change undo granularity for every successful load).
+
+An **empty** result is a success, not a failure: a version with no objects
+legitimately loads zero objects and still gets a model card and an INFO toast.
+That is why `load_operation()` raises on a missing account client instead of
+returning `{}` — emptiness cannot double as the failure signal.
+
 ## Packaging requirements
 
 **This section is a release blocker, not a note.**
