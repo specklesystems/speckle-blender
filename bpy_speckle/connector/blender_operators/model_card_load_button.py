@@ -31,6 +31,25 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
+        # Resolve the version before the scene is touched. A load failure is
+        # only knowable after the attempt, so it costs the previous objects
+        # (see the delete note below), but a missing latest version is knowable
+        # up front — look it up first and the card keeps its geometry when
+        # there is nothing to load.
+        if model_card.load_option == "LATEST":
+            latest_version = get_latest_version(
+                model_card.account_id, model_card.project_id, model_card.model_id
+            )
+            if latest_version is None:
+                self.report(
+                    {"ERROR"},
+                    f"Could not fetch latest version for model '{model_card.model_name}'",
+                )
+                return {"CANCELLED"}
+            version_id = latest_version[0]
+        else:
+            version_id = model_card.version_id
+
         old_properties = collect_objects_with_properties(model_card)
         # The delete has to precede the load: the replacements carry the same
         # applicationIds, and delete_model_card_objects resolves by
@@ -49,17 +68,6 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
         # load and leave model_card.version_id untouched until it succeeds.
         # The finally clears the window manager on every exit path.
         try:
-            if model_card.load_option == "LATEST":
-                # get latest version from speckle
-                version_id, message, timestamp = get_latest_version(
-                    model_card.account_id, model_card.project_id, model_card.model_id
-                )
-                if not version_id:
-                    self.report({"ERROR"}, "Could not find the latest version")
-                    return {"CANCELLED"}
-            else:
-                version_id = model_card.version_id
-
             wm.selected_version_id = version_id
 
             converted_objects = load_operation(

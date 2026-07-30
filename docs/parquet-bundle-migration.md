@@ -362,6 +362,14 @@ leaving a card that honestly points at nothing instead of at deleted
 data-blocks. The deleted geometry is not restored (declined: an undo push would
 change undo granularity for every successful load).
 
+That cost only applies to failures that are unknowable in advance. A *missing*
+version is knowable up front, so `SPECKLE_OT_load_model_card` resolves
+`load_option == "LATEST"` through `get_latest_version()` **before** the delete
+and returns `{"CANCELLED"}` with the card's geometry intact. `get_latest_version`
+returns `None` rather than `("", "", "")` for every failure — no versions, no
+client, bad inputs, exception — because a populated tuple is always truthy and
+silently turned each caller's `if latest_version:` guard into dead code.
+
 An **empty** result is a success, not a failure: a version with no objects
 legitimately loads zero objects and still gets a model card and an INFO toast.
 That is why `load_operation()` raises on a missing account client instead of
