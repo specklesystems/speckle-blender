@@ -291,6 +291,16 @@ parenting can resolve both ends.
   vertex-only Mesh (cloud). A Blender object holds one data-block, so an object
   mixing families gets mesh as the primary and the rest as parented children.
   Blender's own publishes are homogeneous; this only fires cross-connector.
+- **Parenting participants get their origin recentred onto their geometry**
+  (`_recenter_origin`); every other object keeps the identity transform the
+  direct-display dialect implies. World-baked data leaves every origin at
+  (0, 0, 0), and Blender draws relationship lines origin-to-origin, so before
+  this every `SUBELEMENT` link and mixed-family child drew a viewport line from
+  the element back to the world origin. The recenter is world-lossless (data
+  shifts by −center, the matrix gains +center), skips shared data-blocks, and a
+  properties-only parent — an Empty with nothing to recentre onto — moves to
+  the component-wise median of its placed children instead, taking its
+  identity-local followers with it.
 - `HAS_MATERIAL` binds to **geometry, not the object**, hence material *slots*
   and per-face-range assignment rather than one material per object.
 - An object whose geometry is *entirely* undecodable is **skipped outright** — no

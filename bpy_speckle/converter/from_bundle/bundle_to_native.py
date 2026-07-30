@@ -5,7 +5,10 @@ parquet arrays go to ``bpy.data`` without ever being reconstituted into a Speckl
 ``Base`` graph. Publishing already wrote world-baked geometry (Blender's
 direct-display dialect), so a mesh's coordinates are final — the object is
 created at the origin with the mesh carrying its own world position, exactly
-inverting ``mesh_to_speckle_meshes``.
+inverting ``mesh_to_speckle_meshes``. Objects that join a parent relationship
+(SUBELEMENT hierarchies, mixed-family extras) are recentred onto their geometry
+(``_recenter_origin``), world position unchanged, so viewport relationship
+lines don't all converge on the origin.
 
 Collection instances are the one exception, as they are on the publish side: an
 INSTANCE node becomes an empty with ``instance_type = 'COLLECTION'`` pointing at
@@ -905,6 +908,81 @@ def _member_objects(
     )
 
 
+def _local_bounds_center(data: object) -> Optional[Tuple[float, float, float]]:
+    """Bounds center of a mesh or curve data-block, in its own coordinates.
+
+    Computed from the data directly — ``Object.bound_box`` is only valid after
+    a depsgraph evaluation, which freshly created objects have not had.
+    """
+    if isinstance(data, bpy.types.Mesh):
+        count = len(data.vertices)
+        if not count:
+            return None
+        flat = [0.0] * (count * 3)
+        data.vertices.foreach_get("co", flat)
+        xs, ys, zs = flat[0::3], flat[1::3], flat[2::3]
+    elif isinstance(data, bpy.types.Curve):
+        xs, ys, zs = [], [], []
+        for spline in data.splines:
+            points = spline.bezier_points if spline.type == "BEZIER" else spline.points
+            for point in points:
+                co = point.co
+                xs.append(co[0])
+                ys.append(co[1])
+                zs.append(co[2])
+        if not xs:
+            return None
+    else:
+        return None
+    return (
+        (min(xs) + max(xs)) / 2.0,
+        (min(ys) + max(ys)) / 2.0,
+        (min(zs) + max(zs)) / 2.0,
+    )
+
+
+def _recenter_origin(obj: bpy.types.Object) -> None:
+    """Move a world-baked object's origin onto its geometry's bounds center.
+
+    Direct-baked data carries world coordinates under an identity matrix, so
+    every object's origin sits at (0, 0, 0). That is invisible until the object
+    joins a parent relationship: Blender draws relationship lines
+    origin-to-origin, so a placed child linked to an origin-bound parent draws
+    a line across the whole scene. Only parenting participants are recentred;
+    everything else keeps the identity transform the dialect promises.
+
+    World geometry is preserved exactly — the data shifts by ``-center`` and
+    the matrix gains ``+center``. Recentring twice is a no-op (the second
+    center is ~zero), and shared data is left alone: shifting it would move
+    every other user.
+    """
+    data = obj.data
+    if data is None or data.users > 1:
+        return
+    center = _local_bounds_center(data)
+    if center is None or max(abs(c) for c in center) < 1e-9:
+        return
+    data.transform(Matrix.Translation((-center[0], -center[1], -center[2])))
+    obj.matrix_world = obj.matrix_world @ Matrix.Translation(center)
+
+
+def _origin_median(origins: List[object]) -> Tuple[float, float, float]:
+    """Component-wise median — resists the one far-flung subelement."""
+
+    def median(values: List[float]) -> float:
+        values = sorted(values)
+        mid = len(values) // 2
+        if len(values) % 2:
+            return values[mid]
+        return (values[mid - 1] + values[mid]) / 2.0
+
+    return (
+        median([o[0] for o in origins]),
+        median([o[1] for o in origins]),
+        median([o[2] for o in origins]),
+    )
+
+
 def _objects_from_geometries(
     name: str,
     data_name: str,
@@ -960,9 +1038,16 @@ def _objects_from_geometries(
                 built.append(point_object)
 
     # extras only exist for mixed-family objects; parent them to the primary so
-    # the scene tree still reads as one thing
-    for extra in built[1:]:
-        extra.parent = built[0]
+    # the scene tree still reads as one thing. Both endpoints get a real origin
+    # first, and the primary's fresh placement is inverted back out so the
+    # extras' world-space data stays put.
+    if len(built) > 1:
+        for part in built:
+            _recenter_origin(part)
+        primary_inverse = built[0].matrix_world.inverted(Matrix.Identity(4))
+        for extra in built[1:]:
+            extra.parent = built[0]
+            extra.matrix_parent_inverse = primary_inverse
     return built
 
 
@@ -1144,6 +1229,10 @@ def _duplicate_definition(
         else:
             copy = member.copy()
             copy.parent = parent
+            # a mixed-family extra carries the parent inverse from its
+            # in-definition parenting; under the batch root its basis alone is
+            # the definition-local matrix
+            copy.matrix_parent_inverse = Matrix.Identity(4)
             built.append(copy)
     return built
 
@@ -1156,24 +1245,52 @@ def _parent_subelements(bundle: ReceivedBundle, result: BakeResult) -> None:
     parent's placement a second time. Properties-only siblings have no spatial
     placement of their own and remain identity-local so they follow their owner,
     matching the original metaball-family behaviour.
+
+    Both endpoints of every link get a meaningful origin first (see
+    ``_recenter_origin``) — Blender draws relationship lines origin-to-origin,
+    so world-baked endpoints left at the origin would each draw a line across
+    the whole scene. A properties-only parent has no geometry to recentre onto
+    and moves to the median of its placed children instead, taking its
+    identity-local followers with it. A median-placed parent is *anchored*: if
+    a later iteration links it as somebody's child, its world is preserved like
+    a placed child's — following the new owner would drag the children already
+    restored under it.
     """
     objects_by_id = bundle.objects_by_id()
+    anchored: set = set()
     for obj in bundle.objects:
         if not obj.subelement_ids:
             continue
         parent = result.objects.get(obj.application_id)
         if parent is None:
             continue
+
+        placed: List[Tuple[bpy.types.Object, Matrix]] = []
+        followers: List[bpy.types.Object] = []
         for child_id in obj.subelement_ids:
             child = result.objects.get(child_id)
-            if child is not None and child is not parent:
-                child_obj = objects_by_id.get(child_id)
-                world_matrix = (
-                    child.matrix_world.copy()
-                    if child_obj
-                    and (child_obj.is_placement or child_obj.geometry_ks)
-                    else None
-                )
-                child.parent = parent
-                if world_matrix is not None:
-                    child.matrix_world = world_matrix
+            if child is None or child is parent:
+                continue
+            child_obj = objects_by_id.get(child_id)
+            if child in anchored or (
+                child_obj and (child_obj.is_placement or child_obj.geometry_ks)
+            ):
+                _recenter_origin(child)
+                placed.append((child, child.matrix_world.copy()))
+            else:
+                followers.append(child)
+
+        # the parent's origin must be final before any child is linked: a
+        # child's world restore resolves against the parent's stored matrix
+        _recenter_origin(parent)
+        if not obj.is_placement and not obj.geometry_ks and placed:
+            parent.matrix_world = Matrix.Translation(
+                _origin_median([world.to_translation() for _, world in placed])
+            )
+            anchored.add(parent)
+
+        for child, world_matrix in placed:
+            child.parent = parent
+            child.matrix_world = world_matrix
+        for child in followers:
+            child.parent = parent

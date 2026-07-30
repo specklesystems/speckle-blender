@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
 import bpy  # noqa: E402
 
 from test_bundle_reader import (  # noqa: E402
+    DISPLAY,
     DISPLAY_INSTANCE,
     IN_COLLECTION,
     IN_GROUP,
@@ -227,6 +228,119 @@ def revit_subelement_parenting_preserves_world_transform() -> None:
     )
 
 
+def parenting_endpoints_get_meaningful_origins() -> None:
+    """Parenting participants recentre onto their geometry; bystanders do not.
+
+    Blender draws relationship lines origin-to-origin, and direct-baked meshes
+    all have their origin at (0, 0, 0) — so before recentring, every SUBELEMENT
+    link drew a line from the element back to the world origin. Both endpoints
+    of a link must move onto their geometry (world position unchanged), a
+    properties-only parent moves to the median of its placed children, and an
+    object outside any parent link keeps the identity transform the dialect
+    promises.
+    """
+    from specklepy.bundle import sgeo
+    from specklepy.objects.geometry import Mesh
+
+    def quad(cx: float, cy: float, cz: float) -> bytes:
+        """A unit quad centred on (cx, cy, cz), world-baked like a real publish."""
+        return sgeo.encode(
+            Mesh(
+                vertices=[
+                    cx - 0.5,
+                    cy - 0.5,
+                    cz,
+                    cx + 0.5,
+                    cy - 0.5,
+                    cz,
+                    cx + 0.5,
+                    cy + 0.5,
+                    cz,
+                    cx - 0.5,
+                    cy + 0.5,
+                    cz,
+                ],
+                faces=[4, 0, 1, 2, 3],
+                units="m",
+            )
+        )
+
+    # "base" sits above the median-placed "assembly" and is deliberately last
+    # in bundle order: linking assembly under base must preserve assembly's
+    # world (anchoring), not drag it — and wall/panel under it — onto base.
+    result = bake(
+        containers=[],
+        objects=["wall", "panel", "assembly", "lone", "base"],
+        geometries=[
+            (0, "mesh", quad(10, 20, 0)),
+            (1, "mesh", quad(12, 20, 4)),
+            (2, "mesh", quad(30, 5, 1)),
+            (3, "mesh", quad(8, 24, 0)),
+        ],
+        relations=[
+            (DISPLAY, 0, 0),
+            (DISPLAY, 1, 1),
+            (DISPLAY, 3, 2),
+            (DISPLAY, 4, 3),
+            (SUBELEMENT, 2, 0),  # assembly (properties-only) -> wall
+            (SUBELEMENT, 0, 1),  # wall -> panel
+            (SUBELEMENT, 4, 2),  # base -> assembly, linked after the median
+        ],
+    )
+    bpy.context.view_layer.update()
+
+    def world_translation(obj) -> tuple:
+        return tuple(round(v, 6) for v in obj.matrix_world.translation)
+
+    def world_vertex(obj, index: int) -> tuple:
+        return tuple(
+            round(v, 6) for v in obj.matrix_world @ obj.data.vertices[index].co
+        )
+
+    wall = result.objects["wall"]
+    panel = result.objects["panel"]
+    assembly = result.objects["assembly"]
+    lone = result.objects["lone"]
+
+    check(
+        world_translation(wall) == (10.0, 20.0, 0.0),
+        f"a subelement parent recentres onto its geometry, got {world_translation(wall)}",
+    )
+    check(
+        world_vertex(wall, 0) == (9.5, 19.5, 0.0),
+        f"recentring must not move the geometry, got {world_vertex(wall, 0)}",
+    )
+    check(panel.parent is wall, "SUBELEMENT hierarchy must be reconstructed")
+    check(
+        world_translation(panel) == (12.0, 20.0, 4.0),
+        f"a subelement child recentres onto its geometry, got {world_translation(panel)}",
+    )
+    check(
+        world_vertex(panel, 0) == (11.5, 19.5, 4.0),
+        f"child geometry must stay put under parenting, got {world_vertex(panel, 0)}",
+    )
+    check(wall.parent is assembly, "chained SUBELEMENT parenting holds")
+    check(
+        world_translation(assembly) == (10.0, 20.0, 0.0),
+        "a properties-only parent moves to the median of its placed children, "
+        f"got {world_translation(assembly)}",
+    )
+    base = result.objects["base"]
+    check(assembly.parent is base, "the anchored parent still links upward")
+    check(
+        world_translation(assembly) == (10.0, 20.0, 0.0)
+        and world_vertex(wall, 0) == (9.5, 19.5, 0.0),
+        "linking a median-placed parent under a later grandparent must not "
+        f"drag it or its children, got {world_translation(assembly)} / "
+        f"{world_vertex(wall, 0)}",
+    )
+    check(
+        world_translation(lone) == (0.0, 0.0, 0.0)
+        and world_vertex(lone, 0) == (29.5, 4.5, 1.0),
+        "an object outside any parent link keeps the identity transform",
+    )
+
+
 SCENARIOS = [
     navis_federation,
     single_model_maps_onto_root,
@@ -234,6 +348,7 @@ SCENARIOS = [
     unknown_subtype_is_surfaced_not_baked,
     revit_parameter_paths_bake_as_groups,
     revit_subelement_parenting_preserves_world_transform,
+    parenting_endpoints_get_meaningful_origins,
 ]
 
 
