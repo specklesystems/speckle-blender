@@ -1,7 +1,7 @@
 from specklepy.core.api.inputs.project_inputs import ProjectModelsFilter
 from specklepy.core.api.models.current import Model
 from typing import List, Tuple, Optional
-from .misc import format_relative_time, strip_non_ascii
+from .misc import format_relative_time
 from .account_manager import _client_cache
 
 
@@ -38,7 +38,7 @@ def get_models_for_project(
 
         return [
             (
-                strip_non_ascii(model.name),
+                model.name,
                 model.id,
                 format_relative_time(model.updated_at),
             )

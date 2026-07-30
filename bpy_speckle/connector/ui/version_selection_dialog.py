@@ -5,6 +5,7 @@ from ..utils.dialog import (
     DIALOG_WIDTH,
     redraw_ui,
 )
+from ..utils.misc import strip_non_renderable
 
 
 class SPECKLE_UL_versions_list(bpy.types.UIList):
@@ -28,7 +29,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
             split = row.split(factor=0.166)
             split.label(text=item.id)
             right_split = split.split(factor=0.7)
-            right_split.label(text=item.message)
+            right_split.label(text=strip_non_renderable(item.message))
             right_split.label(text=item.updated)
 
         elif self.layout_type == "GRID":
@@ -166,8 +167,8 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             project_name = model_card.project_name
             model_name = model_card.model_name
 
-        layout.label(text=f"Project: {project_name}")
-        layout.label(text=f"Model: {model_name}")
+        layout.label(text=f"Project: {strip_non_renderable(project_name)}")
+        layout.label(text=f"Model: {strip_non_renderable(model_name)}")
 
         layout.prop(
             self,

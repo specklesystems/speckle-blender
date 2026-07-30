@@ -13,6 +13,7 @@ from ..utils.config_store import set_user_selected_account_id
 from ..utils.project_manager import get_projects_for_account
 from ..ui.project_selection_dialog import speckle_project
 from ..utils.dialog import DIALOG_WIDTH
+from ..utils.misc import strip_non_renderable
 
 
 class SPECKLE_UL_accounts_list(bpy.types.UIList):
@@ -32,12 +33,12 @@ class SPECKLE_UL_accounts_list(bpy.types.UIList):
     ) -> None:
         if self.layout_type in {"DEFAULT", "COMPACT"}:
             row = layout.row()
-            row.label(text=item.user_name)
+            row.label(text=strip_non_renderable(item.user_name))
             row.label(text=item.server_url)
             row.label(text=item.user_email)
         elif self.layout_type == "GRID":
             layout.alignment = "CENTER"
-            layout.label(text=item.user_name)
+            layout.label(text=strip_non_renderable(item.user_name))
 
 
 class SPECKLE_OT_account_selection_dialog(bpy.types.Operator):

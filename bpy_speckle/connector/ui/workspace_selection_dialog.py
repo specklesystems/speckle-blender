@@ -5,6 +5,7 @@ from ..utils.account_manager import get_workspaces, speckle_workspace
 from ..utils.project_manager import get_projects_for_account
 from ..utils.account_manager import can_create_project_in_workspace
 from ..utils.dialog import DIALOG_WIDTH
+from ..utils.misc import strip_non_renderable
 
 
 class SPECKLE_UL_workspaces_list(bpy.types.UIList):
@@ -24,11 +25,11 @@ class SPECKLE_UL_workspaces_list(bpy.types.UIList):
     ) -> None:
         if self.layout_type in {"DEFAULT", "COMPACT"}:
             row = layout.row(align=True)
-            row.label(text=item.name)
+            row.label(text=strip_non_renderable(item.name))
 
         elif self.layout_type == "GRID":
             layout.alignment = "CENTER"
-            layout.label(text=item.name)
+            layout.label(text=strip_non_renderable(item.name))
 
 
 class SPECKLE_OT_workspace_selection_dialog(bpy.types.Operator):
@@ -59,7 +60,9 @@ class SPECKLE_OT_workspace_selection_dialog(bpy.types.Operator):
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
         wm = context.window_manager
-        layout.label(text=f"Selected Workspace: {wm.selected_workspace.name}")
+        layout.label(
+            text=f"Selected Workspace: {strip_non_renderable(wm.selected_workspace.name)}"
+        )
         layout.template_list(
             "SPECKLE_UL_workspaces_list",
             "",

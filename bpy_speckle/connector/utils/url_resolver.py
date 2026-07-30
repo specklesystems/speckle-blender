@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 from urllib.parse import urlparse
 
-from .misc import format_relative_time, format_role, strip_non_ascii
+from .misc import format_relative_time, format_role
 
 
 class UnsupportedUrlError(ValueError):
@@ -124,7 +124,7 @@ def resolve_speckle_url(
 
     resolved = ResolvedSpeckleUrl(
         project_id=project.id,
-        project_name=strip_non_ascii(project.name),
+        project_name=project.name,
         role=format_role(project.role) if getattr(project, "role", None) else "",
         updated=format_relative_time(project.updated_at),
         can_receive=can_receive,
@@ -136,7 +136,7 @@ def resolve_speckle_url(
         except Exception:
             return None, "Model not found in this project"
         resolved.model_id = model.id
-        resolved.model_name = strip_non_ascii(model.name)
+        resolved.model_name = model.name
 
         if resolve_version:
             if parsed.version_id:

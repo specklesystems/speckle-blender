@@ -3,7 +3,7 @@ from specklepy.core.api.resources.current.workspace_resource import WorkspaceRes
 from specklepy.core.api.inputs.project_inputs import WorksaceProjectsFilter
 from typing import List, Tuple, Optional
 from specklepy.core.api.credentials import Account
-from .misc import format_relative_time, format_role, strip_non_ascii
+from .misc import format_relative_time, format_role
 from .account_manager import _client_cache
 
 
@@ -61,7 +61,7 @@ def get_projects_for_account(
 
                 result.append(
                     (
-                        strip_non_ascii(project.name),
+                        project.name,
                         format_role(getattr(project, "role", ""))
                         if hasattr(project, "role") and project.role
                         else "",
@@ -118,7 +118,7 @@ def _get_projects_with_individual_permissions(
 
         result.append(
             (
-                strip_non_ascii(project.name),
+                project.name,
                 format_role(getattr(project, "role", ""))
                 if hasattr(project, "role") and project.role
                 else "",

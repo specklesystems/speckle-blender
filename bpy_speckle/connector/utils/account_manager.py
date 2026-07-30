@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 from specklepy.core.api.credentials import Account
 from specklepy.core.api.client import SpeckleClient
 from .config_store import get_user_selected_account_id
-from .misc import strip_non_ascii
 
 
 class SpeckleClientCache:
@@ -68,7 +67,7 @@ def get_account_enum_items() -> List[Tuple[str, str, str, str]]:
         speckle_accounts.append(
             (
                 acc.id,
-                strip_non_ascii(acc.userInfo.name),
+                acc.userInfo.name,
                 acc.serverInfo.url,
                 acc.userInfo.email,
             )
@@ -91,7 +90,7 @@ def get_workspaces(account_id: str) -> List[Tuple[str, str]]:
             workspaces = client.active_user.get_workspaces().items
 
             workspace_list = [
-                (ws.id, strip_non_ascii(ws.name))
+                (ws.id, ws.name)
                 for ws in workspaces
                 if ws.creation_state is None or ws.creation_state.completed
             ]

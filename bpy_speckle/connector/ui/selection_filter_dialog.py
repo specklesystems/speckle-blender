@@ -5,6 +5,7 @@ from bpy.props import EnumProperty
 from ..utils.model_card_utils import update_model_card_objects
 from ..utils.account_manager import can_create_version
 from ..utils.dialog import DIALOG_WIDTH
+from ..utils.misc import strip_non_renderable
 
 
 class SPECKLE_OT_selection_filter_dialog(Operator):
@@ -85,8 +86,8 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
             project_name = model_card.project_name
             model_name = model_card.model_name
 
-        layout.label(text=f"Project: {project_name}")
-        layout.label(text=f"Model: {model_name}")
+        layout.label(text=f"Project: {strip_non_renderable(project_name)}")
+        layout.label(text=f"Model: {strip_non_renderable(model_name)}")
 
         # layout.prop(self, "selection_type")
         layout.separator()

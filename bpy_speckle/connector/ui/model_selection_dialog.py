@@ -9,6 +9,7 @@ from ..utils.dialog import (
     invalidate_downstream_selection,
     redraw_ui,
 )
+from ..utils.misc import strip_non_renderable
 
 
 class SPECKLE_UL_models_list(bpy.types.UIList):
@@ -29,7 +30,7 @@ class SPECKLE_UL_models_list(bpy.types.UIList):
         if self.layout_type in {"DEFAULT", "COMPACT"}:
             row = layout.row(align=True)
             split = row.split(factor=0.5)
-            split.label(text=item.name)
+            split.label(text=strip_non_renderable(item.name))
 
             right_split = split.split(factor=0.25)
             right_split.label(text=item.id)
@@ -37,7 +38,7 @@ class SPECKLE_UL_models_list(bpy.types.UIList):
 
         elif self.layout_type == "GRID":
             layout.alignment = "CENTER"
-            layout.label(text=item.name)
+            layout.label(text=strip_non_renderable(item.name))
 
 
 class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
@@ -112,7 +113,7 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
         wm = context.window_manager
-        layout.label(text=f"Project: {wm.selected_project_name}")
+        layout.label(text=f"Project: {strip_non_renderable(wm.selected_project_name)}")
 
         row = layout.row(align=True)
         row.prop(self, "search_query", icon="VIEWZOOM", text="")  # search bar

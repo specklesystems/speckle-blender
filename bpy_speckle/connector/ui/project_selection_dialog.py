@@ -22,6 +22,7 @@ from ..utils.dialog import (
     invalidate_downstream_selection,
     redraw_ui,
 )
+from ..utils.misc import strip_non_renderable
 
 
 class SPECKLE_UL_projects_list(bpy.types.UIList):
@@ -45,7 +46,7 @@ class SPECKLE_UL_projects_list(bpy.types.UIList):
             row.enabled = item.can_receive
 
             split = row.split(factor=0.5)
-            split.label(text=item.name)
+            split.label(text=strip_non_renderable(item.name))
 
             right_split = split.split(factor=0.5)
             right_split.label(text=item.role)
@@ -55,7 +56,7 @@ class SPECKLE_UL_projects_list(bpy.types.UIList):
         elif self.layout_type == "GRID":
             layout.alignment = "CENTER"
             layout.enabled = item.can_receive
-            layout.label(text=item.name)
+            layout.label(text=strip_non_renderable(item.name))
 
 
 def _select_project_from_url(props, context: Context, parsed: ParsedSpeckleUrl) -> None:
@@ -263,14 +264,14 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
             row.operator(
                 "speckle.account_selection_dialog",
                 icon="USER",
-                text=f"{account.userInfo.name} - {account.userInfo.email} - {account.serverInfo.url}",
+                text=f"{strip_non_renderable(account.userInfo.name)} - {account.userInfo.email} - {account.serverInfo.url}",
             )
             # Workspace selection
             row = layout.row()
             row.operator(
                 "speckle.workspace_selection_dialog",
                 icon="WORKSPACE",
-                text=wm.selected_workspace.name,
+                text=strip_non_renderable(wm.selected_workspace.name),
             )
 
             # Search field
@@ -294,18 +295,16 @@ class SPECKLE_OT_project_selection_dialog(bpy.types.Operator):
                 row.label(text=self.url_error, icon="ERROR")
             else:
                 if self.url_model_id:
+                    url_model_name = strip_non_renderable(self.url_model_name)
                     if self.url_load_option == "SPECIFIC":
                         hint = (
-                            f"Also selects model '{self.url_model_name}'"
+                            f"Also selects model '{url_model_name}'"
                             f" @ {self.url_version_id}"
                         )
                     elif self.url_load_option == "LATEST":
-                        hint = (
-                            f"Also selects model '{self.url_model_name}'"
-                            " (latest version)"
-                        )
+                        hint = f"Also selects model '{url_model_name}' (latest version)"
                     else:
-                        hint = f"Also selects model '{self.url_model_name}'"
+                        hint = f"Also selects model '{url_model_name}'"
                     row = layout.row()
                     row.label(text=hint, icon="LINKED")
 
