@@ -17,7 +17,6 @@ the definition's collection, and the placement transform goes on the empty.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 import bpy
@@ -29,6 +28,7 @@ from specklepy.objects.models.units import (
 )
 
 from ..utils import create_material_from_proxy
+from ._baking.result import BakeResult
 from .bundle_reader import (
     BundleGeometry,
     BundleMaterial,
@@ -52,29 +52,6 @@ _DECODABLE_TYPES = _MESH_TYPES | _CURVE_TYPES | _POINT_TYPES
 # segments used when flattening an analytical arc/circle/ellipse to a polyline.
 # Blender has no native arc primitive, so these are tessellated on the way in.
 _ARC_SEGMENTS = 64
-
-
-@dataclass
-class BakeResult:
-    """What a bake produced, and what it could not."""
-
-    objects: Dict[str, object] = field(default_factory=dict)
-    root_collection: Optional[bpy.types.Collection] = None
-    # geometry type -> how many blobs were skipped for want of a decoder. An
-    # object whose geometry is *entirely* undecodable is dropped outright.
-    skipped_by_type: Dict[str, int] = field(default_factory=dict)
-    # (application_id, reason) for geometry that failed to decode
-    decode_errors: List[Tuple[str, str]] = field(default_factory=list)
-    # container subtype -> how many CONTAINERs had no Blender mapping. Surfaced
-    # instead of baking them as misleading empty collections.
-    unmapped_containers: Dict[str, int] = field(default_factory=dict)
-    # eav property paths that could not be stored as custom properties —
-    # scalar/subtree collisions after un-flattening, or a value Blender refused.
-    dropped_properties: int = 0
-
-    @property
-    def skipped_count(self) -> int:
-        return sum(self.skipped_by_type.values())
 
 
 def _scale_for(units: Optional[str]) -> float:
