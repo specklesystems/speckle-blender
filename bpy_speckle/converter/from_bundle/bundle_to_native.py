@@ -622,7 +622,8 @@ def _mesh_datablock(
             vertex_count = faces[i]
             # a corrupt count would run off the end; stop rather than raise so the
             # rest of the object still lands
-            if vertex_count < 3 or i + vertex_count >= len(faces) + 1:
+            # the loop reads up to faces[i + vertex_count], so that index must exist
+            if vertex_count < 3 or i + vertex_count >= len(faces):
                 break
             face = []
             for j in range(1, vertex_count + 1):
