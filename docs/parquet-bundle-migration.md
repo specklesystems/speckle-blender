@@ -423,7 +423,10 @@ and product acceptance, not code fixes.
 Bundle path only:
 
 - **Version messages are dropped.** The v2 `complete` payload has no message
-  field (a server-side API gap). Same as the IFC converter.
+  field (a server-side API gap). Same as the IFC converter. Because of this the
+  UI no longer offers a message input at all — the publish buttons act
+  immediately, with no dialog. `publish_operation`'s `version_message` parameter
+  remains as the reconnection point once the server accepts one.
 - **Lists never serialise.** specklepy's eav walker skips list values (C#
   parity), so array-valued custom properties survive only a classic send.
 - **Data-block properties do not reach the eav table.** Mesh/curve custom

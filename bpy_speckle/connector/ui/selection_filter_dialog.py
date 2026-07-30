@@ -32,12 +32,6 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         default="",
     )  # type: ignore
 
-    version_message: bpy.props.StringProperty(
-        name="Version Message",
-        description="Message to be used for the version",
-        default="",
-    )  # type: ignore
-
     def execute(self, context: Context) -> set:
         wm = context.window_manager
         user_selection = context.selected_objects
@@ -57,9 +51,7 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
                 return {"CANCELLED"}
 
             # Call the publish operator
-            bpy.ops.speckle.model_card_publish(
-                model_card_id=self.model_card_id, version_message=self.version_message
-            )
+            bpy.ops.speckle.model_card_publish(model_card_id=self.model_card_id)
 
             context.area.tag_redraw()
             return {"FINISHED"}
@@ -81,7 +73,7 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
     def invoke(self, context: Context, event: bpy.types.Event) -> set:
         # the fresh publish flow needs no input beyond the viewport selection
         # itself, so it snapshots in one click; only the model-card path opens
-        # a dialog, which collects a version message before republishing
+        # a dialog, which confirms the new selection before republishing
         if self.model_card_id == "":
             return self.execute(context)
         return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
@@ -129,8 +121,6 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         layout.separator()
 
         if self.model_card_id != "":
-            layout.label(text="Version Message")
-            layout.prop(self, "version_message", text="")
             layout.label(
                 text="New version will be published after updating selection",
                 icon="INFO_LARGE",

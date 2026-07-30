@@ -1,27 +1,16 @@
 import bpy
 from bpy.types import Context
-from bpy.types import Event
 from typing import Set
 
 from ..operations.publish_operation import publish_operation
 from ..utils.account_manager import get_server_url_by_account_id, can_create_version
 from ..utils.model_card_utils import model_card_exists, update_model_card_objects
-from ..utils.dialog import DIALOG_WIDTH
 
 
 class SPECKLE_OT_publish(bpy.types.Operator):
     bl_idname = "speckle.publish"
     bl_label = "Publish to Speckle"
     bl_description = "Publish selected objects to Speckle"
-
-    version_message: bpy.props.StringProperty(name="Version Message")  # type: ignore
-
-    def draw(self, context: Context) -> None:
-        layout = self.layout
-        layout.prop(self, "version_message")
-
-    def invoke(self, context: Context, event: Event) -> Set[str]:
-        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def execute(self, context: Context) -> Set[str]:
         wm = context.window_manager
@@ -70,7 +59,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             return {"CANCELLED"}
 
         success, message, version_id = publish_operation(
-            context, objects_to_convert, self.version_message, wm.apply_modifiers
+            context, objects_to_convert, apply_modifiers=wm.apply_modifiers
         )
 
         if not success:

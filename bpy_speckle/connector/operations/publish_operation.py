@@ -195,6 +195,12 @@ def publish_operation(
 ) -> Tuple[bool, str, Optional[str]]:
     """
     publish objects to speckle
+
+    ``version_message`` has no UI: the default bundle path cannot carry one
+    (the v2 ``complete`` payload has no message field), so the input was
+    removed rather than silently dropped. The parameter stays because the two
+    fallback paths do honour it, and it is the reconnection point if the
+    server gap closes.
     """
     wm = context.window_manager
 
