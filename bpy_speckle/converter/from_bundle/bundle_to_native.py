@@ -17,21 +17,15 @@ the definition's collection, and the placement transform goes on the empty.
 
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import bpy
-from mathutils import Matrix
 
 from ._baking.containers import build_containers, link_object_parts
 from ._baking.geometry import GeometryBuilder
+from ._baking.hierarchy import restore_subelements
 from ._baking.instances import bake_placement, build_definitions
 from ._baking.materials import build_materials
 from ._baking.properties import apply_properties
 from ._baking.result import BakeResult
-from ._baking.transforms import (
-    origin_median,
-    recenter_origin,
-)
 from .bundle_reader import ReceivedBundle
 
 # ── orchestration ───────────────────────────────────────────────────────────
@@ -75,64 +69,5 @@ def bake_bundle(
         apply_properties(built[0], obj, result)
         result.objects[obj.application_id] = built[0]
 
-    _parent_subelements(bundle, result)
+    restore_subelements(bundle, result)
     return result
-
-
-def _parent_subelements(bundle: ReceivedBundle, result: BakeResult) -> None:
-    """Re-establish SUBELEMENT parenting once every object exists.
-
-    Revit family subelements with geometry can be independent placements whose
-    matrices are already world-space, so assigning a parent must not apply the
-    parent's placement a second time. Properties-only siblings have no spatial
-    placement of their own and remain identity-local so they follow their owner,
-    matching the original metaball-family behaviour.
-
-    Both endpoints of every link get a meaningful origin first (see
-    ``_recenter_origin``) — Blender draws relationship lines origin-to-origin,
-    so world-baked endpoints left at the origin would each draw a line across
-    the whole scene. A properties-only parent has no geometry to recentre onto
-    and moves to the median of its placed children instead, taking its
-    identity-local followers with it. A median-placed parent is *anchored*: if
-    a later iteration links it as somebody's child, its world is preserved like
-    a placed child's — following the new owner would drag the children already
-    restored under it.
-    """
-    objects_by_id = bundle.objects_by_id()
-    anchored: set = set()
-    for obj in bundle.objects:
-        if not obj.subelement_ids:
-            continue
-        parent = result.objects.get(obj.application_id)
-        if parent is None:
-            continue
-
-        placed: List[Tuple[bpy.types.Object, Matrix]] = []
-        followers: List[bpy.types.Object] = []
-        for child_id in obj.subelement_ids:
-            child = result.objects.get(child_id)
-            if child is None or child is parent:
-                continue
-            child_obj = objects_by_id.get(child_id)
-            if child in anchored or (
-                child_obj and (child_obj.is_placement or child_obj.geometry_ks)
-            ):
-                recenter_origin(child)
-                placed.append((child, child.matrix_world.copy()))
-            else:
-                followers.append(child)
-
-        # the parent's origin must be final before any child is linked: a
-        # child's world restore resolves against the parent's stored matrix
-        recenter_origin(parent)
-        if not obj.is_placement and not obj.geometry_ks and placed:
-            parent.matrix_world = Matrix.Translation(
-                origin_median([world.to_translation() for _, world in placed])
-            )
-            anchored.add(parent)
-
-        for child, world_matrix in placed:
-            child.parent = parent
-            child.matrix_world = world_matrix
-        for child in followers:
-            child.parent = parent
