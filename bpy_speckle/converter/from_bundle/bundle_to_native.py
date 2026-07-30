@@ -1,18 +1,9 @@
-"""Bakes a parsed bundle straight into Blender data-blocks.
+"""Coordinate direct baking of a parsed bundle into Blender data-blocks.
 
 The direct-bake receive path, modelled on Rhino's ``IArtifactHostObjectBuilder``:
 parquet arrays go to ``bpy.data`` without ever being reconstituted into a Speckle
-``Base`` graph. Publishing already wrote world-baked geometry (Blender's
-direct-display dialect), so a mesh's coordinates are final — the object is
-created at the origin with the mesh carrying its own world position, exactly
-inverting ``mesh_to_speckle_meshes``. Objects that join a parent relationship
-(SUBELEMENT hierarchies, mixed-family extras) are recentred onto their geometry
-(``_recenter_origin``), world position unchanged, so viewport relationship
-lines don't all converge on the origin.
-
-Collection instances are the one exception, as they are on the publish side: an
-INSTANCE node becomes an empty with ``instance_type = 'COLLECTION'`` pointing at
-the definition's collection, and the placement transform goes on the empty.
+``Base`` graph. This module is the stable public seam; Blender construction and
+repair algorithms live in the private ``_baking`` package.
 """
 
 from __future__ import annotations
@@ -28,7 +19,7 @@ from ._baking.properties import apply_properties
 from ._baking.result import BakeResult
 from .bundle_reader import ReceivedBundle
 
-# ── orchestration ───────────────────────────────────────────────────────────
+__all__ = ["BakeResult", "bake_bundle"]
 
 
 def bake_bundle(
