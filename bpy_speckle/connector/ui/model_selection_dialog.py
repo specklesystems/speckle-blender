@@ -86,6 +86,12 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
             wm.selected_model_name = selected_model.name
             invalidate_downstream_selection(wm, "MODEL")
 
+            # Pre-select the latest version so LOAD is one click away. With no
+            # version to point at, both props stay untouched — setting the
+            # option without an id would label the panel button "Latest" while
+            # Load stayed disabled — and a toast explains the disabled button.
+            # Only in LOAD mode: a model with no versions is the normal case
+            # when you are about to publish the first one.
             latest_version = get_latest_version(
                 account_id=wm.selected_account_id,
                 project_id=wm.selected_project_id,
@@ -94,6 +100,15 @@ class SPECKLE_OT_model_selection_dialog(bpy.types.Operator):
             if latest_version:
                 wm.selected_version_load_option = "LATEST"
                 wm.selected_version_id = latest_version[0]
+            elif wm.ui_mode == "LOAD":
+                # Deliberately vague: get_latest_version returns None both for
+                # an empty model and for a failed request, so the console print
+                # carries the diagnosis and the toast only says what the user
+                # can act on.
+                self.report(
+                    {"INFO"},
+                    f"No versions found for '{selected_model.name}' — nothing to load yet",
+                )
 
             print(f"Selected model: {selected_model.name} ({selected_model.id})")
 

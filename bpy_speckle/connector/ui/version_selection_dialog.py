@@ -96,8 +96,9 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             if latest_version:
                 version_id_to_store = latest_version[0]
             else:
-                print(
-                    f"Could not fetch latest version for model {wm.selected_model_id}"
+                self.report(
+                    {"ERROR"},
+                    f"Could not fetch latest version for model {wm.selected_model_id}",
                 )
                 return {"CANCELLED"}
 

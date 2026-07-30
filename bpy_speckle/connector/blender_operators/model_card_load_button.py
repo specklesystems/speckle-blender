@@ -28,6 +28,22 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
             self.report({"ERROR"}, "Model card not found")
             return {"CANCELLED"}
 
+        # Resolve "latest" before the scene is touched. The reload deletes the
+        # card's objects first, so a version lookup that fails after that would
+        # leave the user with nothing loaded and only an error to show for it.
+        latest_version_id = ""
+        if model_card.load_option == "LATEST":
+            latest_version = get_latest_version(
+                model_card.account_id, model_card.project_id, model_card.model_id
+            )
+            if latest_version is None:
+                self.report(
+                    {"ERROR"},
+                    f"Could not fetch latest version for model '{model_card.model_name}'",
+                )
+                return {"CANCELLED"}
+            latest_version_id = latest_version[0]
+
         old_properties = collect_objects_with_properties(model_card)
         delete_model_card_objects(model_card, context)
 
@@ -38,10 +54,6 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
 
         # if load option is set to "LATEST"
         if model_card.load_option == "LATEST":
-            # get latest version from speckle
-            latest_version_id, message, timestamp = get_latest_version(
-                model_card.account_id, model_card.project_id, model_card.model_id
-            )
             # set version id in wm
             wm.selected_version_id = latest_version_id
 
