@@ -1,5 +1,5 @@
 """Bakes synthetic cross-connector bundles in headless Blender and checks the
-Outliner shape that comes out.
+Blender-visible shape and diagnostics that come out.
 
 The publish fixtures can only make Blender-shaped bundles, so the container
 axes Blender never writes — models, systems, groups — are fabricated with the
@@ -9,8 +9,9 @@ receive path (``read_bundle`` -> ``bake_bundle``):
     /Applications/Blender.app/Contents/MacOS/Blender --background \\
         --factory-startup -noaudio --python tools/test_bundle_bake.py
 
-Objects here carry no geometry on purpose: a geometry-less object bakes to a
-real (shapeless) Blender object, which is all placement assertions need.
+Most relationship scenarios carry no geometry on purpose: a geometry-less
+object bakes to a real (shapeless) Blender object, which is all placement
+assertions need. Geometry characterization scenarios use real SGEO payloads.
 """
 
 import os
@@ -29,6 +30,7 @@ import bpy  # noqa: E402
 from test_bundle_reader import (  # noqa: E402
     DISPLAY,
     DISPLAY_INSTANCE,
+    HAS_MATERIAL,
     IN_COLLECTION,
     IN_GROUP,
     IN_MODEL,
@@ -341,6 +343,375 @@ def parenting_endpoints_get_meaningful_origins() -> None:
     )
 
 
+def _primitive_payloads() -> list[tuple[str, bytes]]:
+    """One valid SGEO payload for every primitive family the bake supports."""
+    from specklepy.bundle import sgeo
+    from specklepy.objects.geometry import (
+        Arc,
+        Box,
+        Circle,
+        Curve,
+        Ellipse,
+        Line,
+        Mesh,
+        Plane,
+        Point,
+        PointCloud,
+        Polycurve,
+        Polyline,
+        Spiral,
+        Vector,
+    )
+    from specklepy.objects.primitive import Interval
+
+    def point(x: float, y: float, z: float, units: str = "m") -> Point:
+        return Point(x=x, y=y, z=z, units=units)
+
+    def vector(x: float, y: float, z: float) -> Vector:
+        return Vector(x=x, y=y, z=z, units="m")
+
+    plane = Plane(
+        origin=point(0, 0, 0),
+        normal=vector(0, 0, 1),
+        xdir=vector(1, 0, 0),
+        ydir=vector(0, 1, 0),
+        units="m",
+    )
+    line = Line(
+        start=point(0, 0, 0, "mm"),
+        end=point(1000, 0, 0, "mm"),
+        units="mm",
+    )
+    polyline = Polyline(value=[0, 0, 0, 1, 1, 0, 2, 0, 0], units="m")
+    curve = Curve(
+        degree=2,
+        periodic=False,
+        rational=False,
+        points=[0, 0, 0, 1, 1, 0, 2, 0, 0],
+        weights=[1, 1, 1],
+        knots=[0, 0, 0, 1, 1, 1],
+        closed=False,
+        displayValue=polyline,
+        units="m",
+    )
+    spiral = Spiral(
+        start_point=point(0, 0, 0),
+        end_point=point(2, 0, 1),
+        plane=plane,
+        turns=1,
+        pitch=1,
+        pitch_axis=vector(0, 0, 1),
+        units="m",
+    )
+    spiral["displayValue"] = polyline
+
+    primitives = [
+        (
+            "mesh",
+            Mesh(
+                vertices=[0, 0, 0, 1000, 0, 0, 0, 1000, 0],
+                faces=[3, 0, 1, 2],
+                units="mm",
+            ),
+        ),
+        (
+            "box",
+            Box(
+                basePlane=plane,
+                xSize=Interval(start=0, end=1),
+                ySize=Interval(start=0, end=1),
+                zSize=Interval(start=0, end=1),
+                units="m",
+            ),
+        ),
+        ("line", line),
+        ("polyline", polyline),
+        ("polycurve", Polycurve(segments=[line, polyline], units="m")),
+        ("curve", curve),
+        (
+            "arc",
+            Arc(
+                plane=plane,
+                startPoint=point(1, 0, 0),
+                midPoint=point(0, 1, 0),
+                endPoint=point(-1, 0, 0),
+                units="m",
+            ),
+        ),
+        (
+            "circle",
+            Circle(plane=plane, center=point(0, 0, 0), radius=1, units="m"),
+        ),
+        (
+            "ellipse",
+            Ellipse(plane=plane, first_radius=2, second_radius=1, units="m"),
+        ),
+        ("spiral", spiral),
+        (
+            "points",
+            PointCloud(
+                points=[point(0, 0, 0), point(1, 2, 3)],
+                units="m",
+            ),
+        ),
+        ("points", point(2000, 3000, 4000, "mm")),
+    ]
+    return [(kind, sgeo.encode(primitive)) for kind, primitive in primitives]
+
+
+def all_sgeo_primitive_families_bake() -> None:
+    """Every supported SGEO family produces its documented Blender shape."""
+    payloads = _primitive_payloads()
+    application_ids = [
+        "mesh",
+        "box",
+        "line",
+        "polyline",
+        "polycurve",
+        "curve",
+        "arc",
+        "circle",
+        "ellipse",
+        "spiral",
+        "point-cloud",
+        "single-point",
+    ]
+    result = bake(
+        containers=[],
+        objects=application_ids,
+        geometries=[
+            (index, kind, content) for index, (kind, content) in enumerate(payloads)
+        ],
+        relations=[(DISPLAY, index, index) for index in range(len(application_ids))],
+    )
+
+    for application_id in ("mesh", "box"):
+        obj = result.objects[application_id]
+        check(isinstance(obj.data, bpy.types.Mesh), f"{application_id} -> Mesh")
+        check(bool(obj.data.polygons), f"{application_id} must have faces")
+    check(
+        round(max(v.co.x for v in result.objects["mesh"].data.vertices), 6) == 1.0,
+        "mesh millimetres must scale into scene metres",
+    )
+
+    curve_ids = application_ids[2:10]
+    for application_id in curve_ids:
+        obj = result.objects[application_id]
+        check(isinstance(obj.data, bpy.types.Curve), f"{application_id} -> Curve")
+        check(bool(obj.data.splines), f"{application_id} must have a spline")
+    line = result.objects["line"]
+    check(
+        round(line.data.splines[0].points[-1].co.x, 6) == 1.0,
+        "curve millimetres must scale into scene metres",
+    )
+
+    point_cloud = result.objects["point-cloud"]
+    check(isinstance(point_cloud.data, bpy.types.Mesh), "point cloud -> Mesh")
+    check(
+        len(point_cloud.data.vertices) == 2 and not point_cloud.data.polygons,
+        "point cloud must become a vertex-only mesh",
+    )
+    single = result.objects["single-point"]
+    check(single.data is None, "one decoded point must become an Empty")
+    check(
+        tuple(round(v, 6) for v in single.location) == (2.0, 3.0, 4.0),
+        f"point units must scale, got {single.location}",
+    )
+
+
+def mixed_geometry_families_stay_one_scene_element() -> None:
+    """Mesh wins as primary; curve/points remain fixed children everywhere."""
+    from specklepy.bundle import sgeo
+    from specklepy.objects.geometry import Line, Mesh, Point, PointCloud
+
+    mesh = Mesh(
+        vertices=[10, 0, 0, 12, 0, 0, 10, 2, 0],
+        faces=[3, 0, 1, 2],
+        units="m",
+    )
+    line = Line(
+        start=Point(x=20, y=0, z=0, units="m"),
+        end=Point(x=22, y=0, z=0, units="m"),
+        units="m",
+    )
+    points = PointCloud(
+        points=[
+            Point(x=30, y=0, z=0, units="m"),
+            Point(x=31, y=0, z=0, units="m"),
+        ],
+        units="m",
+    )
+    result = bake(
+        containers=[
+            (1, "Root", None, "Collection"),
+            (2, "Layer", 1, "Collection"),
+            (3, "GroupA", None, "Group"),
+        ],
+        objects=["mixed"],
+        geometries=[
+            (0, "mesh", sgeo.encode(mesh)),
+            (1, "line", sgeo.encode(line)),
+            (2, "points", sgeo.encode(points)),
+        ],
+        relations=[
+            (DISPLAY, 0, 0),
+            (DISPLAY, 0, 1),
+            (DISPLAY, 0, 2),
+            (IN_COLLECTION, 0, 2),
+            (IN_GROUP, 0, 3),
+        ],
+    )
+    bpy.context.view_layer.update()
+
+    primary = result.objects["mixed"]
+    check(isinstance(primary.data, bpy.types.Mesh), "mesh must be primary")
+    check(len(primary.children) == 2, "curve and points must be secondary parts")
+    parts = [primary, *primary.children]
+    for part in parts:
+        check(
+            {collection.name for collection in part.users_collection}
+            == {"Layer", "GroupA"},
+            f"every mixed-family part must share memberships, got {part.users_collection}",
+        )
+
+    curve = next(
+        part for part in primary.children if isinstance(part.data, bpy.types.Curve)
+    )
+    points_part = next(
+        part
+        for part in primary.children
+        if isinstance(part.data, bpy.types.Mesh) and not part.data.polygons
+    )
+    check(
+        tuple(round(v, 6) for v in primary.matrix_world @ primary.data.vertices[0].co)
+        == (10.0, 0.0, 0.0),
+        "primary world geometry must survive recentering",
+    )
+    curve_point = curve.data.splines[0].points[0].co
+    check(
+        tuple(round(v, 6) for v in curve.matrix_world @ curve_point)[:3]
+        == (20.0, 0.0, 0.0),
+        "curve world geometry must survive parenting",
+    )
+    check(
+        tuple(
+            round(v, 6)
+            for v in points_part.matrix_world @ points_part.data.vertices[0].co
+        )
+        == (30.0, 0.0, 0.0),
+        "point-cloud world geometry must survive parenting",
+    )
+
+
+def material_binding_follows_source_geometry() -> None:
+    """Two merged source meshes retain their own material face ranges."""
+    from specklepy.bundle import sgeo
+    from specklepy.objects.geometry import Mesh
+
+    first = Mesh(
+        vertices=[0, 0, 0, 1, 0, 0, 0, 1, 0],
+        faces=[3, 0, 1, 2],
+        units="m",
+    )
+    second = Mesh(
+        vertices=[2, 0, 0, 3, 0, 0, 2, 1, 0],
+        faces=[3, 0, 1, 2],
+        units="m",
+    )
+    result = bake(
+        containers=[],
+        objects=["two-materials"],
+        geometries=[
+            (0, "mesh", sgeo.encode(first)),
+            (1, "mesh", sgeo.encode(second)),
+        ],
+        materials=[
+            (10, "Red", -65536, 1.0, 0.0, 0.5),
+            (11, "Blue", -16776961, 1.0, 0.0, 0.5),
+        ],
+        relations=[
+            (DISPLAY, 0, 0),
+            (DISPLAY, 0, 1),
+            (HAS_MATERIAL, 0, 10),
+            (HAS_MATERIAL, 1, 11),
+        ],
+    )
+
+    mesh = result.objects["two-materials"].data
+    check(
+        [material.name for material in mesh.materials] == ["Red", "Blue"],
+        f"both geometry materials need slots, got {list(mesh.materials)}",
+    )
+    check(
+        [mesh.materials[face.material_index].name for face in mesh.polygons]
+        == ["Red", "Blue"],
+        "each source mesh's faces must use its HAS_MATERIAL target",
+    )
+
+
+def unsupported_and_corrupt_geometry_isolated() -> None:
+    """Unsupported and malformed blobs are diagnosed without aborting peers."""
+    from specklepy.bundle import sgeo
+    from specklepy.objects.geometry import Mesh
+
+    triangle = Mesh(
+        vertices=[0, 0, 0, 1, 0, 0, 0, 1, 0],
+        faces=[3, 0, 1, 2],
+        units="m",
+    )
+    malformed_faces = Mesh(
+        vertices=[0, 0, 0, 1, 0, 0, 0, 1, 0],
+        faces=[3, 0, 1, 2, 4, 0, 1],
+        units="m",
+    )
+    result = bake(
+        containers=[],
+        objects=[
+            "mixed-supported",
+            "unsupported-only",
+            "corrupt-sgeo",
+            "corrupt-faces",
+            "healthy-after-error",
+        ],
+        geometries=[
+            (0, "mesh", sgeo.encode(triangle)),
+            (1, "brep", b"unsupported"),
+            (2, "surface", b"unsupported"),
+            (3, "mesh", b"\x00"),
+            (4, "mesh", sgeo.encode(malformed_faces)),
+            (5, "mesh", sgeo.encode(triangle)),
+        ],
+        relations=[
+            (DISPLAY, 0, 0),
+            (DISPLAY, 0, 1),
+            (DISPLAY, 1, 2),
+            (DISPLAY, 2, 3),
+            (DISPLAY, 3, 4),
+            (DISPLAY, 4, 5),
+        ],
+    )
+
+    check("mixed-supported" in result.objects, "supported portion must still bake")
+    check("unsupported-only" not in result.objects, "unsupported-only object omitted")
+    check("corrupt-sgeo" not in result.objects, "fully failed object omitted")
+    check(
+        "healthy-after-error" in result.objects, "one decode error must not abort bake"
+    )
+    check(
+        result.skipped_by_type == {"brep": 1, "surface": 1},
+        f"unknown types must be tallied, got {result.skipped_by_type}",
+    )
+    check(result.skipped_count == 2, "skipped_count remains unsupported blob count")
+    check(
+        len(result.decode_errors) == 1 and result.decode_errors[0][0] == "corrupt-sgeo",
+        f"corrupt SGEO must be diagnosed, got {result.decode_errors}",
+    )
+    check(
+        len(result.objects["corrupt-faces"].data.polygons) == 1,
+        "malformed face count stops that mesh's remaining face stream",
+    )
+
+
 SCENARIOS = [
     navis_federation,
     single_model_maps_onto_root,
@@ -349,6 +720,10 @@ SCENARIOS = [
     revit_parameter_paths_bake_as_groups,
     revit_subelement_parenting_preserves_world_transform,
     parenting_endpoints_get_meaningful_origins,
+    all_sgeo_primitive_families_bake,
+    mixed_geometry_families_stay_one_scene_element,
+    material_binding_follows_source_geometry,
+    unsupported_and_corrupt_geometry_isolated,
 ]
 
 

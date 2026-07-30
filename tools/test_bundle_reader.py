@@ -35,13 +35,14 @@ sys.modules["bundle_reader"] = bundle_reader
 _spec.loader.exec_module(bundle_reader)
 
 # rel/kind ids as catalogued in the bundle spec's rel_types / node_kinds
-DEFINITION, INSTANCE, CONTAINER = 1, 2, 7
-DISPLAY, SUBELEMENT, DEFINES, DISPLAY_INSTANCE = 1, 3, 4, 8
+DEFINITION, INSTANCE, MATERIAL, CONTAINER = 1, 2, 3, 7
+DISPLAY, SUBELEMENT, DEFINES, HAS_MATERIAL, DISPLAY_INSTANCE = 1, 3, 4, 5, 8
 IN_COLLECTION, IN_MODEL, IN_SYSTEM, IN_GROUP = 10, 11, 14, 17
 REL_NAMES = {
     DISPLAY: "DISPLAY",
     SUBELEMENT: "SUBELEMENT",
     DEFINES: "DEFINES",
+    HAS_MATERIAL: "HAS_MATERIAL",
     DISPLAY_INSTANCE: "DISPLAY_INSTANCE",
     IN_COLLECTION: "IN_COLLECTION",
     IN_MODEL: "IN_MODEL",
@@ -69,6 +70,7 @@ def write_bundle(
     definitions: list = None,  # (node id, name)
     instances: list = None,  # (node id, def_ref, transform csv, units)
     geometries: list = None,  # (geometry k, sgeo type, content bytes)
+    materials: list = None,  # (node id, name, argb, opacity, metalness, roughness)
 ) -> None:
     """Write the minimal table set the reader joins.
 
@@ -77,36 +79,48 @@ def write_bundle(
     """
     definitions = definitions or []
     instances = instances or []
+    materials = materials or []
     nodes: Dict[str, list] = {
         "id": [c[0] for c in containers]
         + [d[0] for d in definitions]
-        + [i[0] for i in instances],
+        + [i[0] for i in instances]
+        + [m[0] for m in materials],
         "kind": [CONTAINER] * len(containers)
         + [DEFINITION] * len(definitions)
-        + [INSTANCE] * len(instances),
+        + [INSTANCE] * len(instances)
+        + [MATERIAL] * len(materials),
         "name": [c[1] for c in containers]
         + [d[1] for d in definitions]
-        + [None] * len(instances),
+        + [None] * len(instances)
+        + [m[1] for m in materials],
         "def_ref": [c[2] for c in containers]
         + [None] * len(definitions)
-        + [i[1] for i in instances],
+        + [i[1] for i in instances]
+        + [None] * len(materials),
     }
     if instances:
         # the reader only touches these columns on INSTANCE rows, and the real
         # writer only emits them when instances exist
         pad = [None] * (len(containers) + len(definitions))
-        nodes["transform"] = pad + [i[2] for i in instances]
-        nodes["units"] = pad + [i[3] for i in instances]
+        material_pad = [None] * len(materials)
+        nodes["transform"] = pad + [i[2] for i in instances] + material_pad
+        nodes["units"] = pad + [i[3] for i in instances] + material_pad
+    if materials:
+        pad = [None] * (len(containers) + len(definitions) + len(instances))
+        nodes["argb"] = pad + [m[2] for m in materials]
+        nodes["opacity"] = pad + [m[3] for m in materials]
+        nodes["metalness"] = pad + [m[4] for m in materials]
+        nodes["roughness"] = pad + [m[5] for m in materials]
     if with_subtype_column:
         nodes["subtype"] = [c[3] for c in containers] + [None] * (
-            len(definitions) + len(instances)
+            len(definitions) + len(instances) + len(materials)
         )
     _write(
         bundle_dir,
         "envelope.node_kinds",
         {
-            "kind": [DEFINITION, INSTANCE, CONTAINER],
-            "name": ["DEFINITION", "INSTANCE", "CONTAINER"],
+            "kind": [DEFINITION, INSTANCE, MATERIAL, CONTAINER],
+            "name": ["DEFINITION", "INSTANCE", "MATERIAL", "CONTAINER"],
         },
     )
     _write(bundle_dir, "envelope.nodes", nodes)

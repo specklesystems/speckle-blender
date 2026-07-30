@@ -373,7 +373,7 @@ def _add_splines(curve_data: bpy.types.Curve, curve) -> None:
     elif kind == "Spiral":
         # a spiral has no closed form Blender can express; the producer's own
         # render polyline is the faithful reading
-        display = curve["displayValue"] if "displayValue" in curve.keys() else None
+        display = getattr(curve, "displayValue", None)
         if display is not None and display.value:
             _add_poly_spline(curve_data, display.value, _closed(display), scale)
 
