@@ -130,12 +130,25 @@ not the Base-reconstruction path (Revit's). Parquet arrays go straight to
 pydantic validation entirely. That is why the raw-array `sgeo.decode_mesh` exists
 alongside `sgeo.decode`.
 
-Three modules, split so most of it runs without Blender:
+The receive path has three public stages, split so most of it runs without
+Blender:
 
 - `connector/operations/bundle_receive.py` — probe + download presigned files.
 - `converter/from_bundle/bundle_reader.py` — parquet → dataclasses. **No `bpy`**,
   so it can be exercised against a downloaded bundle offline.
-- `converter/from_bundle/bundle_to_native.py` — dataclasses → data-blocks.
+- `converter/from_bundle/bundle_to_native.py` — the stable public Blender seam:
+  a short `bake_bundle` coordinator plus the compatibility `BakeResult`
+  re-export. It visibly orders materials, containers, definition collections,
+  ordinary objects and placements, membership, properties, and final hierarchy
+  restoration.
+
+Blender construction lives behind the private
+`converter/from_bundle/_baking/` package. `GeometryBuilder` is the sole geometry
+interface used by orchestration and definition construction; its `mesh` and
+`curves` modules own the SGEO-family details. Sibling modules own materials,
+containers and membership, properties, instances, transforms, hierarchy repair,
+and the bake result. Dependencies point inward from the coordinator and never
+back to `bundle_to_native` or `load_operation`.
 
 ## Receive gotchas
 
