@@ -17,15 +17,13 @@ the definition's collection, and the placement transform goes on the empty.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import bpy
 from mathutils import Matrix
-from specklepy.bundle import sgeo
 
 from ._baking.containers import build_containers, link_object_parts
-from ._baking.geometry.curves import build_curve_object
-from ._baking.geometry.mesh import build_mesh_object
+from ._baking.geometry import GeometryBuilder
 from ._baking.materials import build_materials
 from ._baking.properties import apply_properties
 from ._baking.result import BakeResult
@@ -33,67 +31,8 @@ from ._baking.transforms import (
     origin_median,
     placement_matrix,
     recenter_origin,
-    scale_for,
 )
-from .bundle_reader import (
-    BundleGeometry,
-    BundleObject,
-    ReceivedBundle,
-)
-
-# geometries.type labels grouped by the Blender data-block they become. A
-# Blender object holds exactly one data-block, so an object whose display
-# geometry spans families gets the dominant one and children for the rest.
-#
-# Blender itself only publishes mesh / curve / polyline / points, but a bundle
-# from Rhino or Revit can carry the whole family, so all of it is handled.
-_MESH_TYPES = frozenset({"mesh", "box"})
-_CURVE_TYPES = frozenset(
-    {"line", "polyline", "polycurve", "curve", "arc", "circle", "ellipse", "spiral"}
-)
-_POINT_TYPES = frozenset({"points"})
-_DECODABLE_TYPES = _MESH_TYPES | _CURVE_TYPES | _POINT_TYPES
-
-
-def _decode_points(geometries: List[BundleGeometry]) -> Tuple[List[object], List[str]]:
-    """Decode point-family blobs, collecting per-blob failures."""
-    decoded: List[object] = []
-    errors: List[str] = []
-    for geometry in geometries:
-        try:
-            decoded.append(sgeo.decode(geometry.content))
-        except sgeo.SgeoDecodeError as e:
-            errors.append(str(e))
-    return decoded, errors
-
-
-def _points_object(name: str, points: List[object]) -> Optional[bpy.types.Object]:
-    """Turn POINTS geometry into the Blender shape it came from.
-
-    A single Point becomes an Empty — that is what Blender published it from —
-    while a PointCloud becomes a vertex-only mesh, which is the only Blender
-    data-block that holds many loose points.
-    """
-    coords: List[Tuple[float, float, float]] = []
-    for point in points:
-        scale = scale_for(getattr(point, "units", None))
-        if type(point).__name__ == "PointCloud":
-            coords.extend((p.x * scale, p.y * scale, p.z * scale) for p in point.points)
-        else:
-            coords.append((point.x * scale, point.y * scale, point.z * scale))
-
-    if not coords:
-        return None
-    if len(coords) == 1:
-        empty = bpy.data.objects.new(name, None)
-        empty.location = coords[0]
-        return empty
-
-    mesh = bpy.data.meshes.new(name)
-    mesh.from_pydata(coords, [], [])
-    mesh.update()
-    return bpy.data.objects.new(name, mesh)
-
+from .bundle_reader import BundleObject, ReceivedBundle
 
 # ── orchestration ───────────────────────────────────────────────────────────
 
@@ -117,8 +56,9 @@ def bake_bundle(
 
     materials = build_materials(bundle)
     containers = build_containers(bundle, root_collection, result)
+    geometry_builder = GeometryBuilder(bundle, materials, result)
 
-    definition_collections = _build_definitions(bundle, materials, result)
+    definition_collections = _build_definitions(bundle, geometry_builder)
 
     for obj in bundle.objects:
         if obj.is_placement:
@@ -126,7 +66,7 @@ def bake_bundle(
                 obj, bundle, definition_collections, instance_loading_mode
             )
         else:
-            built = _bake_object(obj, bundle, materials, result)
+            built = geometry_builder.build_object(obj)
 
         if not built:
             continue
@@ -139,162 +79,9 @@ def bake_bundle(
     return result
 
 
-def _bake_object(
-    obj: BundleObject,
-    bundle: ReceivedBundle,
-    materials: Dict[int, bpy.types.Material],
-    result: BakeResult,
-) -> List[bpy.types.Object]:
-    """Bake one ordinary (non-placement) object into one or more data-blocks.
-
-    A Blender object holds a single data-block, so when an object's display
-    geometry spans families (a Revit wall with a mesh body and edge curves, say)
-    the mesh wins the object itself and the rest become child objects. Blender's
-    own publishes are always homogeneous, so this only fires cross-connector.
-
-    Returns the objects to link, primary first, or ``[]`` when nothing could be
-    built.
-    """
-    geometries = [
-        bundle.geometries[k] for k in obj.geometry_ks if k in bundle.geometries
-    ]
-    if not geometries:
-        # properties-only, e.g. a metaball sibling — a real object with no shape
-        return [_empty_object(obj)]
-
-    decodable = _partition_decodable(geometries, result)
-    if not decodable:
-        # Every display geometry needs a decoder we do not have. Drop the object
-        # rather than leaving a shapeless placeholder behind — the per-type tally
-        # is reported, and a reload once the decoder lands brings the shape in.
-        return []
-
-    return _objects_from_geometries(
-        obj.name or obj.application_id,
-        f"{obj.name or obj.application_id}.{obj.k}",
-        decodable,
-        bundle,
-        materials,
-        result,
-        obj.application_id,
-    )
-
-
-def _member_objects(
-    name: str,
-    decodable: List[BundleGeometry],
-    bundle: ReceivedBundle,
-    materials: Dict[int, bpy.types.Material],
-    result: BakeResult,
-) -> List[bpy.types.Object]:
-    """The same build, for one member of an instance definition."""
-    return _objects_from_geometries(
-        name, name, decodable, bundle, materials, result, name
-    )
-
-
-def _objects_from_geometries(
-    name: str,
-    data_name: str,
-    decodable: List[BundleGeometry],
-    bundle: ReceivedBundle,
-    materials: Dict[int, bpy.types.Material],
-    result: BakeResult,
-    error_key: str,
-) -> List[bpy.types.Object]:
-    """Build one Blender object per geometry family present, primary first.
-
-    ``name`` names the objects, ``data_name`` the data-blocks — scene objects
-    want the readable name, data-blocks want a unique one.
-    """
-    mesh_geos = [g for g in decodable if g.type in _MESH_TYPES]
-    curve_geos = [g for g in decodable if g.type in _CURVE_TYPES]
-    point_geos = [g for g in decodable if g.type in _POINT_TYPES]
-
-    def materials_for(
-        geos: List[BundleGeometry],
-    ) -> List[Optional[bpy.types.Material]]:
-        return [materials.get(bundle.geometry_materials.get(g.k, -1)) for g in geos]
-
-    def record(errors: List[str]) -> None:
-        for error in errors:
-            result.decode_errors.append((error_key, error))
-
-    built: List[bpy.types.Object] = []
-
-    if mesh_geos:
-        mesh_object, errors = build_mesh_object(
-            name,
-            data_name,
-            mesh_geos,
-            materials_for(mesh_geos),
-        )
-        record(errors)
-        if mesh_object is not None:
-            built.append(mesh_object)
-
-    if curve_geos:
-        curve_object, errors = build_curve_object(
-            name,
-            f"{data_name}.curves",
-            curve_geos,
-            materials_for(curve_geos),
-        )
-        record(errors)
-        if curve_object is not None:
-            built.append(curve_object)
-
-    if point_geos:
-        points, errors = _decode_points(point_geos)
-        record(errors)
-        if points:
-            point_object = _points_object(name, points)
-            if point_object is not None:
-                built.append(point_object)
-
-    # extras only exist for mixed-family objects; parent them to the primary so
-    # the scene tree still reads as one thing. Both endpoints get a real origin
-    # first, and the primary's fresh placement is inverted back out so the
-    # extras' world-space data stays put.
-    if len(built) > 1:
-        for part in built:
-            recenter_origin(part)
-        primary_inverse = built[0].matrix_world.inverted(Matrix.Identity(4))
-        for extra in built[1:]:
-            extra.parent = built[0]
-            extra.matrix_parent_inverse = primary_inverse
-    return built
-
-
-def _partition_decodable(
-    geometries: List[BundleGeometry], result: BakeResult
-) -> List[BundleGeometry]:
-    """Return the geometries we can decode, tallying the ones we cannot.
-
-    The tally is per geometry blob rather than per object, so an object with one
-    mesh and one curve reports the curve it lost even though the object itself
-    still lands.
-    """
-    decodable: List[BundleGeometry] = []
-    for geometry in geometries:
-        if geometry.type in _DECODABLE_TYPES:
-            decodable.append(geometry)
-        else:
-            result.skipped_by_type[geometry.type] = (
-                result.skipped_by_type.get(geometry.type, 0) + 1
-            )
-    return decodable
-
-
-def _empty_object(obj: BundleObject) -> bpy.types.Object:
-    """A shapeless object that still carries its name and properties."""
-    return bpy.data.objects.new(obj.name or obj.application_id, None)
-
-
 def _build_definitions(
     bundle: ReceivedBundle,
-    materials: Dict[int, bpy.types.Material],
-    result: BakeResult,
+    geometry_builder: GeometryBuilder,
 ) -> Dict[int, bpy.types.Collection]:
     """Turn each DEFINITION node into a collection of its member objects.
 
@@ -314,18 +101,9 @@ def _build_definitions(
         definition_collections[node_id] = collection
 
         for ordinal in sorted(definition.members):
-            geometries = [
-                bundle.geometries[k]
-                for k in definition.members[ordinal]
-                if k in bundle.geometries
-            ]
-            decodable = _partition_decodable(geometries, result)
-            if not decodable:
-                continue
-
             member_name = f"{name}.{ordinal}"
-            for member in _member_objects(
-                member_name, decodable, bundle, materials, result
+            for member in geometry_builder.build_definition_member(
+                member_name, definition.members[ordinal]
             ):
                 collection.objects.link(member)
 
