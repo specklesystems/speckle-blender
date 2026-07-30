@@ -22,8 +22,8 @@ from typing import Dict, List, Optional, Tuple
 import bpy
 from mathutils import Matrix
 from specklepy.bundle import sgeo
-from ..utils import create_material_from_proxy
 from ._baking.containers import build_containers, link_object_parts
+from ._baking.materials import build_materials
 from ._baking.properties import apply_properties
 from ._baking.result import BakeResult
 from ._baking.transforms import (
@@ -34,7 +34,6 @@ from ._baking.transforms import (
 )
 from .bundle_reader import (
     BundleGeometry,
-    BundleMaterial,
     BundleObject,
     ReceivedBundle,
 )
@@ -55,32 +54,6 @@ _DECODABLE_TYPES = _MESH_TYPES | _CURVE_TYPES | _POINT_TYPES
 # segments used when flattening an analytical arc/circle/ellipse to a polyline.
 # Blender has no native arc primitive, so these are tessellated on the way in.
 _ARC_SEGMENTS = 64
-
-
-class _MaterialShim:
-    """Adapts a :class:`BundleMaterial` to what ``create_material_from_proxy``
-    duck-types on.
-
-    The bundle stores the diffuse colour in an ``argb`` column while the classic
-    path reads ``RenderMaterial.diffuse``; the values are the same packed int, so
-    a shim is enough to reuse the existing Principled node graph rather than
-    growing a second copy of it.
-    """
-
-    def __init__(self, material: BundleMaterial) -> None:
-        self.diffuse = material.argb
-        self.opacity = material.opacity
-        self.metalness = material.metalness
-        self.roughness = material.roughness
-        self.name = material.name
-
-
-def _build_materials(bundle: ReceivedBundle) -> Dict[int, bpy.types.Material]:
-    materials: Dict[int, bpy.types.Material] = {}
-    for node_id, material in bundle.materials.items():
-        name = material.name or f"Material_{node_id}"
-        materials[node_id] = create_material_from_proxy(_MaterialShim(material), name)
-    return materials
 
 
 def _decode_meshes(
@@ -532,7 +505,7 @@ def bake_bundle(
     bpy.context.scene.collection.children.link(root_collection)
     result.root_collection = root_collection
 
-    materials = _build_materials(bundle)
+    materials = build_materials(bundle)
     containers = build_containers(bundle, root_collection, result)
 
     definition_collections = _build_definitions(bundle, materials, result)
