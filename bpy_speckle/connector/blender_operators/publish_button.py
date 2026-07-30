@@ -15,16 +15,10 @@ class SPECKLE_OT_publish(bpy.types.Operator):
     bl_description = "Publish selected objects to Speckle"
 
     version_message: bpy.props.StringProperty(name="Version Message")  # type: ignore
-    apply_modifiers: bpy.props.BoolProperty(  # type: ignore
-        name="Apply Modifiers",
-        description="Apply all modifiers to objects before conversion",
-        default=True,
-    )
 
     def draw(self, context: Context) -> None:
         layout = self.layout
         layout.prop(self, "version_message")
-        layout.prop(self, "apply_modifiers")
 
     def invoke(self, context: Context, event: Event) -> Set[str]:
         return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
@@ -76,7 +70,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             return {"CANCELLED"}
 
         success, message, version_id = publish_operation(
-            context, objects_to_convert, self.version_message, self.apply_modifiers
+            context, objects_to_convert, self.version_message, wm.apply_modifiers
         )
 
         if not success:
@@ -105,7 +99,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             model_card.is_publish = True
             model_card.load_option = "SPECIFIC"  # published versions are specific
             model_card.version_id = version_id
-            model_card.apply_modifiers = self.apply_modifiers
+            model_card.apply_modifiers = wm.apply_modifiers
             update_model_card_objects(model_card, objects_to_convert)
 
         # clear selected model details from Window Manager

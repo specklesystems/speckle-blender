@@ -1,6 +1,6 @@
 import bpy
 from typing import Set
-from bpy.types import Context, Event
+from bpy.types import Context
 from ..operations.load_operation import load_operation
 from ..utils.account_manager import get_server_url_by_account_id
 from ..utils.model_card_utils import (
@@ -8,40 +8,12 @@ from ..utils.model_card_utils import (
     delete_model_card_objects,
     model_card_exists,
 )
-from ..utils.dialog import DIALOG_WIDTH
 
 
 class SPECKLE_OT_load(bpy.types.Operator):
     bl_idname = "speckle.load"
     bl_label = "Load model"
     bl_description = "Load selection from Speckle"
-
-    instance_loading_mode: bpy.props.EnumProperty(  # type: ignore
-        name="Instance Loading",
-        description="Choose how to load instances",
-        items=[
-            (
-                "INSTANCE_PROXIES",
-                "Collection Instances",
-                "Load objects as collection instances",
-            ),
-            (
-                "LINKED_DUPLICATES",
-                "Linked Duplicates",
-                "Get objects as linked duplicates",
-            ),
-        ],
-        default="INSTANCE_PROXIES",
-    )
-
-    def draw(self, context: Context) -> None:
-        layout = self.layout
-        row = layout.row()
-        row.label(text="Instance Loading:")
-        row.prop(self, "instance_loading_mode", text="")
-
-    def invoke(self, context: Context, event: Event) -> Set[str]:
-        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def execute(self, context: Context) -> Set[str]:
         wm = context.window_manager
@@ -63,9 +35,9 @@ class SPECKLE_OT_load(bpy.types.Operator):
         model_card.is_publish = False
         model_card.load_option = wm.selected_version_load_option
         model_card.version_id = wm.selected_version_id
-        model_card.instance_loading_mode = self.instance_loading_mode
+        model_card.instance_loading_mode = wm.instance_loading_mode
 
-        converted_objects = load_operation(context, self.instance_loading_mode)
+        converted_objects = load_operation(context, wm.instance_loading_mode)
         update_model_card_objects(model_card, converted_objects)
 
         # Clear selected model details from Window Manager

@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import UILayout, Context
-from .icons import get_icon
+from .icons import get_icon, get_icon_for_type
 from ..utils.misc import strip_non_renderable
 
 
@@ -64,8 +64,7 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             icon=model_button_icon,
         )
         if wm.ui_mode == "PUBLISH":
-            # TODO: implement Publish flow
-            # Selection filter
+            # Selection filter: snapshots the viewport selection in one click
             row = layout.row()
             row.enabled = project_selected and model_selected
             selection_button_text = (
@@ -76,14 +75,27 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             row.operator(
                 "speckle.selection_filter_dialog",
                 text=selection_button_text,
-                icon="PLUS",
+                icon="CHECKMARK" if selection_made else "PLUS",
             ).model_card_id = ""
+
+            # summary of the snapshot by object type
+            if selection_made:
+                type_counts: dict[str, int] = {}
+                for item in wm.speckle_objects:
+                    type_counts[item.obj_type] = type_counts.get(item.obj_type, 0) + 1
+                col = layout.box().column(align=True)
+                for obj_type, count in sorted(type_counts.items()):
+                    row = col.row()
+                    row.label(text=f"{obj_type}:", icon=get_icon_for_type(obj_type))
+                    row.label(text=str(count))
 
             # Publish button
             row = layout.row()
             row.enabled = project_selected and model_selected and selection_made
             row.operator("speckle.publish", text="Publish Model", icon="EXPORT")
-            pass
+
+            row = layout.row()
+            row.prop(wm, "apply_modifiers")
 
         if wm.ui_mode == "LOAD":
             # select Version button
@@ -109,3 +121,6 @@ class SPECKLE_PT_main_panel(bpy.types.Panel):
             row = layout.row()
             row.enabled = project_selected and model_selected and version_selected
             row.operator("speckle.load", text="Load Model", icon="IMPORT")
+
+            row = layout.row()
+            row.prop(wm, "instance_loading_mode", text="Instances")

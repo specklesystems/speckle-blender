@@ -41,6 +41,8 @@ class speckle_object(bpy.types.PropertyGroup):
 
     name: bpy.props.StringProperty()  # type: ignore
     applicationId: bpy.props.StringProperty(name="Application ID", default="")  # type: ignore
+    # captured at snapshot time so panel redraws don't look objects up in bpy.data
+    obj_type: bpy.props.StringProperty(default="")  # type: ignore
 
 
 class speckle_collection(bpy.types.PropertyGroup):

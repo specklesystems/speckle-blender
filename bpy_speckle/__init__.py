@@ -151,6 +151,29 @@ def invoke_window_manager_properties():
     )
     # Objects
     WindowManager.speckle_objects = bpy.props.CollectionProperty(type=speckle_object)
+    WindowManager.apply_modifiers = bpy.props.BoolProperty(
+        name="Apply Modifiers",
+        description="Apply all modifiers to objects before conversion",
+        default=True,
+    )
+    # Instance loading mode, shown in the panel's LOAD section
+    WindowManager.instance_loading_mode = bpy.props.EnumProperty(  # type: ignore
+        name="Instance Loading",
+        description="Choose how to load instances",
+        items=[
+            (
+                "INSTANCE_PROXIES",
+                "Collection Instances",
+                "Load objects as collection instances",
+            ),
+            (
+                "LINKED_DUPLICATES",
+                "Linked Duplicates",
+                "Get objects as linked duplicates",
+            ),
+        ],
+        default="INSTANCE_PROXIES",
+    )
     # Update checking
     WindowManager.update_available = bpy.props.BoolProperty(default=False)
     WindowManager.latest_version = bpy.props.StringProperty(default="")

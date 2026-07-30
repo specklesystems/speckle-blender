@@ -6,6 +6,7 @@ from ..utils.model_card_utils import update_model_card_objects
 from ..utils.account_manager import can_create_version
 from ..utils.dialog import DIALOG_WIDTH
 from ..utils.misc import strip_non_renderable
+from .icons import get_icon_for_type
 
 
 class SPECKLE_OT_selection_filter_dialog(Operator):
@@ -39,7 +40,6 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
 
     def execute(self, context: Context) -> set:
         wm = context.window_manager
-        wm.speckle_objects.clear()
         user_selection = context.selected_objects
         if self.model_card_id != "":
             model_card = context.scene.speckle_state.get_model_card_by_id(
@@ -64,13 +64,26 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
             context.area.tag_redraw()
             return {"FINISHED"}
 
+        if not user_selection:
+            # a click with nothing selected keeps the previous snapshot rather
+            # than silently wiping it
+            self.report({"WARNING"}, "No objects selected in the viewport")
+            return {"CANCELLED"}
+
+        wm.speckle_objects.clear()
         for sel in user_selection:
             obj = wm.speckle_objects.add()
             obj.name = sel.name
+            obj.obj_type = sel.type
         context.area.tag_redraw()
         return {"FINISHED"}
 
     def invoke(self, context: Context, event: bpy.types.Event) -> set:
+        # the fresh publish flow needs no input beyond the viewport selection
+        # itself, so it snapshots in one click; only the model-card path opens
+        # a dialog, which collects a version message before republishing
+        if self.model_card_id == "":
+            return self.execute(context)
         return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def draw(self, context: Context):
@@ -110,7 +123,7 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
         col = box.column(align=True)
         for obj_type, count in object_types.items():
             row = col.row()
-            row.label(text=f"{obj_type}:", icon=self.get_icon_for_type(obj_type))
+            row.label(text=f"{obj_type}:", icon=get_icon_for_type(obj_type))
             row.label(text=str(count))
 
         layout.separator()
@@ -122,24 +135,6 @@ class SPECKLE_OT_selection_filter_dialog(Operator):
                 text="New version will be published after updating selection",
                 icon="INFO_LARGE",
             )
-
-    def get_icon_for_type(self, obj_type: str) -> str:
-        icon_map: dict[str, str] = {
-            "MESH": "OUTLINER_OB_MESH",
-            "CURVE": "OUTLINER_OB_CURVE",
-            "SURFACE": "OUTLINER_OB_SURFACE",
-            "META": "OUTLINER_OB_META",
-            "FONT": "OUTLINER_OB_FONT",
-            "ARMATURE": "OUTLINER_OB_ARMATURE",
-            "LATTICE": "OUTLINER_OB_LATTICE",
-            "EMPTY": "OUTLINER_OB_EMPTY",
-            "GPENCIL": "OUTLINER_OB_GREASEPENCIL",
-            "CAMERA": "OUTLINER_OB_CAMERA",
-            "LIGHT": "OUTLINER_OB_LIGHT",
-            "SPEAKER": "OUTLINER_OB_SPEAKER",
-            "LIGHT_PROBE": "OUTLINER_OB_LIGHTPROBE",
-        }
-        return icon_map.get(obj_type, "OBJECT_DATA")
 
     def check(self, context: Context) -> bool:
         return True  # this forces the dialog to redraw
