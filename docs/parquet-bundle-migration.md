@@ -175,6 +175,7 @@ load_operation(context, instance_loading_mode)
 │      GET /api/v2/projects/{p}/models/{m}/versions/{v}/artifacts   [bearer]
 │      404 / non-2xx / transport error / bad JSON -> []  -> None (classic)
 │      keep only *.parquet   (.dat is the viewer's packfile, not the bundle)
+│      every name must be a flat *.parquet file name, else raise
 │      GET each presigned URL, unauthenticated, follow_redirects, 300 s
 │    │  None -> classic
 │    │
@@ -206,6 +207,15 @@ plain `import specklepy.bundle` would pass and then crash mid-bake.
 the signature is in the URL and some stores reject a second credential. Files
 are filtered to `*.parquet`. The whole response body is buffered in memory
 before being written, which is [R5](#unresolved-regressions).
+
+Each artefact **name** must then match `^[A-Za-z0-9][A-Za-z0-9._-]*\.parquet$`,
+checked for every file before the first byte is written; anything else raises.
+The name is used as a path component, and `os.path.join` discards the download
+directory outright for an absolute name (`../` walks out of it just as well), so
+an unvalidated name lets a server place bytes anywhere the Blender process can
+write. The check *rejects* rather than silently reducing to a basename, because
+the reader globs the directory flat — a nested name that got rewritten to fit
+would quietly relocate a table instead of surfacing the producer's rename.
 
 ### Parsing
 

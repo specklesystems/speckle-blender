@@ -19,10 +19,19 @@ means "no bundle here" and the caller falls back to the classic receive.
 from __future__ import annotations
 
 import os
+import re
 from typing import List, Optional
 
 _BUNDLE_ENV_VAR = "SPECKLE_BLENDER_BUNDLE"
 _TIMEOUT_SECONDS = 300.0
+
+# An artefact name becomes a path component under the download directory, so it
+# has to be inert: ``os.path.join`` discards the directory entirely for an
+# absolute name and ``../`` walks out of it, either of which would let a server
+# put bytes anywhere the Blender process can write. Matching a flat file name
+# rather than stripping one keeps a producer-side rename loud — the reader globs
+# this directory flat, so a nested name would silently drop a whole table.
+_FLAT_ARTIFACT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.parquet$")
 
 
 def is_bundle_receive_available() -> bool:
@@ -88,6 +97,9 @@ def download_bundle(
     Returns the directory when a bundle was fetched, or ``None`` when the version
     has none (so the caller falls back). Presigned URLs are unauthenticated —
     the signature is in the URL — so they are fetched without the token.
+
+    Raises ``ValueError`` before writing anything when the server names a file
+    that is not a flat ``.parquet`` name.
     """
     import httpx
 
@@ -99,6 +111,14 @@ def download_bundle(
     wanted = [f for f in files if f.get("name", "").endswith(".parquet")]
     if not wanted:
         return None
+
+    for entry in wanted:
+        name = entry.get("name", "")
+        if not _FLAT_ARTIFACT_NAME.match(name):
+            raise ValueError(
+                f"Refusing to download artefact {name!r}: a bundle file name must "
+                "be a flat file name, not a path."
+            )
 
     os.makedirs(target_dir, exist_ok=True)
     with httpx.Client(timeout=_TIMEOUT_SECONDS, follow_redirects=True) as client:
