@@ -165,11 +165,11 @@ wheels = [
 
 [[package]]
 name = "fake-bpy-module-latest"
-version = "20260501"
+version = "20260826"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/30/8c/82524144ff1c33f087ed17da2fa9ed237cb681275aee18f0ed60df8a5200/fake_bpy_module_latest-20260501.tar.gz", hash = "sha256:e7cf1efc6286fdd266660e8e49d622e66694022b0ac2ec4d9d4eace5ea0ac851", size = 899868, upload-time = "2026-05-01T08:02:07.803Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c3/6a/c24f640681c549643ae4859171f7d34c56276f2afdb685828f2328cb0c49/fake_bpy_module_latest-20260826.tar.gz", hash = "sha256:8c32ef6709e9f044cfcbbb99cfd6da5ac035ac1cc53c5fcd137db9d4a763f0a3", size = 962367, upload-time = "2026-08-26T06:29:19.852Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/52/5d45e239b168d90b3950f833548e1aeb06172be5ae11f0d834c32f9bc438/fake_bpy_module_latest-20260501-py3-none-any.whl", hash = "sha256:6bfc5acb3f12a699ed6569b6be87f58d7a3d0dc45f8328eb834b867159eaa1a4", size = 1044675, upload-time = "2026-05-01T08:02:05.634Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/79/0769349fdf7d825eb8e2253d29372e16d3914aadd852c77cedac003e0a5e/fake_bpy_module_latest-20260826-py3-none-any.whl", hash = "sha256:33694702c94bd49d0fbb83cf003883e637c56d964e16b4b70c8a7ad9b5205e15", size = 1110515, upload-time = "2026-08-26T06:29:18.104Z" },
 ]
 
 [[package]]
@@ -778,18 +778,18 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "specklepy", specifier = ">=2026.6.0" }]
+requires-dist = [{ name = "specklepy", specifier = ">=2026.8.1" }]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "fake-bpy-module-latest", specifier = ">=20260501" },
+    { name = "fake-bpy-module-latest", specifier = ">=20260826" },
     { name = "pre-commit", specifier = ">=4.0.1" },
     { name = "ruff", specifier = "==0.14.14" },
 ]
 
 [[package]]
 name = "specklepy"
-version = "2026.6.0"
+version = "2026.8.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "appdirs" },
@@ -801,9 +801,9 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "ujson" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/99/b8/a2741b480113f312e677f18163b8e781461b506985ca76fbaffdaa5d5754/specklepy-2026.6.0.tar.gz", hash = "sha256:77d90885db230478c26cfe45cb468773f27681835dad600b238c8990ee52ca2c", size = 103255, upload-time = "2026-06-24T10:34:14.503Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f0/7e/3fd04e1522c7e25ba2838cc8e9e28bfff4963568966d7fe44984242be405/specklepy-2026.8.1.tar.gz", hash = "sha256:d0d1c56b09b06b3f744879f7cf27b3495977cef010435f8850f4e1eb4d38263a", size = 104080, upload-time = "2026-08-26T13:14:50.929Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/9a/0a08199ef1e39a81a26fa250cbfbb0331a89f56d9ab53211bf59bcd1ac3f/specklepy-2026.6.0-py3-none-any.whl", hash = "sha256:51523dbe0fe2d214803b1227356df43002884b63e4bc9cc22ba84d092a4d0b2c", size = 157440, upload-time = "2026-06-24T10:34:13.291Z" },
+    { url = "https://files.pythonhosted.org/packages/66/e5/e3c192cb265702e4394f14f1dd444a1dc4ae385d07a8ef8c274c96daa4ee/specklepy-2026.8.1-py3-none-any.whl", hash = "sha256:1fd6e4709953195c29d07924fa6d23ae3e84f0aeb7081da5d3e664657d915577", size = 158252, upload-time = "2026-08-26T13:14:49.987Z" },
 ]
 
 [[package]]
