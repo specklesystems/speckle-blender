@@ -23,12 +23,23 @@ at its authored location, duplicating the instance.
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from specklepy.bundle.envelope_writer import SceneView, SceneViewKey
+from specklepy.bundle.envelope_writer import Producer, SceneView, SceneViewKey
 from specklepy.bundle.pipeline import ObjectsArtifactPipeline
 from specklepy.bundle.spec import Rel
 from specklepy.objects.base import Base
 from specklepy.objects.models.collections.collection import Collection
 from specklepy.objects.proxies import InstanceProxy
+
+
+def _blender_producer() -> Producer:
+    """Provenance stamped into ``meta.produced_by``/``producer_version``,
+    mirroring the slug/version pair the ingestion reports in
+    ``SourceDataInput`` so the two records agree."""
+    # deferred: importing the package pulls in bpy, and this module must stay
+    # importable outside Blender
+    from ... import bl_info
+
+    return Producer(slug="blender", version=".".join(map(str, bl_info["blender"])))
 
 
 def _attr(node: Base, key: str, default: Any = None) -> Any:
@@ -42,8 +53,15 @@ def _attr(node: Base, key: str, default: Any = None) -> Any:
 class BlenderBundleExporter:
     """Translates a converted Blender root Collection into a bundle on disk."""
 
-    def __init__(self, output_dir: str, base_name: str) -> None:
-        self._pipeline = ObjectsArtifactPipeline(output_dir, base_name)
+    def __init__(
+        self,
+        output_dir: str,
+        base_name: str,
+        producer: Optional[Producer] = None,
+    ) -> None:
+        self._pipeline = ObjectsArtifactPipeline(
+            output_dir, base_name, producer or _blender_producer()
+        )
         self._base_name = base_name
         self._object_count = 0
         # geometry applicationIds actually written to the geometries table;

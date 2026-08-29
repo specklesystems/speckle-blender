@@ -1,9 +1,9 @@
 import bpy
-from specklepy.core.api.credentials import get_local_accounts
+from specklepy.api.credentials import get_local_accounts
 from typing import List, Tuple, Optional, Dict
 from urllib.parse import urlparse
-from specklepy.core.api.credentials import Account
-from specklepy.core.api.client import SpeckleClient
+from specklepy.api.credentials import Account
+from specklepy.api.client import SpeckleClient
 from .config_store import get_user_selected_account_id
 
 

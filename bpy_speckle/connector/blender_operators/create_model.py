@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import Context, Event, UILayout
-from specklepy.core.api.inputs import CreateModelInput
+from specklepy.api.inputs import CreateModelInput
 from typing import Tuple
 
 from ..utils.account_manager import _client_cache, can_create_model

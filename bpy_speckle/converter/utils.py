@@ -5,7 +5,7 @@ from specklepy.objects import Base
 from specklepy.objects.graph_traversal.default_traversal import (
     create_default_traversal_function,
 )
-from specklepy.core.api.client import SpeckleClient
+from specklepy.api.client import SpeckleClient
 
 
 def to_rgba(argb_int: int) -> Tuple[float, float, float, float]:

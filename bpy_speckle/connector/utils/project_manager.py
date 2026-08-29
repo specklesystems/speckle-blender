@@ -1,8 +1,8 @@
-from specklepy.core.api.client import SpeckleClient
-from specklepy.core.api.resources.current.workspace_resource import WorkspaceResource
-from specklepy.core.api.inputs.project_inputs import WorksaceProjectsFilter
+from specklepy.api.client import SpeckleClient
+from specklepy.api.resources.current.workspace_resource import WorkspaceResource
+from specklepy.api.inputs.project_inputs import WorksaceProjectsFilter
 from typing import List, Tuple, Optional
-from specklepy.core.api.credentials import Account
+from specklepy.api.credentials import Account
 from .misc import format_relative_time, format_role
 from .account_manager import _client_cache
 
@@ -21,7 +21,7 @@ def get_projects_for_account(
             return []
 
         # Get account for workspace operations that still need it
-        from specklepy.core.api.credentials import get_local_accounts
+        from specklepy.api.credentials import get_local_accounts
 
         account: Optional[Account] = next(
             (acc for acc in get_local_accounts() if acc.id == account_id), None
@@ -100,7 +100,7 @@ def _get_projects_with_individual_permissions(
     """
     Fallback helper function to get projects with permissions using individual API calls
     """
-    from specklepy.core.api.inputs.user_inputs import UserProjectsFilter
+    from specklepy.api.inputs.user_inputs import UserProjectsFilter
     from .account_manager import can_load
 
     filter = UserProjectsFilter(

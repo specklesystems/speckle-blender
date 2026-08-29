@@ -376,7 +376,7 @@ def save_account_to_storage(
         import sqlite3
         import hashlib
         import os
-        from specklepy.core.api.credentials import speckle_path_provider
+        from specklepy.api.credentials import speckle_path_provider
 
         # Generate account ID (hash of email + server URL)
         account_id_string = f"{user_info['email']}-{server_info['url']}"

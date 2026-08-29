@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import Context
-from specklepy.core.api.connector_versions import get_latest_version
+from specklepy.api.connector_versions import get_latest_version
 
 # Get current version from bl_info
 from ... import bl_info

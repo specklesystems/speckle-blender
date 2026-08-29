@@ -1,9 +1,9 @@
-from specklepy.core.api.client import SpeckleClient
+from specklepy.api.client import SpeckleClient
 from .account_manager import _client_cache
 from typing import List, Optional, Tuple
 from .misc import format_relative_time
-from specklepy.core.api.inputs.model_inputs import ModelVersionsFilter
-from specklepy.core.api.models.current import Version
+from specklepy.api.inputs.model_inputs import ModelVersionsFilter
+from specklepy.api.models.current import Version
 
 
 def get_versions_for_model(

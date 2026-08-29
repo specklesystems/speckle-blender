@@ -1,8 +1,8 @@
 import bpy
 from bpy.types import Context, Event, UILayout
 
-from specklepy.core.api.inputs.project_inputs import WorkspaceProjectCreateInput
-from specklepy.core.api.enums import ProjectVisibility
+from specklepy.api.inputs.project_inputs import WorkspaceProjectCreateInput
+from specklepy.api.enums import ProjectVisibility
 from typing import Tuple
 
 from ..utils.account_manager import _client_cache

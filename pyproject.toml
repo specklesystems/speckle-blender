@@ -7,7 +7,7 @@ license = "Apache-2.0"
 # pyarrow powers the specklepy parquet-bundle producer (specklepy's optional
 # [bundle] extra); pinned here directly because the connector's runtime install
 # uses `pip --no-deps` and cannot resolve extras.
-dependencies = ["specklepy>=2026.8.1", "pyarrow>=17.0.0"]
+dependencies = ["specklepy>=2026.9.0a1", "pyarrow>=17.0.0"]
 
 [dependency-groups]
 dev = ["fake-bpy-module-latest>=20260826", "ruff==0.14.14", "pre-commit>=4.0.1"]

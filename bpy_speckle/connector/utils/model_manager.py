@@ -1,5 +1,5 @@
-from specklepy.core.api.inputs.project_inputs import ProjectModelsFilter
-from specklepy.core.api.models.current import Model
+from specklepy.api.inputs.project_inputs import ProjectModelsFilter
+from specklepy.api.models.current import Model
 from typing import List, Tuple, Optional
 from .misc import format_relative_time
 from .account_manager import _client_cache

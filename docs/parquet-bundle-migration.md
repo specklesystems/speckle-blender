@@ -1,15 +1,17 @@
-# Parquet bundle migration (Speckle 4.0, bundle-spec v5)
+# Parquet bundle migration (Speckle 4.0, bundle-spec 1.0.0)
 
 This document is the review and release contract for Blender's move to the
 parquet bundle schema
 ([speckle-bundle-spec](https://github.com/specklesystems/speckle-bundle-spec),
-`SCHEMA_VERSION = 5`). It describes what the branch actually implements, what it
-deliberately does not, and what must close before release.
+`schema_version = "1.0.0"` — a semver string as of spec PR #25; the integer
+`SCHEMA_VERSION = 5` era predates the spec's public versioning). It describes
+what the branch actually implements, what it deliberately does not, and what
+must close before release.
 
 The migration now covers **both directions**. Publish writes a bundle; receive
-reads one and bakes it straight into `bpy.data`. Neither direction is reachable
-with the currently locked `specklepy` — see [Packaging](#packaging-requirements),
-which is a release blocker rather than a runtime nicety.
+reads one and bakes it straight into `bpy.data`. Both directions are active
+with the locked `specklepy 2026.9.0a1` — see
+[Packaging](#packaging-requirements).
 
 Both directions are feature-detected and fall back to the classic JSON path, so
 the connector keeps working on older servers and older specklepy builds.
@@ -381,38 +383,27 @@ returning `{}` — emptiness cannot double as the failure signal.
 
 | Dependency | Required | Currently declared | Status |
 | --- | --- | --- | --- |
-| `specklepy` | a build containing `specklepy.bundle` **and** `sgeo.decode_mesh` | `>=2026.6.0`, locked to `2026.6.0` | **fails** |
+| `specklepy` | a build containing `specklepy.bundle` **and** `sgeo.decode_mesh` | `>=2026.9.0a1`, locked to `2026.9.0a1` (PyPI pre-release; SGO decoding merged via specklepy #518, Send3/Receive3 via #519/#520) | ok |
 | `pyarrow` | `>=17.0.0` | `>=17.0.0`, pinned directly | ok |
-| bundle-spec | `SCHEMA_VERSION = 5`, inherited from specklepy's vendored `specklepy.bundle.spec` | not pinned by this repo | needs recording |
+| bundle-spec | `schema_version = "1.0.0"`, inherited from specklepy's vendored `specklepy.bundle.spec` | specklepy `2026.9.0a1` stamps `1.0.0`, matching `speckle-bundle-spec` `package.json` `1.0.0` | ok |
 
-The locked runtime cannot publish or receive a bundle:
+`2026.9.0a1` is a pre-release: the `>=2026.9.0a1` specifier opts this one
+package into pre-release resolution (PEP 440), so no resolver flag is needed,
+but the pin must move to a final release before this ships to the extension
+platform.
 
-```
-$ uv run --frozen python -c "import specklepy.bundle"
-ModuleNotFoundError: No module named 'specklepy.bundle'
-```
+Send3 (specklepy #520) made a `Producer` provenance stamp a **required**
+argument of `ObjectsArtifactPipeline`; `bundle_exporter.py` fills it with the
+same `blender` slug / `bl_info["blender"]` version pair the ingestion reports
+in `SourceDataInput`, so `meta.produced_by` and the version's source
+application agree.
 
-`2026.6.0` is the latest PyPI release and has no `specklepy.bundle`. The producer
-and reader currently exist only in unreleased `2026.6.1.devN` builds. With the
-locked dependency, `is_bundle_send_available()` and
-`is_bundle_receive_available()` both return false, publishing silently stays on
-the classic JSON path, and a bundle-published version falls through to
-`operations.receive()` with the `binary-{versionId}` sentinel it cannot resolve.
+Still required before release:
 
-The committed fixture suite passes only because the local Blender install has a
-manually placed `2026.6.1.dev*` in
-`~/.config/Speckle/connector_installations/Blender <ver>/`.
-
-Required before release:
-
-1. Pin a released `specklepy` that contains the producer, the reader and
-   `sgeo.decode_mesh`; update `pyproject.toml` and relock.
-2. Record the `speckle-bundle-spec` commit that specklepy generated its
-   `spec/bundle_spec.py` from, so producer, reader and validator are traceable to
-   one artifact.
-3. Treat runtime feature detection as a safety net for older servers, **not** as
+1. Move the pin from `2026.9.0a1` to the final `2026.9.0` (or later) release.
+2. Treat runtime feature detection as a safety net for older servers, **not** as
    the mechanism that decides whether the migration is active. A minimum version
-   must be enforced by the dependency declaration.
+   must be enforced by the dependency declaration (now the case).
 
 ## Validation: what is actually checked
 
@@ -515,10 +506,15 @@ reproductions and suggested fixes are in
 
 | ID | Severity | Area | Summary |
 | --- | --- | --- | --- |
-| R1 | Critical | Packaging | Locked `specklepy 2026.6.0` has no bundle API, so the migration is inactive in a production-like install ([Packaging](#packaging-requirements)) |
-| R2 | Critical | Interoperability | specklepy's producer emits `rel_types(rel)` / `node_kinds(kind)` and non-exclusive EAV value columns, where `bundle-spec.sql` specifies `id` and exactly-one-value. The Blender reader follows its producer, so both sides stamp `schema_version = 5` while diverging from the spec — undetectable from the version number. Fix belongs upstream in specklepy, with the reader following. |
+| R2 | Critical | Interoperability | specklepy's producer emits `rel_types(rel)` / `node_kinds(kind)` and non-exclusive EAV value columns, where `bundle-spec.sql` specifies `id` and exactly-one-value. Still present in `2026.9.0a1` while spec `1.0.0` keeps `id` — both sides stamp the same `schema_version` while diverging from the spec, undetectable from the version number. Fix belongs upstream in specklepy, with the reader following. |
 | R5 | High | Scalability | Artifact downloads buffer each whole parquet file in memory (`response.content`), so a sharded geometry file can need ~1.5 GiB of headroom per download |
 | R7 | Medium | Error handling | Non-404 probe failures (auth, 5xx, transport, bad JSON) fall back to a receive path that provably cannot serve a bundle version, surfacing later as an unrelated object 404 |
+
+R1 (locked `specklepy` had no bundle API, leaving the migration inactive in a
+production-like install) was resolved by pinning `specklepy>=2026.9.0a1`, the
+first PyPI release shipping `specklepy.bundle` with both the producer and
+`sgeo.decode_mesh` ([Packaging](#packaging-requirements)). The ID stays retired
+so the report's numbering holds.
 
 R3 (linked-duplicate copies escaping to the scene root; nested placements
 staying instanced regardless of mode) was resolved on this branch (ENG-9025):
@@ -535,7 +531,8 @@ root is chosen by subtype. Covered by `tools/test_bundle_reader.py` and
 
 ## Review and release gate
 
-Do not release the migration until R1 and R2 are closed. Before claiming parity
+Do not release the migration until R2 is closed and the specklepy pin has moved
+off the `2026.9.0a1` pre-release. Before claiming parity
 with the classic path, also require:
 
 1. Passing asserted publish **and** receive round trips for both instance

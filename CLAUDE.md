@@ -91,7 +91,7 @@ diff in review.
 
 `publish_operation()` picks between three paths, in preference order:
 
-1. **Parquet bundle** (Speckle 4.0, bundle-spec v5) — requires `specklepy.bundle`
+1. **Parquet bundle** (Speckle 4.0, bundle-spec 1.0.0) — requires `specklepy.bundle`
    importable *and* a server that pre-allocates a `versionId` on the ingestion.
    The version id names the bundle files, so the ingestion must exist before the
    *parquet write*. Conversion runs first and needs no version id; creating the

@@ -4,12 +4,12 @@ from typing import List, Optional, Dict, Tuple
 
 from specklepy.objects import Base
 from specklepy.objects.models.collections.collection import Collection
-from specklepy.core.api import operations
+from specklepy.api import operations
 from specklepy.transports.server import ServerTransport
-from specklepy.core.api.inputs.version_inputs import CreateVersionInput
+from specklepy.api.inputs.version_inputs import CreateVersionInput
 from specklepy.objects.models.units import Units
 from specklepy.logging.exceptions import GraphQLException, WorkspacePermissionException
-from specklepy.core.api.inputs.model_ingestion_inputs import (
+from specklepy.api.inputs.model_ingestion_inputs import (
     ModelIngestionCreateInput,
     ModelIngestionStartProcessingInput,
     ModelIngestionSuccessInput,
@@ -236,7 +236,7 @@ def publish_operation(
             )
 
         # Get account for metrics tracking
-        from specklepy.core.api.credentials import get_local_accounts
+        from specklepy.api.credentials import get_local_accounts
 
         account = next(
             (acc for acc in get_local_accounts() if acc.id == wm.selected_account_id),

@@ -3,8 +3,8 @@ from typing import Dict, Optional, Union
 
 import bpy
 from bpy.types import Context
-from specklepy.core.api import host_applications, operations
-from specklepy.core.api.inputs.version_inputs import MarkReceivedVersionInput
+from specklepy.api import host_applications, operations
+from specklepy.api.inputs.version_inputs import MarkReceivedVersionInput
 from specklepy.logging import metrics
 from specklepy.objects.graph_traversal.default_traversal import (
     create_default_traversal_function,
