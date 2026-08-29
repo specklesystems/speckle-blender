@@ -25,8 +25,10 @@ fi
 
 run_one() {
   # --factory-startup skips user prefs so the installed add-on can't shadow the
-  # working tree; -noaudio keeps CI quiet.
-  "$BLENDER" --background --factory-startup -noaudio \
+  # working tree; -noaudio keeps CI quiet. --python-exit-code is load-bearing:
+  # without it Blender exits 0 when the script raises, and --all then reports
+  # "All fixtures passed" against stale bundle dirs from an earlier run.
+  "$BLENDER" --background --factory-startup -noaudio --python-exit-code 1 \
     --python "$REPO_ROOT/tools/headless_export.py" -- "$@" \
     2>&1 | grep -v '^Blender quit$'
   return "${PIPESTATUS[0]}"
