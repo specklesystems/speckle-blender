@@ -4,10 +4,12 @@ version = "3.0.0"
 description = "Next-Gen Speckle connector for Blender!"
 requires-python = ">=3.11.9, <4.0.0"
 license = "Apache-2.0"
-# pyarrow powers the specklepy parquet-bundle producer (specklepy's optional
-# [bundle] extra); pinned here directly because the connector's runtime install
-# uses `pip --no-deps` and cannot resolve extras.
-dependencies = ["specklepy>=2026.9.0a1", "pyarrow>=17.0.0"]
+# The artifact bundle is the connector's only publish/receive path, so
+# specklepy's [bundle] extra is a hard requirement. pyarrow is additionally
+# pinned directly because the connector's runtime install uses `pip --no-deps`
+# and cannot resolve extras.
+# TODO(release 2026-09-01): pin to the 2026.9.0 stable release once published.
+dependencies = ["specklepy[bundle]>=2026.9.0a1", "pyarrow>=17.0.0"]
 
 [dependency-groups]
 dev = ["fake-bpy-module-latest>=20260826", "ruff==0.14.14", "pre-commit>=4.0.1"]

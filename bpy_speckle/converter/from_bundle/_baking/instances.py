@@ -4,14 +4,31 @@ from typing import Dict, List
 
 import bpy
 from mathutils import Matrix
+from specklepy.bundle.model import Model, ModelInstance, ModelObject
 
-from ..bundle_reader import BundleObject, ReceivedBundle
 from .geometry import GeometryBuilder
 from .transforms import placement_matrix
 
 
+def direct_placements(model: Model, obj: ModelObject) -> List[ModelInstance]:
+    """The placements this object draws through, via DISPLAY_INSTANCE, in ord
+    order.
+
+    Deliberately narrower than ``ModelObject.placements``, which also surfaces
+    a PLACES edge — a definition member's own placement *inside* its
+    definition. Baking that would draw a second, scene-level copy of something
+    that only exists through the definition.
+
+    A list, not a scalar: Revit atomizes a family instance into one
+    DEFINITION/INSTANCE pair per material, so one object legitimately carries
+    several placements. Blender's own publishes only ever write one.
+    """
+    ks = model.index.instances_by_object.get(obj.k) or []
+    return [n for k in ks if isinstance(n := model.node(k), ModelInstance)]
+
+
 def build_definitions(
-    bundle: ReceivedBundle,
+    model: Model,
     geometry_builder: GeometryBuilder,
 ) -> Dict[int, bpy.types.Collection]:
     """Turn each DEFINITION node into a collection of its member objects.
@@ -23,67 +40,78 @@ def build_definitions(
     an instanced "library" out of the visible scene tree.
     """
     definition_collections: Dict[int, bpy.types.Collection] = {}
-    if not bundle.definitions:
+    if not model.definitions:
         return definition_collections
 
-    for node_id, definition in bundle.definitions.items():
-        name = definition.name or f"Definition_{node_id}"
+    rels = model.bundle.relations
+    for definition in model.definitions:
+        name = definition.name or f"Definition_{definition.k}"
         collection = bpy.data.collections.new(name)
-        definition_collections[node_id] = collection
+        definition_collections[definition.k] = collection
 
-        for ordinal in sorted(definition.members):
+        geometry_ks = rels.defines_by_definition.get(definition.k, [])
+        ords = rels.defines_ord_by_definition.get(definition.k, [])
+        members: Dict[int, List[int]] = {}
+        for i, geometry_k in enumerate(geometry_ks):
+            members.setdefault(ords[i] if i < len(ords) else 0, []).append(geometry_k)
+
+        for ordinal in sorted(members):
             member_name = f"{name}.{ordinal}"
             for member in geometry_builder.build_definition_member(
-                member_name, definition.members[ordinal]
+                member_name, members[ordinal]
             ):
                 collection.objects.link(member)
 
     # nested placements: a definition member that is itself an instance
-    for node_id, definition in bundle.definitions.items():
-        for ordinal, instance_id in definition.nested.items():
-            instance = bundle.instances.get(instance_id)
-            if instance is None or instance.def_ref is None:
+    for definition in model.definitions:
+        nested_ks = rels.defines_instance_by_definition.get(definition.k, [])
+        for ordinal, instance_k in enumerate(nested_ks):
+            instance = model.node(instance_k)
+            if not isinstance(instance, ModelInstance):
                 continue
-            nested = definition_collections.get(instance.def_ref)
+            nested_definition = instance.definition
+            if nested_definition is None:
+                continue
+            nested = definition_collections.get(nested_definition.k)
             if nested is None:
                 continue
             empty = bpy.data.objects.new(f"{nested.name}.{ordinal}", None)
             empty.instance_type = "COLLECTION"
             empty.instance_collection = nested
-            empty.matrix_world = placement_matrix(instance.transform, instance.units)
-            definition_collections[node_id].objects.link(empty)
+            empty.matrix_world = placement_matrix(
+                instance.transform or [], instance.units
+            )
+            definition_collections[definition.k].objects.link(empty)
 
     return definition_collections
 
 
 def bake_placement(
-    obj: BundleObject,
-    bundle: ReceivedBundle,
+    name: str,
+    placements: List[ModelInstance],
     definition_collections: Dict[int, bpy.types.Collection],
     instance_loading_mode: str,
 ) -> List[bpy.types.Object]:
     """Bake every placement of one object, primary first.
 
-    One object can carry several placements: Revit atomizes a family instance
-    into one DEFINITION/INSTANCE pair per material. Every placement bakes, and
-    extras parent to the primary without reinterpreting their world matrices.
+    Every placement bakes, and extras parent to the primary without
+    reinterpreting their world matrices.
     """
-    name = obj.name or obj.application_id
     built: List[bpy.types.Object] = []
-    for instance_id in obj.instance_ids:
-        instance = bundle.instances.get(instance_id)
-        if instance is None or instance.def_ref is None:
-            continue
-        definition = definition_collections.get(instance.def_ref)
+    for instance in placements:
+        definition = instance.definition
         if definition is None:
             continue
-        matrix = placement_matrix(instance.transform, instance.units)
+        collection = definition_collections.get(definition.k)
+        if collection is None:
+            continue
+        matrix = placement_matrix(instance.transform or [], instance.units)
         if instance_loading_mode == "LINKED_DUPLICATES":
-            built.extend(_duplicate_definition(name, definition, matrix, frozenset()))
+            built.extend(_duplicate_definition(name, collection, matrix, frozenset()))
         else:
             empty = bpy.data.objects.new(name, None)
             empty.instance_type = "COLLECTION"
-            empty.instance_collection = definition
+            empty.instance_collection = collection
             empty.matrix_world = matrix
             built.append(empty)
 

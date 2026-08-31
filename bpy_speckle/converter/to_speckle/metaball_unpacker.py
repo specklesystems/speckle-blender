@@ -19,8 +19,7 @@ off it as SUBELEMENT children carrying properties only, exactly as
 
 Producing roles + a subelement table rather than emitting bundle edges directly
 follows ``instance_unpacker``: the bundle exporter turns the table into
-SUBELEMENT relations, while the classic JSON send simply carries the members as
-ordinary geometry-less objects and stays round-trippable.
+SUBELEMENT relations, keeping this module free of bundle vocabulary.
 
 Blender's rules, confirmed against 4.3 rather than assumed:
 

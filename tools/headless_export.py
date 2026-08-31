@@ -2,10 +2,11 @@
 
 Publishing normally needs a running Blender, an account, and the viewer to check
 the result. But conversion is separable: ``build_collection_hierarchy`` maps
-Blender state to a Speckle ``Collection``, and ``BlenderBundleExporter`` writes
-the parquet bundle to a plain directory. Only ``ArtifactPipeline`` needs the
-network. This script drives everything up to that line, then decodes the bundle
-back with ``inspect_bundle`` and checks it against the fixture's expectations.
+Blender state to a Speckle ``Collection``, and ``BlenderBundleExporter`` drives
+specklepy's ``BundleBuilder``, which writes the parquet bundle to a plain
+directory. Only ``send()``'s upload needs the network. This script drives
+everything up to that line, then decodes the bundle back with
+``inspect_bundle`` and checks it against the fixture's expectations.
 
     tools/run_fixture.sh cube_with_props           # fixture, with EXPECT checks
     tools/run_fixture.sh --blend ~/scenes/test.blend   # your own file
@@ -101,14 +102,20 @@ def build_scene(args: argparse.Namespace) -> Tuple[List[Any], Optional[Any]]:
     return visible, None
 
 
-def export(objects: List[Any], out_dir: str, apply_modifiers: bool) -> Tuple[str, int]:
-    """Run conversion + bundle export. Returns (root_id, object_count)."""
+def export(objects: List[Any], out_dir: str, apply_modifiers: bool) -> int:
+    """Run conversion + bundle export. Returns the object count."""
     import bpy
 
+    # bpy_speckle first: importing it runs ensure_dependencies(), which puts
+    # the connector's installed specklepy/pyarrow on sys.path
     from bpy_speckle.connector.operations.publish_operation import (
         build_collection_hierarchy,
     )
-    from bpy_speckle.converter.to_speckle.bundle_exporter import BlenderBundleExporter
+    from bpy_speckle.converter.to_speckle.bundle_exporter import (
+        BlenderBundleExporter,
+        blender_producer,
+    )
+    from specklepy.bundle import BundleBuilder
 
     # build_collection_hierarchy attaches the material and instance proxies itself:
     # it expands the selection with collection-instance members, so it is the only
@@ -117,11 +124,16 @@ def export(objects: List[Any], out_dir: str, apply_modifiers: bool) -> Tuple[str
     if root is None:
         raise SystemExit("build_collection_hierarchy returned None — nothing converted")
 
-    exporter = BlenderBundleExporter(out_dir, "headless")
-    root_id, count = exporter.export(root)
+    builder = BundleBuilder(
+        blender_producer(), root.units, output_dir=out_dir, base_name="headless"
+    )
+    exporter = BlenderBundleExporter(builder)
+    count = exporter.export(root)
     for geo_id, error in exporter.conversion_errors:
         print(f"  ! skipped geometry {geo_id!r}: {error}")
-    return root_id, count
+    # what send() would do next is upload; build() flushes the parquet files
+    builder.build()
+    return count
 
 
 def inject_root_fields(out_dir: str, fields_by_name: Dict[str, Dict[str, Any]]) -> None:
@@ -174,34 +186,45 @@ def inject_root_fields(out_dir: str, fields_by_name: Dict[str, Dict[str, Any]]) 
 
 
 def check_receive(out_dir: str, expect: Dict[str, Any]) -> List[str]:
-    """Check the receive-side EXPECT keys against the real bundle reader.
+    """Check the receive-side EXPECT keys against specklepy's bundle reader.
 
     inspect_bundle re-derives its view from the raw parquet; this stage instead
-    asserts on what ``bundle_reader`` — the actual receive path — restores.
-    ``receive_properties`` is the per-object dict a bake writes back as user
-    custom properties (``properties.`` prefix stripped); ``receive_root_fields``
-    is where the non-user root scalars must land instead. Both are compared
-    exactly, not as subsets — the point is that nothing extra leaks.
+    asserts on what ``specklepy.bundle.read_bundle`` — the actual receive
+    path's parser — restores. ``receive_properties`` is the per-object dict a
+    bake writes back as user custom properties (``properties.`` prefix
+    stripped); ``receive_root_fields`` is where the non-user root scalars land
+    instead (``name`` and ``speckle_type`` are lifted onto the object by the
+    bake, so they are excluded). Both are compared exactly, not as subsets —
+    the point is that nothing extra leaks.
     """
-    from bpy_speckle.converter.from_bundle.bundle_reader import read_bundle
+    from specklepy.bundle.bundle_reader import read_bundle
 
     bundle = read_bundle(out_dir)
-    by_name = {o.application_id.split(":", 1)[-1]: o for o in bundle.objects}
+    by_name = {
+        app_id.split(":", 1)[-1]: k for k, app_id in bundle.object_app_ids.items()
+    }
 
     failures: List[str] = []
     for key in RECEIVE_EXPECT_KEYS:
         for name, wanted in dict(expect.get(key) or {}).items():
-            obj = by_name.get(name)
-            if obj is None:
+            k = by_name.get(name)
+            if k is None:
                 failures.append(f"{key}: no object {name!r} (have {sorted(by_name)})")
                 continue
+            rows = dict(bundle.property_table.view(k))
             if key == "receive_properties":
                 actual = {
                     path[len("properties.") :]: value
-                    for path, value in obj.properties.items()
+                    for path, value in rows.items()
+                    if path.startswith("properties.")
                 }
             else:
-                actual = dict(obj.root_fields)
+                actual = {
+                    path: value
+                    for path, value in rows.items()
+                    if not path.startswith("properties.")
+                    and path not in ("name", "speckle_type")
+                }
             if actual != dict(wanted):
                 failures.append(
                     f"{key}[{name}]: expected {dict(wanted)!r}, got {actual!r}"
@@ -231,8 +254,8 @@ def main() -> int:
             os.remove(os.path.join(out_dir, stale))
 
     print(f"\n=== {label}: {len(objects)} object(s) -> {out_dir}")
-    root_id, count = export(objects, out_dir, not args.no_modifiers)
-    print(f"=== exported root={root_id} objects={count}\n")
+    count = export(objects, out_dir, not args.no_modifiers)
+    print(f"=== exported objects={count}\n")
 
     # simulate a cross-producer bundle before anything reads it back
     inject = getattr(fixture, "INJECT_ROOT_FIELDS", None) if fixture else None

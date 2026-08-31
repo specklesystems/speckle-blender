@@ -9,16 +9,23 @@ bpy_speckle/
   connector/
     ui/                 panels and dialogs (SPECKLE_PT_*, SPECKLE_OT_*)
     blender_operators/  operator classes bound to UI buttons
-    operations/         publish_operation.py, load_operation.py, bundle_publish.py
+    operations/         publish_operation.py, load_operation.py
     utils/              account/project/model/version managers, property groups
   converter/
     to_speckle/         Blender -> Speckle (per-type modules + bundle_exporter.py)
-    from_bundle/        parquet -> dataclasses -> data-blocks (direct bake)
-    to_native.py        Speckle -> Blender (classic receive)
+    from_bundle/        specklepy Model -> data-blocks (direct bake)
   installer.py          bootstraps specklepy into the connector install path
 tools/                  local dev harness — NOT shipped, NOT run in CI
 docs/                   parquet-bundle-migration.md is the release contract
 ```
+
+The artifact bundle is the **only** publish and receive path — there is no
+classic object-graph fallback. Transport, parsing and send orchestration
+belong to `specklepy.bundle` (`send()`, `download_bundle`, `read_bundle`,
+`Model`, `BundleBuilder`); the connector owns conversion and the bake, the C#
+`IBundleBuilder` boundary: "a connector's send is exactly its conversion".
+`specklepy[bundle]` + pyarrow are hard requirements checked at add-on
+registration.
 
 `docs/parquet-bundle-migration.md` is the review/release contract for the 4.0
 migration — decision paths, packaging pins, accepted data losses and open
@@ -89,40 +96,34 @@ diff in review.
 
 ## Publish architecture
 
-`publish_operation()` picks between three paths, in preference order:
+`publish_operation()` has exactly one path: convert, then hand a populated
+`BundleBuilder` to `specklepy.bundle.send()`.
 
-1. **Parquet bundle** (Speckle 4.0, bundle-spec 1.0.0) — requires `specklepy.bundle`
-   importable *and* a server that pre-allocates a `versionId` on the ingestion.
-   The version id names the bundle files, so the ingestion must exist before the
-   *parquet write*. Conversion runs first and needs no version id; creating the
-   ingestion after it also avoids orphaning one when nothing converts. The v2
-   `complete` call creates the version itself; no
-   `model_ingestion.complete` follows, and version messages are dropped (no
-   field in the payload — a server-side API gap).
-2. **Model ingestion + classic send** — JSON detached objects, then `complete`.
-3. **`version.create`** — legacy, when the server has no ingestion support.
+1. `build_collection_hierarchy` (Blender → Speckle `Collection`) — no network.
+2. `BlenderBundleExporter(builder).export(root)` walks the tree onto
+   specklepy's `BundleBuilder`, which writes the parquet bundle locally.
+3. `send()` owns everything after conversion: it creates the ingestion, reads
+   the server's reserved version id, renames the files onto it, uploads, and
+   calls `fail_with_error` teardown on any exception. The `complete` call
+   creates the version; version messages are dropped (no field in the payload —
+   a server-side API gap), so there is no message input in the UI.
 
-Both fallbacks are feature-detected, never assumed. `SPECKLE_BLENDER_BUNDLE=0`
-force-disables the bundle path.
+Conversion runs entirely before `send()`, so a scene that converts to nothing
+raises without ever creating an ingestion. A server without the /api/v2 data
+endpoints cannot reserve a version id; `send()` raises and the operator
+surfaces "this server does not support artifact bundles" — there is no
+fallback. `send()` sets the version's `referencedObject` to the SDK bundle
+reference `bundle.<project>.<model>.<version>`.
 
-The pipeline separates cleanly, which is what makes offline testing possible:
-`build_collection_hierarchy` (Blender → Speckle `Collection`) and
-`BlenderBundleExporter` (→ parquet on disk) need no network. Only
-`ArtifactPipeline` in `bundle_publish.py` talks to a server.
+The split is what makes offline testing possible: steps 1–2 need no network,
+and the harness finishes them with `builder.build()` instead of `send()`.
 
 ## Receive architecture
 
-`load_operation()` tries the bundle first, then falls back to classic
-`operations.receive`. A bundle-published version **cannot** be loaded any other
-way: its `referencedObject` is the synthetic `binary-{versionId}` sentinel, which
-has no row in the objects table, so a classic receive 404s on it.
-
-Detection is by **probing** `GET /api/v2/projects/{p}/models/{m}/versions/{v}/artifacts`
-and treating "returns files" as the signal — never by sniffing the `binary-`
-prefix. The id convention is a producer detail, and C#'s `ArtifactReceiver`
-deliberately avoids depending on it too. No files (404) → classic path. Files
-that then fail to read → raise, because falling back would only swap a clear
-error for a confusing 404.
+`load_operation()` downloads the version's artifact bundle and bakes it — the
+only receive path. A version without a bundle (not yet migrated by the
+server-side migration service) is a raised error with an "artifact bundle"
+message, never a fallback: no other path can serve it.
 
 Blender takes the **direct-bake** path (Rhino's `IArtifactHostObjectBuilder`),
 not the Base-reconstruction path (Revit's). Parquet arrays go straight to
@@ -130,16 +131,18 @@ not the Base-reconstruction path (Revit's). Parquet arrays go straight to
 pydantic validation entirely. That is why the raw-array `sgeo.decode_mesh` exists
 alongside `sgeo.decode`.
 
-The receive path has three public stages, split so most of it runs without
-Blender:
+The receive path has three stages; the first two belong to specklepy:
 
-- `connector/operations/bundle_receive.py` — probe + download presigned files.
-- `converter/from_bundle/bundle_reader.py` — parquet → dataclasses. **No `bpy`**,
-  so it can be exercised against a downloaded bundle offline.
+- `specklepy.bundle.download.download_bundle` — `GET …/versions/{v}/artifacts`,
+  then streams each presigned file (it filters `*.viewer.*` artifacts and
+  rejects non-bare file names).
+- `specklepy.bundle.bundle_reader.read_bundle` + `specklepy.bundle.model.Model`
+  — parquet → the typed read facade the bake consumes. Geometry parses lazily
+  from the download directory, so the bake must run before the tempdir goes.
 - `converter/from_bundle/bundle_to_native.py` — the stable public Blender seam:
-  a short `bake_bundle` coordinator plus the compatibility `BakeResult`
-  re-export. It visibly orders materials, containers, definition collections,
-  ordinary objects and placements, membership, properties, and final hierarchy
+  a short `bake_bundle(model, …)` coordinator plus the `BakeResult` export. It
+  visibly orders materials, containers, definition collections, ordinary
+  objects and placements, membership, properties, and final hierarchy
   restoration.
 
 Blender construction lives behind the private
@@ -167,8 +170,6 @@ back to `bundle_to_native` or `load_operation`.
   family is handled. `sgeo.decode_mesh` is a raw-array fast path for MESH only —
   meshes are the dense case; curves go through `sgeo.decode` to a `Base` because
   the object model carries the NURBS definition needed to rebuild a spline.
-  Requires a specklepy with `sgeo.decode_mesh`; `is_bundle_receive_available()`
-  feature-detects it, so an older specklepy falls back rather than crashing.
   An object whose geometry is *entirely* undecodable is **skipped outright** —
   no placeholder — and the per-type tally is printed.
 - **Geometry types map to three Blender data-blocks**: `mesh`/`box` → Mesh,
@@ -193,16 +194,18 @@ back to `bundle_to_native` or `load_operation`.
   doubles would scale the basis vectors too and resize the instance — invisible
   in metres, obvious in millimetres.
 - **The geometries table is sharded.** Shard 0 is `{base}.geometries.parquet`,
-  overflow shards are `{base}.geometries.{N}.parquet`. Read the set with the
-  glob `*.geometries*.parquet`; reading only shard 0 silently drops geometry
-  above ~1.5 GiB. (`tools/inspect_bundle.py` reads shard 0 only — fine for
-  fixtures, wrong for a real model.)
+  overflow shards are `{base}.geometries.{N}.parquet`. specklepy's
+  `read_geometries` globs the whole set; reading only shard 0 would silently
+  drop geometry above ~1.5 GiB. (`tools/inspect_bundle.py` reads shard 0 only —
+  fine for fixtures, wrong for a real model.)
 - The published root CONTAINER maps *onto* the caller's root collection rather
   than nesting inside it, so a load does not add a redundant folder level.
 - **CONTAINER is polymorphic and each subtype is its own grouping axis.**
   `subtype` (`Collection` | `Model` | `MEP System` | `Network` | `Group`)
   discriminates; membership comes via `IN_COLLECTION`/`IN_MODEL` (scalar) and
-  `IN_SYSTEM`/`IN_GROUP` (accumulating — systems and groups overlap by design).
+  `IN_SYSTEM`/`IN_GROUP` (overlapping by design — but note specklepy currently
+  reads `IN_SYSTEM` as single-valued, last edge wins; only groups accumulate.
+  Restoring the system overlap is a specklepy fix, not a connector shim).
   The root is the parentless `CONTAINER(Collection)` with the lowest node id,
   **never** "first parentless row": a cross-producer bundle roots every axis, so
   row order would crown a random model or system. The bake maps models to the
@@ -227,9 +230,9 @@ back to `bundle_to_native` or `load_operation`.
   same DEFINITION/INSTANCE layer as the C# connectors' blocks:
   `instance_unpacker.py` turns a placement empty into an `InstanceProxy` +
   `InstanceDefinitionProxy` (Rhino's `RhinoInstanceUnpacker`), and
-  `bundle_exporter.py` translates those to nodes (Rhino's
-  `RhinoArtifactRootObjectBuilder`). Producing proxies rather than nodes is what
-  lets the classic send path round-trip with the existing `to_native` receive.
+  `bundle_exporter.py` translates those to builder nodes (Rhino's
+  `RhinoBundleBuilder`). The proxy layer keeps the unpacker free of bundle
+  vocabulary — same split as the C# connectors.
   - The placement transform is `empty.matrix_world @
     Translation(-collection.instance_offset)` — members bake their own
     `matrix_world` as definition-local geometry, so the collection pivot has to
@@ -241,9 +244,10 @@ back to `bundle_to_native` or `load_operation`.
   - A collection holding *only* definition-only members emits no `CONTAINER`
     node — otherwise the usual excluded-from-the-view-layer "library"
     collection leaves an empty folder in the viewer's scene tree.
-  - Known gap: `load_operation` skips every object listed in a definition, so a
-    member published as *both* standalone and a definition member comes back
-    only inside its definition collection.
+  - Known wart: a definition-only member's properties row has no `DISPLAY`
+    edge, so the bake's properties-only path (meant for metaball siblings)
+    gives it a shapeless empty at the root — pinned in the
+    `collection_instances` fixture so a change to it is loud.
   - Not yet handled: `instance_type` in `{VERTS, FACES}` and geometry-nodes
     instancing, which only exist in the evaluated depsgraph.
 - **Metaballs publish per family, not per object**, and are the only type using
@@ -273,8 +277,8 @@ back to `bundle_to_native` or `load_operation`.
   custom properties are dropped by SGEO geometry encoding. There is an open
   decision in `merge_data_block_properties()` in `to_speckle/to_speckle.py`
   about whether that should change; the current default is object-only.
-- **Lists never serialize on the bundle path.** specklepy's eav walker skips
-  list values (C# parity), so arrays only survive a classic send.
+- **Lists never publish.** specklepy's eav walker skips list values (C#
+  parity), so array-valued custom properties are dropped.
 - **Collection parentage is not a relation.** A `CONTAINER` node's `def_ref`
   points at its parent, so nesting N collections still yields one
   `IN_COLLECTION` edge per *object*. Assert placement, not edge counts.

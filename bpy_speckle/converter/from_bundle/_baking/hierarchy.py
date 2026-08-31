@@ -4,13 +4,23 @@ from typing import List, Tuple
 
 import bpy
 from mathutils import Matrix
+from specklepy.bundle.model import Model, ModelObject
 
-from ..bundle_reader import ReceivedBundle
 from .result import BakeResult
 from .transforms import origin_median, recenter_origin
 
 
-def restore_subelements(bundle: ReceivedBundle, result: BakeResult) -> None:
+def _spatially_placed(model: Model, obj: ModelObject) -> bool:
+    """Whether the object carries its own placement or geometry."""
+    rels = model.bundle.relations
+    return bool(
+        model.index.instances_by_object.get(obj.k)
+        or rels.display_by_object(obj.k)
+        or obj.k in rels.solid_by_object
+    )
+
+
+def restore_subelements(model: Model, result: BakeResult) -> None:
     """Re-establish SUBELEMENT parenting once every object exists.
 
     Revit family subelements with geometry can be independent placements whose
@@ -22,10 +32,10 @@ def restore_subelements(bundle: ReceivedBundle, result: BakeResult) -> None:
     parent is anchored so a later bundle-order link preserves its established
     world position and the children already restored beneath it.
     """
-    objects_by_id = bundle.objects_by_id()
     anchored: set = set()
-    for obj in bundle.objects:
-        if not obj.subelement_ids:
+    for obj in model.objects:
+        children = obj.children
+        if not children:
             continue
         parent = result.objects.get(obj.application_id)
         if parent is None:
@@ -33,14 +43,11 @@ def restore_subelements(bundle: ReceivedBundle, result: BakeResult) -> None:
 
         placed: List[Tuple[bpy.types.Object, Matrix]] = []
         followers: List[bpy.types.Object] = []
-        for child_id in obj.subelement_ids:
-            child = result.objects.get(child_id)
+        for child_obj in children:
+            child = result.objects.get(child_obj.application_id)
             if child is None or child is parent:
                 continue
-            child_obj = objects_by_id.get(child_id)
-            if child in anchored or (
-                child_obj and (child_obj.is_placement or child_obj.geometry_ks)
-            ):
+            if child in anchored or _spatially_placed(model, child_obj):
                 recenter_origin(child)
                 placed.append((child, child.matrix_world.copy()))
             else:
@@ -49,7 +56,7 @@ def restore_subelements(bundle: ReceivedBundle, result: BakeResult) -> None:
         # the parent's origin must be final before any child is linked: a
         # child's world restore resolves against the parent's stored matrix
         recenter_origin(parent)
-        if not obj.is_placement and not obj.geometry_ks and placed:
+        if not _spatially_placed(model, obj) and placed:
             parent.matrix_world = Matrix.Translation(
                 origin_median([world.to_translation() for _, world in placed])
             )

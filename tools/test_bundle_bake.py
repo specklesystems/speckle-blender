@@ -4,10 +4,13 @@ Blender-visible shape and diagnostics that come out.
 The publish fixtures can only make Blender-shaped bundles, so the container
 axes Blender never writes — models, systems, groups — are fabricated with the
 same table writer as ``test_bundle_reader.py`` and pushed through the real
-receive path (``read_bundle`` -> ``bake_bundle``):
+receive path (specklepy's ``read_bundle`` + ``Model`` -> ``bake_bundle``):
 
     /Applications/Blender.app/Contents/MacOS/Blender --background \\
         --factory-startup -noaudio --python tools/test_bundle_bake.py
+
+Root-collection selection is asserted here rather than in the reader suite: it
+is a bake-side decision now that the parse belongs to specklepy.
 
 Most relationship scenarios carry no geometry on purpose: a geometry-less
 object bakes to a real (shapeless) Blender object, which is all placement
@@ -27,6 +30,10 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
 
 import bpy  # noqa: E402
 
+# importing the add-on package runs ensure_dependencies(), which puts the
+# connector's installed specklepy/pyarrow on sys.path for test_bundle_reader
+import bpy_speckle  # noqa: E402,F401
+
 from test_bundle_reader import (  # noqa: E402
     DISPLAY,
     DISPLAY_INSTANCE,
@@ -36,20 +43,23 @@ from test_bundle_reader import (  # noqa: E402
     IN_MODEL,
     IN_SYSTEM,
     SUBELEMENT,
+    read_model,
     write_bundle,
 )
 
 
 def bake(**bundle_kwargs):
-    """Write a synthetic bundle, then run the real receive path on it."""
-    from bpy_speckle.converter.from_bundle.bundle_reader import read_bundle
+    """Write a synthetic bundle, then run the real receive path on it.
+
+    The bake runs inside the tempdir context: the ``Model`` parses geometry
+    lazily from its directory, exactly as ``load_operation`` does.
+    """
     from bpy_speckle.converter.from_bundle.bundle_to_native import bake_bundle
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     with tempfile.TemporaryDirectory() as bundle_dir:
         write_bundle(bundle_dir, **bundle_kwargs)
-        bundle = read_bundle(bundle_dir)
-    return bake_bundle(bundle, "Received")
+        return bake_bundle(read_model(bundle_dir), "Received")
 
 
 def check(condition: bool, message: str) -> None:
@@ -105,6 +115,32 @@ def single_model_maps_onto_root() -> None:
         "a single model must not nest a redundant folder",
     )
     check(homes(result, "fence-1") == {"Received"}, "object sits at the root")
+
+
+def multiple_collection_roots() -> None:
+    """Two parentless authored collections: the lowest node id maps onto the
+    caller's root, the other still gets a home under it.
+
+    The higher-id root is deliberately the first node row, so this fails if
+    root selection ever regresses to "first parentless row" — on a
+    cross-producer bundle that would crown whichever axis was written first.
+    """
+    result = bake(
+        containers=[
+            (8, "SecondRoot", None, "Collection"),
+            (3, "FirstRoot", None, "Collection"),
+        ],
+        objects=["obj-1"],
+        relations=[(IN_COLLECTION, 0, 3)],
+    )
+    check(
+        children(result.root_collection) == {"SecondRoot"},
+        f"the other parentless root nests, got {children(result.root_collection)}",
+    )
+    check(
+        homes(result, "obj-1") == {"Received"},
+        "the lowest-id Collection root maps onto the caller's root",
+    )
 
 
 def rhino_groups_beside_layers() -> None:
@@ -715,6 +751,7 @@ def unsupported_and_corrupt_geometry_isolated() -> None:
 SCENARIOS = [
     navis_federation,
     single_model_maps_onto_root,
+    multiple_collection_roots,
     rhino_groups_beside_layers,
     unknown_subtype_is_surfaced_not_baked,
     revit_parameter_paths_bake_as_groups,

@@ -793,7 +793,7 @@ version = "3.0.0"
 source = { virtual = "." }
 dependencies = [
     { name = "pyarrow" },
-    { name = "specklepy" },
+    { name = "specklepy", extra = ["bundle"] },
 ]
 
 [package.dev-dependencies]
@@ -806,7 +806,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pyarrow", specifier = ">=17.0.0" },
-    { name = "specklepy", specifier = ">=2026.9.0a1" },
+    { name = "specklepy", extras = ["bundle"], specifier = ">=2026.9.0a1" },
 ]
 
 [package.metadata.requires-dev]
@@ -832,6 +832,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6b/5e/5ef8405aa0b50ef12e029f16329342df234dd67c7b37129269a651c15213/specklepy-2026.9.0a1.tar.gz", hash = "sha256:3dfe858ad01430b0f5ab3df84369a392512eff58d1cc95a1c9b229de24c60d22", size = 156073 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ce/39/b49bb2810658de5ef564e32762a05f1cde2aceb31868d061d3b3315d5870/specklepy-2026.9.0a1-py3-none-any.whl", hash = "sha256:98a64d3d9171dd6cefdd7f660cf49e156a82a1507c9765fba04c5ae8af144a04", size = 220477 },
+]
+
+[package.optional-dependencies]
+bundle = [
+    { name = "pyarrow" },
 ]
 
 [[package]]

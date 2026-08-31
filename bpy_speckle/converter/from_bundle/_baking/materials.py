@@ -1,28 +1,34 @@
-"""Adapt bundle material rows into Blender materials."""
+"""Adapt the model's material nodes into Blender materials."""
 
 from typing import Dict
 
 import bpy
+from specklepy.bundle.model import Model, ModelMaterial
 
 from ...utils import create_material_from_proxy
-from ..bundle_reader import BundleMaterial, ReceivedBundle
 
 
 class _MaterialShim:
-    """Adapt a bundle material to what ``create_material_from_proxy`` expects."""
+    """Adapt a bundle material to what ``create_material_from_proxy`` expects.
 
-    def __init__(self, material: BundleMaterial) -> None:
-        self.diffuse = material.argb
-        self.opacity = material.opacity
-        self.metalness = material.metalness
-        self.roughness = material.roughness
+    The node's appearance columns are nullable; the defaults here are the
+    spec's ("no colour" as -1, fully opaque, dielectric, matte).
+    """
+
+    def __init__(self, material: ModelMaterial) -> None:
+        self.diffuse = -1 if material.argb is None else material.argb
+        self.opacity = 1.0 if material.opacity is None else material.opacity
+        self.metalness = 0.0 if material.metalness is None else material.metalness
+        self.roughness = 1.0 if material.roughness is None else material.roughness
         self.name = material.name
 
 
-def build_materials(bundle: ReceivedBundle) -> Dict[int, bpy.types.Material]:
-    """Build the node-id-to-Blender-material mapping."""
+def build_materials(model: Model) -> Dict[int, bpy.types.Material]:
+    """Build the node-k-to-Blender-material mapping."""
     materials: Dict[int, bpy.types.Material] = {}
-    for node_id, material in bundle.materials.items():
-        name = material.name or f"Material_{node_id}"
-        materials[node_id] = create_material_from_proxy(_MaterialShim(material), name)
+    for material in model.materials:
+        name = material.name or f"Material_{material.k}"
+        materials[material.k] = create_material_from_proxy(
+            _MaterialShim(material), name
+        )
     return materials

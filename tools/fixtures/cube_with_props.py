@@ -72,8 +72,9 @@ EXPECT = {
             "bool_prop": True,
         }
     },
-    # exact: where those non-user root scalars land instead (internal state)
+    # exact: where those non-user root scalars land instead (internal state).
+    # `units` is written per object by specklepy's BundleBuilder.
     "receive_root_fields": {
-        "Cube": {"type": "MESH", "category": "Walls", "elevation": 3.2},
+        "Cube": {"type": "MESH", "units": "m", "category": "Walls", "elevation": 3.2},
     },
 }

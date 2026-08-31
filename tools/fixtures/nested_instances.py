@@ -73,6 +73,11 @@ EXPECT = {
     "relations": {
         "DISPLAY_INSTANCE": 1,
         "DEFINES_INSTANCE": 1,
+        # the builder's nested-member shape also records which object the
+        # placement represents (DEFINES_MEMBER) and what it places (PLACES),
+        # matching the C# connectors
+        "DEFINES_MEMBER": 1,
+        "PLACES": 1,
         "DEFINES": 1,
         "DISPLAY": 0,
         "IN_COLLECTION": 1,

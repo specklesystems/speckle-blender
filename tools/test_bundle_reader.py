@@ -1,43 +1,51 @@
-"""Exercises ``bundle_reader`` against synthetic cross-connector bundles.
+"""Exercises specklepy's bundle reader against synthetic cross-connector bundles.
 
 The publish harness can only produce Blender-shaped bundles — one authored
 collection tree, nothing else. Cross-connector regressions live exactly in the
 shapes Blender never writes: multiple parentless CONTAINER axes, membership
-relations other than IN_COLLECTION, adversarial node row order. So this builds
-those bundles by hand with pyarrow and asserts on what the reader joins back.
+relations other than IN_COLLECTION, adversarial node row order (the
+ENG-9025/9026/9027 family). So this builds those bundles by hand with pyarrow
+and asserts on what ``specklepy.bundle.read_bundle`` + the ``Model`` facade —
+the exact surface the connector's bake consumes — join back.
 
     uv run python tools/test_bundle_reader.py
 
-Needs no Blender: ``bundle_reader`` is deliberately free of ``bpy``, which is
-what makes this runnable in the repo venv. The bake side (``bundle_to_native``)
-still needs real Blender and stays with the fixture harness.
+Needs no Blender, so it runs in the repo venv. The bake side
+(``bundle_to_native``) consumes the same ``Model`` in ``test_bundle_bake.py``
+inside headless Blender, which also covers root-collection selection — a
+bake-side decision the reader deliberately does not make.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import sys
 import tempfile
 from typing import Any, Dict
 
+from specklepy.bundle.bundle_reader import read_bundle
+from specklepy.bundle.model import Model
+from specklepy.bundle.spec import NodeKind, Rel
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# import by path: importing the bpy_speckle package would pull in bpy
-_spec = importlib.util.spec_from_file_location(
-    "bundle_reader",
-    os.path.join(REPO_ROOT, "bpy_speckle/converter/from_bundle/bundle_reader.py"),
+# rel/kind ids straight from the vendored spec, so a spec bump fails loudly
+# here instead of silently writing tables the reader maps differently
+DEFINITION, INSTANCE, MATERIAL, CONTAINER = (
+    int(NodeKind.DEFINITION),
+    int(NodeKind.INSTANCE),
+    int(NodeKind.MATERIAL),
+    int(NodeKind.CONTAINER),
 )
-bundle_reader = importlib.util.module_from_spec(_spec)
-# dataclasses resolves the module's postponed annotations through sys.modules,
-# so the module must be registered before it executes
-sys.modules["bundle_reader"] = bundle_reader
-_spec.loader.exec_module(bundle_reader)
-
-# rel/kind ids as catalogued in the bundle spec's rel_types / node_kinds
-DEFINITION, INSTANCE, MATERIAL, CONTAINER = 1, 2, 3, 7
-DISPLAY, SUBELEMENT, DEFINES, HAS_MATERIAL, DISPLAY_INSTANCE = 1, 3, 4, 5, 8
-IN_COLLECTION, IN_MODEL, IN_SYSTEM, IN_GROUP = 10, 11, 14, 17
+DISPLAY = int(Rel.DISPLAY)
+SUBELEMENT = int(Rel.SUBELEMENT)
+DEFINES = int(Rel.DEFINES)
+HAS_MATERIAL = int(Rel.HAS_MATERIAL)
+DISPLAY_INSTANCE = int(Rel.DISPLAY_INSTANCE)
+IN_COLLECTION = int(Rel.IN_COLLECTION)
+IN_MODEL = int(Rel.IN_MODEL)
+IN_SYSTEM = int(Rel.IN_SYSTEM)
+IN_GROUP = int(Rel.IN_GROUP)
 REL_NAMES = {
     DISPLAY: "DISPLAY",
     SUBELEMENT: "SUBELEMENT",
@@ -52,6 +60,22 @@ REL_NAMES = {
 
 IDENTITY = "1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1"
 
+# every column specklepy's node reader touches; synthetic rows pad the unused
+# ones with None
+_NODE_EXTRA_COLUMNS = (
+    "transform",
+    "units",
+    "subtype",
+    "argb",
+    "opacity",
+    "metalness",
+    "roughness",
+    "emissive",
+    "ior",
+    "elevation",
+    "gh_topology",
+)
+
 
 def _write(bundle_dir: str, table: str, columns: Dict[str, list]) -> None:
     import pyarrow as pa
@@ -65,14 +89,13 @@ def write_bundle(
     containers: list,  # (id, name, def_ref, subtype)
     objects: list,  # application_id, k is the list index
     relations: list,  # (rel, src, dst) or (rel, src, dst, ord)
-    with_subtype_column: bool = True,
     properties: list = None,  # (object k, eav path, scalar value)
     definitions: list = None,  # (node id, name)
     instances: list = None,  # (node id, def_ref, transform csv, units)
     geometries: list = None,  # (geometry k, sgeo type, content bytes)
     materials: list = None,  # (node id, name, argb, opacity, metalness, roughness)
 ) -> None:
-    """Write the minimal table set the reader joins.
+    """Write the minimal table set specklepy's reader joins.
 
     Shared with ``test_bundle_bake.py``, which bakes these same shapes inside
     headless Blender.
@@ -80,6 +103,7 @@ def write_bundle(
     definitions = definitions or []
     instances = instances or []
     materials = materials or []
+    row_count = len(containers) + len(definitions) + len(instances) + len(materials)
     nodes: Dict[str, list] = {
         "id": [c[0] for c in containers]
         + [d[0] for d in definitions]
@@ -98,9 +122,12 @@ def write_bundle(
         + [i[1] for i in instances]
         + [None] * len(materials),
     }
+    for column in _NODE_EXTRA_COLUMNS:
+        nodes[column] = [None] * row_count
+    nodes["subtype"] = [c[3] for c in containers] + [None] * (
+        len(definitions) + len(instances) + len(materials)
+    )
     if instances:
-        # the reader only touches these columns on INSTANCE rows, and the real
-        # writer only emits them when instances exist
         pad = [None] * (len(containers) + len(definitions))
         material_pad = [None] * len(materials)
         nodes["transform"] = pad + [i[2] for i in instances] + material_pad
@@ -111,10 +138,6 @@ def write_bundle(
         nodes["opacity"] = pad + [m[3] for m in materials]
         nodes["metalness"] = pad + [m[4] for m in materials]
         nodes["roughness"] = pad + [m[5] for m in materials]
-    if with_subtype_column:
-        nodes["subtype"] = [c[3] for c in containers] + [None] * (
-            len(definitions) + len(instances) + len(materials)
-        )
     _write(
         bundle_dir,
         "envelope.node_kinds",
@@ -154,39 +177,49 @@ def write_bundle(
                 "type": [g[1] for g in geometries],
             },
         )
-    if properties:
-        # numbers land in value_double, matching the real writer — an int
-        # published as 42 deliberately reads back as 42.0
-        paths = sorted({p for _, p, _ in properties})
-        path_index = {p: i for i, p in enumerate(paths)}
-        _write(
-            bundle_dir,
-            "eav.paths",
-            {"path_index": list(path_index.values()), "path": paths},
-        )
-        values = [v for _, _, v in properties]
-        _write(
-            bundle_dir,
-            "eav.eav",
-            {
-                "object_index": [k for k, _, _ in properties],
-                "path_index": [path_index[p] for _, p, _ in properties],
-                "value_string": [v if isinstance(v, str) else None for v in values],
-                "value_double": [
-                    float(v)
-                    if isinstance(v, (int, float)) and not isinstance(v, bool)
-                    else None
-                    for v in values
-                ],
-                "value_boolean": [v if isinstance(v, bool) else None for v in values],
-            },
-        )
+    # eav.paths and eav.eav are required tables, so they are always written —
+    # empty when the scenario carries no properties
+    properties = properties or []
+    # numbers land in value_double, matching the real writer — an int
+    # published as 42 deliberately reads back as 42.0
+    paths = sorted({p for _, p, _ in properties})
+    path_index = {p: i for i, p in enumerate(paths)}
+    _write(
+        bundle_dir,
+        "eav.paths",
+        {"path_index": list(path_index.values()), "path": paths},
+    )
+    values = [v for _, _, v in properties]
+    _write(
+        bundle_dir,
+        "eav.eav",
+        {
+            "object_index": [k for k, _, _ in properties],
+            "path_index": [path_index[p] for _, p, _ in properties],
+            "value_string": [v if isinstance(v, str) else None for v in values],
+            "value_double": [
+                float(v)
+                if isinstance(v, (int, float)) and not isinstance(v, bool)
+                else None
+                for v in values
+            ],
+            "value_boolean": [v if isinstance(v, bool) else None for v in values],
+        },
+    )
 
 
-def build_bundle(bundle_dir: str, **kwargs: Any) -> Any:
-    """Write a synthetic bundle and join it back through the reader."""
+def read_model(bundle_dir: str) -> Model:
+    """Wrap a written bundle directory in the SDK's ``Model`` facade."""
+    files = sorted(
+        os.path.join(bundle_dir, f) for f in sorted(os.listdir(bundle_dir))
+    )
+    return Model("project", "model", "version", bundle_dir, files, read_bundle(bundle_dir))
+
+
+def build_model(bundle_dir: str, **kwargs: Any) -> Model:
+    """Write a synthetic bundle and join it back through the SDK reader."""
     write_bundle(bundle_dir, **kwargs)
-    return bundle_reader.read_bundle(bundle_dir)
+    return read_model(bundle_dir)
 
 
 def check(condition: bool, message: str) -> None:
@@ -194,14 +227,22 @@ def check(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
+def _in_model_k(model: Model, obj) -> int | None:
+    """The CONTAINER(Model) node k an object belongs to, via IN_MODEL."""
+    return model.bundle.relations.object_node_by_rel.get(int(Rel.IN_MODEL), {}).get(
+        obj.k
+    )
+
+
 def navis_federation() -> None:
     """Two models and a network, all parentless — no authored collections.
 
-    The network is deliberately the first node row: under first-parentless-row
-    root selection it would have been crowned the model root.
+    The network is deliberately the first node row: root selection (bake-side,
+    covered in ``test_bundle_bake.py``) must never crown it, and the reader
+    must keep every axis's subtype and membership intact for that decision.
     """
     with tempfile.TemporaryDirectory() as bundle_dir:
-        bundle = build_bundle(
+        model = build_model(
             bundle_dir,
             containers=[
                 (1, "Supply Air", None, "Network"),
@@ -215,26 +256,38 @@ def navis_federation() -> None:
                 (IN_MODEL, 1, 3),
             ],
         )
-    check(bundle.root_collection_id is None, "a Network must never become the root")
-    check(
-        [c.subtype for c in bundle.containers.values()]
-        == ["Network", "Model", "Model"],
-        "subtype must survive the read",
-    )
-    check(
-        not any(c.is_collection for c in bundle.containers.values()),
-        "no container here belongs to the authored tree",
-    )
-    duct, wall = bundle.objects
-    check(duct.model_id == 2 and wall.model_id == 3, "IN_MODEL must resolve")
-    check(duct.system_ids == [1], "IN_SYSTEM must resolve")
-    check(duct.collection_id is None, "no IN_COLLECTION edge was written")
+        check(
+            [c.subtype for c in model.collections]
+            == ["Network", "Model", "Model"],
+            "subtype must survive the read",
+        )
+        check(
+            not any(c.subtype == "Collection" for c in model.collections),
+            "no container here belongs to the authored tree",
+        )
+        duct = model.object_by_application_id("duct-1")
+        wall = model.object_by_application_id("wall-1")
+        check(
+            _in_model_k(model, duct) == 2 and _in_model_k(model, wall) == 3,
+            "IN_MODEL must resolve",
+        )
+        check(
+            duct.system is not None and duct.system.k == 1,
+            "IN_SYSTEM must resolve",
+        )
+        check(duct.collection is None, "no IN_COLLECTION edge was written")
 
 
 def revit_systems_overlap() -> None:
-    """An MEP object belongs to every system that runs through it."""
+    """An MEP object belongs to every system that runs through it.
+
+    Known SDK narrowing: specklepy reads IN_SYSTEM as single-valued (the last
+    edge wins), so only one membership survives today. This pins that the edge
+    resolves at all; restoring the overlap is a specklepy change, not a
+    connector shim.
+    """
     with tempfile.TemporaryDirectory() as bundle_dir:
-        bundle = build_bundle(
+        model = build_model(
             bundle_dir,
             containers=[
                 (1, "Supply", None, "MEP System"),
@@ -243,18 +296,24 @@ def revit_systems_overlap() -> None:
             objects=["ahu-1"],
             relations=[(IN_SYSTEM, 0, 1), (IN_SYSTEM, 0, 2)],
         )
-    check(bundle.root_collection_id is None, "systems alone give no root")
-    check(bundle.objects[0].system_ids == [1, 2], "memberships must accumulate")
+        ahu = model.object_by_application_id("ahu-1")
+        check(ahu.system is not None, "an IN_SYSTEM membership must resolve")
+        check(
+            ahu.system.k == 2,
+            "the SDK keeps the last IN_SYSTEM edge; if this fails because both "
+            "now accumulate, delete this narrowing note and assert the overlap",
+        )
 
 
 def rhino_groups_beside_layers() -> None:
     """Groups are a second axis: the object keeps its layer AND its groups.
 
-    The group rows come before the collection rows, so root selection must go
-    by subtype, not row order. GroupB nests inside GroupA via def_ref.
+    The group rows come before the collection rows, so any consumer choosing a
+    root must go by subtype, not row order. GroupB nests inside GroupA via
+    def_ref.
     """
     with tempfile.TemporaryDirectory() as bundle_dir:
-        bundle = build_bundle(
+        model = build_model(
             bundle_dir,
             containers=[
                 (2, "GroupA", None, "Group"),
@@ -269,54 +328,24 @@ def rhino_groups_beside_layers() -> None:
                 (IN_GROUP, 0, 3),
             ],
         )
-    check(bundle.root_collection_id == 5, "the Collection root must win over row order")
-    obj = bundle.objects[0]
-    check(obj.collection_id == 6, "IN_COLLECTION must still resolve")
-    check(obj.group_ids == [2, 3], "overlapping groups must accumulate")
-    check(
-        [c.node_id for c in bundle.child_containers(5)] == [6],
-        "collection nesting must survive",
-    )
-
-
-def legacy_bundle_without_subtype() -> None:
-    """Pre-polymorphism bundles have no subtype column; every container was an
-    authored collection, and root choice must still be deterministic."""
-    with tempfile.TemporaryDirectory() as bundle_dir:
-        bundle = build_bundle(
-            bundle_dir,
-            containers=[
-                (9, "WrittenFirst", None, None),
-                (4, "LowerNodeId", None, None),
-            ],
-            objects=[],
-            relations=[],
-            with_subtype_column=False,
+        curve = model.object_by_application_id("curve-1")
+        check(
+            curve.collection is not None and curve.collection.k == 6,
+            "IN_COLLECTION must still resolve",
         )
-    check(
-        all(c.is_collection for c in bundle.containers.values()),
-        "subtype-less containers are authored collections",
-    )
-    check(
-        bundle.root_collection_id == 4,
-        "ties must break on node id, not on row order",
-    )
-
-
-def multiple_collection_roots() -> None:
-    """Two parentless authored collections: the lower node id is the root."""
-    with tempfile.TemporaryDirectory() as bundle_dir:
-        bundle = build_bundle(
-            bundle_dir,
-            containers=[
-                (8, "SecondRoot", None, "Collection"),
-                (3, "FirstRoot", None, "Collection"),
-                (1, "A System", None, "MEP System"),
-            ],
-            objects=[],
-            relations=[],
+        check(
+            [g.k for g in curve.groups] == [2, 3],
+            "overlapping groups must accumulate",
         )
-    check(bundle.root_collection_id == 3, "lowest Collection node id wins")
+        root = model.node(5)
+        check(
+            [c.k for c in root.children] == [6],
+            "collection nesting must survive",
+        )
+        check(
+            [g.k for g in model.node(2).children] == [3],
+            "group nesting must survive",
+        )
 
 
 def revit_family_instance_atomized() -> None:
@@ -330,7 +359,7 @@ def revit_family_instance_atomized() -> None:
     here so that ord, not row order, must decide the sequence.
     """
     with tempfile.TemporaryDirectory() as bundle_dir:
-        bundle = build_bundle(
+        model = build_model(
             bundle_dir,
             containers=[],
             objects=["chair-1"],
@@ -344,29 +373,27 @@ def revit_family_instance_atomized() -> None:
                 (DISPLAY_INSTANCE, 0, 2, 0),
             ],
         )
-    chair = bundle.objects[0]
-    check(chair.is_placement, "an object with placements is a placement")
-    check(
-        chair.instance_ids == [2, 4],
-        f"every placement must survive in ord order, got {chair.instance_ids}",
-    )
-    check(
-        bundle.instances[2].def_ref == 1 and bundle.instances[4].def_ref == 3,
-        "each instance keeps its own definition",
-    )
-    check(
-        bundle.definitions[1].members == {0: [0]}
-        and bundle.definitions[3].members == {0: [1]},
-        "DEFINES resolves definition node ids against geometry Ks",
-    )
+        chair = model.object_by_application_id("chair-1")
+        placements = chair.placements
+        check(
+            [p.k for p in placements] == [2, 4],
+            f"every placement must survive in ord order, got {[p.k for p in placements]}",
+        )
+        check(
+            placements[0].definition.k == 1 and placements[1].definition.k == 3,
+            "each instance keeps its own definition",
+        )
+        rels = model.bundle.relations
+        check(
+            rels.defines_by_definition == {1: [0], 3: [1]},
+            "DEFINES resolves definition node ids against geometry Ks",
+        )
 
 
 SCENARIOS = [
     navis_federation,
     revit_systems_overlap,
     rhino_groups_beside_layers,
-    legacy_bundle_without_subtype,
-    multiple_collection_roots,
     revit_family_instance_atomized,
 ]
 

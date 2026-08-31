@@ -1,10 +1,10 @@
 """Restore flattened bundle properties as Blender custom properties."""
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 import bpy
+from specklepy.bundle.model import ModelObject
 
-from ..bundle_reader import BundleObject
 from .result import BakeResult
 
 # IDProperty names live in a fixed 64-byte buffer (63 + NUL) at every level of
@@ -24,24 +24,26 @@ def _fit_idprop_name(segment: str) -> str:
     return encoded[:_MAX_IDPROP_NAME_BYTES].decode("utf-8", errors="ignore")
 
 
-def _unflatten_properties(flat: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
-    """Rebuild the eav's dotted ``properties.*`` paths into a nested dict.
+def _unflatten_properties(
+    flat: Iterable[Tuple[str, Any]],
+) -> Tuple[Dict[str, Any], int]:
+    """Rebuild dotted property paths into a nested dict.
 
-    The dotted path cannot be written verbatim as one custom-property key: a
-    Revit parameter path blows through the 63-byte IDProperty name limit and
-    aborts the bake. Nested dicts bake as IDProperty *groups* — the shape the
-    classic receive produces — so only individual segments face the limit, and
-    those are fitted. The eav separator is a bare ``.`` with no escaping (C#
-    parity), so a key containing a literal dot nests one level deeper than
-    authored; the format cannot distinguish the two.
+    ``flat`` is the ``properties.``-stripped key/value view of one object's eav
+    rows (``ModelObject.properties``). The dotted path cannot be written
+    verbatim as one custom-property key: a Revit parameter path blows through
+    the 63-byte IDProperty name limit and aborts the bake. Nested dicts bake as
+    IDProperty *groups*, so only individual segments face the limit, and those
+    are fitted. The eav separator is a bare ``.`` with no escaping (C# parity),
+    so a key containing a literal dot nests one level deeper than authored; the
+    format cannot distinguish the two.
 
     Returns the tree and the count of dropped paths: when a scalar and a
     subtree collide on one key, whichever arrived first stays.
     """
     tree: Dict[str, Any] = {}
     dropped = 0
-    for path, value in flat.items():
-        key = path[len("properties.") :]
+    for key, value in flat:
         if not key or value is None:
             continue
         segments = [_fit_idprop_name(s) for s in key.split(".") if s]
@@ -62,7 +64,7 @@ def _unflatten_properties(flat: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
 
 
 def apply_properties(
-    blender_object: bpy.types.Object, obj: BundleObject, result: BakeResult
+    blender_object: bpy.types.Object, obj: ModelObject, result: BakeResult
 ) -> None:
     """Write the object's eav user properties back as Blender custom properties.
 
@@ -70,17 +72,17 @@ def apply_properties(
     Blender still refuses is tallied, never raised — one bad property must not
     abort a receive whose artefacts are already downloaded and decoded.
 
-    Only the ``properties.`` subtree round-trips — the reader routes bare root
-    scalars (``type`` and any cross-producer extras) into ``root_fields``, and
-    those stay internal. ``applicationId`` and ``speckle_type`` are baked
-    deliberately, matching the classic receive path; the publish side's
-    ``extract_custom_properties`` skips both, so they do not re-enter
+    Only the ``properties.`` subtree round-trips — bare root scalars (``type``,
+    ``units`` and any cross-producer extras) stay internal schema state.
+    ``applicationId`` and ``speckle_type`` are baked deliberately; the publish
+    side's ``extract_custom_properties`` skips both, so they do not re-enter
     ``properties.*`` on a republish.
     """
     blender_object["applicationId"] = obj.application_id
-    if obj.speckle_type:
-        blender_object["speckle_type"] = obj.speckle_type
-    tree, dropped = _unflatten_properties(obj.properties)
+    speckle_type = obj.root_properties.get_string("speckle_type")
+    if speckle_type:
+        blender_object["speckle_type"] = speckle_type
+    tree, dropped = _unflatten_properties(obj.properties.items())
     for key, value in tree.items():
         try:
             blender_object[key] = value

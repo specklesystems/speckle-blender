@@ -17,14 +17,14 @@ def merge_data_block_properties(object_properties: dict, data_properties: dict) 
 
     Only this merged dict reaches the parquet bundle's eav table (queryable/
     filterable on the server). Data-block properties are also applied to the
-    displayValue geometry, which serializes on classic sends but is dropped
-    by the bundle's SGEO geometry encoding.
+    displayValue geometry, but SGEO geometry encoding drops them, so today
+    they do not reach the bundle at all.
 
     TODO: decide how data-block properties surface in the bundle. Options:
     nest them (e.g. ``{**object_properties, "data": data_properties}`` →
     eav paths ``properties.data.<key>``, no collisions, clear provenance);
     merge flat with one side winning on key collisions; or keep the current
-    object-only behavior (exact parity with PR #294's reach on classic sends).
+    object-only behavior.
     """
     return object_properties
 

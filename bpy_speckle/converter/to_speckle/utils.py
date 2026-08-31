@@ -242,9 +242,9 @@ def get_curve_element_id(blender_object: Object, curve_index: int = 0) -> str:
     return f"{get_object_id(blender_object)}:curve{curve_index}"
 
 
-# Keys both receive paths bake as internal schema state (see to_native and
-# bundle_to_native._apply_properties). Publishing already emits these as root
-# scalars / object columns, so re-collecting them here would mint
+# Keys the receive bake writes as internal schema state (see
+# from_bundle._baking.properties.apply_properties). Publishing already emits
+# these as root scalars / object columns, so re-collecting them here would mint
 # ``properties.applicationId`` etc. on every receive-and-republish cycle.
 RECEIVE_BAKED_SCHEMA_KEYS = frozenset({"applicationId", "speckle_type"})
 
@@ -255,10 +255,9 @@ def extract_custom_properties(blender_id: ID) -> Dict[str, Any]:
 
     Supports strings, ints, floats, bools, arrays of these types, and
     nested property groups (a bundle receive bakes Revit parameter trees
-    as groups; both the classic serializer and the eav walker re-flatten
-    the resulting dicts). Note: on the parquet-bundle path arrays are
-    dropped by the eav flattener (scalars and nested dicts only); they
-    still serialize on the classic send path.
+    as groups; the eav walker re-flattens the resulting dicts to the same
+    paths). Note: arrays are dropped by the eav flattener (scalars and
+    nested dicts only), so they never reach the published bundle.
     """
     properties: Dict[str, Any] = {}
 

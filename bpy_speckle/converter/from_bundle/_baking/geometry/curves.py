@@ -4,8 +4,8 @@ from typing import List, Optional, Tuple
 
 import bpy
 from specklepy.bundle import sgeo
+from specklepy.bundle.bundle_reader import Geometry
 
-from ...bundle_reader import BundleGeometry
 from ..transforms import scale_for
 
 # segments used when flattening an analytical arc/circle/ellipse to a polyline.
@@ -16,7 +16,7 @@ _ARC_SEGMENTS = 64
 def build_curve_object(
     name: str,
     data_name: str,
-    geometries: List[BundleGeometry],
+    geometries: List[Geometry],
     materials: List[Optional[bpy.types.Material]],
 ) -> Tuple[Optional[bpy.types.Object], List[str]]:
     """Decode and merge one object's curve geometry into one Blender object."""
@@ -31,7 +31,7 @@ def build_curve_object(
 
 
 def _decode_curves(
-    geometries: List[BundleGeometry],
+    geometries: List[Geometry],
 ) -> Tuple[List[object], List[str]]:
     """Decode the curve-family blobs of one object into Speckle objects.
 

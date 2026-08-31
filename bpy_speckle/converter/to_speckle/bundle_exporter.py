@@ -1,9 +1,11 @@
-"""Drives the Speckle 4.0 bundle producer from a converted Blender scene.
+"""Drives specklepy's ``BundleBuilder`` from a converted Blender scene.
 
 Walks the root ``Collection`` returned by ``build_collection_hierarchy`` (Speckle
 collections + ``BlenderObject``s with world-coordinate ``displayValue`` geometry,
-plus the attached ``renderMaterialProxies``) and maps it onto the parquet bundle
-via ``ObjectsArtifactPipeline``.
+plus the attached ``renderMaterialProxies``) and maps it onto the builder. The
+builder owns interning, edge emission and the parquet write; this class owns
+only the walk — the C# ``IBundleBuilder`` boundary: a connector's send is
+exactly its conversion, and everything after it belongs to the SDK.
 
 Blender uses the direct-display dialect (same as Rhino): an ordinary object's
 ``displayValue`` is already in world coordinates, so it links straight to
@@ -15,23 +17,31 @@ Collection instances are the exception, and take the same DEFINITION/INSTANCE
 layer the C# connectors use for blocks: the placement empty gets an INSTANCE node
 (carrying the transform) reached by DISPLAY_INSTANCE, the instanced collection
 gets a DEFINITION node, and the definition's members hang off it with DEFINES
-(geometry) or DEFINES_INSTANCE (a nested placement). A member that renders only
-through a placement is listed in the root's ``definitionOnlyObjects`` and gets no
-IN_COLLECTION or DISPLAY of its own — otherwise it would also draw untransformed
-at its authored location, duplicating the instance.
+(geometry) or a nested member placement (DEFINES_INSTANCE + DEFINES_MEMBER +
+PLACES, the builder's shape). A member that renders only through a placement is
+listed in the root's ``definitionOnlyObjects`` and gets no IN_COLLECTION or
+DISPLAY of its own — otherwise it would also draw untransformed at its authored
+location, duplicating the instance.
+
+Reference implementation: ``RhinoBundleBuilder.cs`` in speckle-sharp-connectors.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
-from specklepy.bundle.envelope_writer import Producer, SceneView, SceneViewKey
-from specklepy.bundle.pipeline import ObjectsArtifactPipeline
+from specklepy.bundle.builder import (
+    BundleBuilder,
+    BundleContainer,
+    BundleGeometry,
+    BundleInstance,
+)
+from specklepy.bundle.envelope_writer import Producer, SceneViewKey
 from specklepy.bundle.spec import Rel
 from specklepy.objects.base import Base
 from specklepy.objects.models.collections.collection import Collection
 from specklepy.objects.proxies import InstanceProxy
 
 
-def _blender_producer() -> Producer:
+def blender_producer() -> Producer:
     """Provenance stamped into ``meta.produced_by``/``producer_version``: the
     slug of the connector that wrote the bundle and the version of the Blender
     actually running, so a bundle self-describes the host that produced it.
@@ -41,7 +51,7 @@ def _blender_producer() -> Producer:
     regardless of the host. ``sdk_name``/``sdk_version`` are filled by
     ``Producer`` itself and cover the specklepy side.
     """
-    # deferred: this module is a pure Base/Collection -> parquet translator and
+    # deferred: this module is a pure Base/Collection -> builder translator and
     # keeps bpy out of its module-level imports; only provenance needs the host
     import bpy
 
@@ -57,56 +67,47 @@ def _attr(node: Base, key: str, default: Any = None) -> Any:
 
 
 class BlenderBundleExporter:
-    """Translates a converted Blender root Collection into a bundle on disk."""
+    """Translates a converted Blender root Collection onto a ``BundleBuilder``.
 
-    def __init__(
-        self,
-        output_dir: str,
-        base_name: str,
-        producer: Optional[Producer] = None,
-    ) -> None:
-        self._pipeline = ObjectsArtifactPipeline(
-            output_dir, base_name, producer or _blender_producer()
-        )
-        self._base_name = base_name
-        self._object_count = 0
-        # geometry applicationIds actually written to the geometries table;
-        # material edges may only reference these (an interned-but-unwritten K
-        # would break the geometry K-space density the validator enforces).
-        self._geo_k_by_id: Dict[str, int] = {}
+    The caller owns the builder's lifecycle: construct it, run
+    :meth:`export`, then hand the builder to ``specklepy.bundle.send`` (or call
+    ``builder.build()`` for an offline write).
+    """
+
+    def __init__(self, builder: BundleBuilder) -> None:
+        self._builder = builder
         self._conversion_errors: List[Tuple[str, Exception]] = []
         # instancing, resolved in _prepare_instancing / used by _emit_definitions
         self._definitions: List[Base] = []
         self._definition_only: set = set()
-        self._geo_ks_by_object: Dict[str, List[int]] = {}
-        self._instance_k_by_object: Dict[str, int] = {}
-        # applicationIds that actually reached the objects table, so a
-        # SUBELEMENT edge can never point at an object that was never emitted
-        self._emitted_object_ids: set = set()
+        # a definition-only member's payload is deferred to _emit_definitions:
+        # displayValue geometry for a plain member, the InstanceProxy for a
+        # member that is itself a placement. Emitting it during the walk would
+        # need a DISPLAY edge the member must not have.
+        self._deferred_geometry: Dict[str, List[Base]] = {}
+        self._deferred_placements: Dict[str, InstanceProxy] = {}
+        # every standalone placement's INSTANCE handle, so a member selected in
+        # its own right can still be linked into its definition
+        self._placement_instances: Dict[str, BundleInstance] = {}
+        # every written geometry handle by applicationId — display and
+        # definition geometry both — so material proxies can bind to it
+        self._geometry_handles: Dict[str, BundleGeometry] = {}
         # id() of every Collection that will actually hold a visible object
         self._collections_to_emit: set = set()
 
-    def export(self, root: Collection) -> Tuple[str, int]:
-        """Emit the whole bundle. Returns ``(root_id, object_count)`` for the
-        uploader."""
+    def export(self, root: Collection) -> int:
+        """Emit the whole scene onto the builder. Returns the object count."""
         self._prepare_instancing(root)
-        self._walk_collection(root, parent_collection_k=None, is_root=True)
-        # after the walk: every member's geometry / nested placement K must exist
+        self._walk_collection(root, parent=None, is_root=True)
+        # after the walk: every member's geometry / nested placement must exist
         # before the edges that resolve them
         self._emit_definitions()
         self._emit_subelements(root)
         self._emit_materials(root)
-        self._pipeline.add_scene_view(
-            SceneView(
-                view=0,
-                name="Collections",
-                is_default=True,
-                keys=[SceneViewKey.rel(Rel.IN_COLLECTION)],
-            )
+        self._builder.scene_view(
+            "Collections", True, SceneViewKey.rel(Rel.IN_COLLECTION)
         )
-        self._pipeline.complete()
-        # deterministic synthetic root id, matching the C# connectors' convention
-        return f"binary-{self._base_name}", self._object_count
+        return len(self._builder.objects)
 
     @property
     def conversion_errors(self) -> List[Tuple[str, Exception]]:
@@ -118,7 +119,7 @@ class BlenderBundleExporter:
     def _walk_collection(
         self,
         collection: Collection,
-        parent_collection_k: Optional[int],
+        parent: BundleContainer | None,
         is_root: bool = False,
     ) -> None:
         # A collection holding nothing but definition-only members contributes no
@@ -128,20 +129,17 @@ class BlenderBundleExporter:
         # its members still need geometry and properties for DEFINES to resolve.
         if is_root or id(collection) in self._collections_to_emit:
             name = _attr(collection, "name") or "Collection"
-            coll_k = self._pipeline.add_collection(
-                _attr(collection, "applicationId") or name,
-                name,
-                parent_collection_k,
-                "Collection",
+            container = self._builder.get_or_add_container(
+                _attr(collection, "applicationId") or name, name, parent, "Collection"
             )
         else:
-            coll_k = parent_collection_k
+            container = parent
 
-        for ord_, element in enumerate(_attr(collection, "elements", []) or []):
+        for element in _attr(collection, "elements", []) or []:
             if isinstance(element, Collection):
-                self._walk_collection(element, coll_k)
+                self._walk_collection(element, container)
             else:
-                self._emit_object(element, coll_k, ord_)
+                self._emit_object(element, container)
 
     def _mark_collections_to_emit(self, collection: Collection) -> bool:
         """Record which collections hold something the scene tree will show.
@@ -163,55 +161,56 @@ class BlenderBundleExporter:
             self._collections_to_emit.add(id(collection))
         return keep
 
-    def _emit_object(self, obj: Base, collection_k: int, ord_: int) -> None:
+    def _emit_object(self, obj: Base, container: BundleContainer) -> None:
         app_id = _attr(obj, "applicationId")
         if not app_id:
             return
 
-        obj_k = self._pipeline.intern_object(app_id)
-        self._object_count += 1
-        self._emitted_object_ids.add(app_id)
-        self._pipeline.add_properties(
-            app_id,
+        handle = self._builder.get_or_add_object(app_id)
+        if handle.properties_written:
+            # already emitted — an object appears in the tree once
+            return
+        handle.set_properties(
             _attr(obj, "properties", {}) or {},
-            root_scalars=[
-                ("name", _attr(obj, "name")),
-                ("type", _attr(obj, "type")),
-                ("speckle_type", getattr(obj, "speckle_type", None)),
-            ],
+            name=_attr(obj, "name"),
+            speckle_type=getattr(obj, "speckle_type", None),
+            source_type=_attr(obj, "type"),
         )
 
         # A definition-only member is reachable solely through a placement, so it
         # gets no scene-tree membership and no render edge — only the DEFINES that
-        # _emit_definitions adds. Its properties and geometry still land, which is
-        # what lets a placement resolve to real geometry.
+        # _emit_definitions adds. Its properties still land here, which is what
+        # lets a placement resolve to a named, queryable member.
         standalone = app_id not in self._definition_only
         if standalone:
-            self._pipeline.in_collection(obj_k, collection_k, ord_)
+            handle.collection = container
 
         if isinstance(obj, InstanceProxy):
-            self._emit_placement(obj, obj_k, app_id, standalone)
+            if standalone:
+                definition = self._builder.get_or_add_definition(
+                    obj.definitionId, None
+                )
+                self._placement_instances[app_id] = handle.place(
+                    definition, obj.transform, _attr(obj, "units"), key=app_id
+                )
+            else:
+                # a nested placement is reached through its definition instead
+                self._deferred_placements[app_id] = obj
             return
 
-        display_ord = 0
-        geo_ks: List[int] = []
-        for element in _attr(obj, "displayValue", []) or []:
-            geo_id = _attr(element, "applicationId") or f"{app_id}:{display_ord}"
+        elements = list(_attr(obj, "displayValue", []) or [])
+        if not standalone:
+            self._deferred_geometry[app_id] = elements
+            return
+        for ord_, element in enumerate(elements):
+            geo_id = _attr(element, "applicationId") or f"{app_id}:{ord_}"
             try:
-                geo_k = self._geo_k_by_id.get(geo_id)
-                if geo_k is None:
-                    geo_k = self._pipeline.add_geometry(geo_id, element)
-                    self._geo_k_by_id[geo_id] = geo_k
+                geometry = handle.add_geometry(element, geometry_key=geo_id)
             except ValueError as e:
                 # geometry type without an SGEO mapping — skip it, keep the object
                 self._conversion_errors.append((geo_id, e))
                 continue
-            if standalone:
-                self._pipeline.display(obj_k, geo_k, display_ord)
-            geo_ks.append(geo_k)
-            display_ord += 1
-
-        self._geo_ks_by_object[app_id] = geo_ks
+            self._geometry_handles[geo_id] = geometry
 
     # ── instancing ──────────────────────────────────────────────────────────
 
@@ -229,39 +228,66 @@ class BlenderBundleExporter:
         for proxy in self._definitions:
             def_id = _attr(proxy, "applicationId")
             if def_id:
-                self._pipeline.add_definition(def_id, _attr(proxy, "name"))
-
-    def _emit_placement(
-        self, proxy: InstanceProxy, obj_k: int, app_id: str, standalone: bool
-    ) -> None:
-        """A collection instance: object -> INSTANCE node -> DEFINITION."""
-        def_k = self._pipeline.add_definition(proxy.definitionId, None)
-        instance_k = self._pipeline.add_instance(
-            app_id, def_k, proxy.transform, _attr(proxy, "units")
-        )
-        self._instance_k_by_object[app_id] = instance_k
-        if standalone:
-            # a nested placement is reached through DEFINES_INSTANCE instead
-            self._pipeline.display_instance(obj_k, instance_k, 0)
+                self._builder.get_or_add_definition(def_id, _attr(proxy, "name"))
 
     def _emit_definitions(self) -> None:
-        """Link each definition to its members: DEFINES for geometry members,
-        DEFINES_INSTANCE for members that are themselves placements."""
+        """Link each definition to its members.
+
+        All of a member's geometry shares its member ordinal, which is what lets
+        a consumer regroup the fragments into one member. A member that is
+        itself a placement goes through ``add_member_placement`` (the builder's
+        nested-instance shape); one that was independently selected already has
+        its geometry written with DISPLAY edges and only gains DEFINES onto the
+        same rows.
+        """
         for proxy in self._definitions:
             def_id = _attr(proxy, "applicationId")
             if not def_id:
                 continue
-            def_k = self._pipeline.add_definition(def_id, _attr(proxy, "name"))
+            definition = self._builder.get_or_add_definition(
+                def_id, _attr(proxy, "name")
+            )
 
             for member_ord, member_id in enumerate(_attr(proxy, "objects", []) or []):
-                nested_k = self._instance_k_by_object.get(member_id)
-                if nested_k is not None:
-                    self._pipeline.defines_instance(def_k, nested_k, member_ord)
+                deferred = self._deferred_placements.get(member_id)
+                if deferred is not None:
+                    definition.add_member_placement(
+                        self._builder.get_or_add_object(member_id),
+                        self._builder.get_or_add_definition(
+                            deferred.definitionId, None
+                        ),
+                        deferred.transform,
+                        _attr(deferred, "units"),
+                        member_ord,
+                    )
                     continue
-                # all of a member's geometry shares its member ordinal, so a
-                # consumer can group the fragments back into one member
-                for geo_k in self._geo_ks_by_object.get(member_id, []):
-                    self._pipeline.defines(def_k, geo_k, member_ord)
+
+                placed = self._placement_instances.get(member_id)
+                if placed is not None:
+                    # a placement selected in its own right and also a member:
+                    # its INSTANCE node exists, only the DEFINES_INSTANCE edge
+                    # is missing (no builder verb reuses an existing instance)
+                    self._builder.pipeline.defines_instance(
+                        definition.k, placed.k, member_ord
+                    )
+                    continue
+
+                member = self._builder.try_get_object(member_id)
+                if member is not None and member.geometries:
+                    for geometry in member.geometries:
+                        definition.add_existing_geometry(geometry, member_ord)
+                    continue
+
+                for i, element in enumerate(self._deferred_geometry.get(member_id, [])):
+                    geo_id = _attr(element, "applicationId") or f"{member_id}:{i}"
+                    try:
+                        geometry = definition.add_geometry(
+                            element, geometry_key=geo_id, member_ord=member_ord
+                        )
+                    except ValueError as e:
+                        self._conversion_errors.append((geo_id, e))
+                        continue
+                    self._geometry_handles[geo_id] = geometry
 
     # ── subelements ─────────────────────────────────────────────────────────
 
@@ -273,22 +299,21 @@ class BlenderBundleExporter:
         curtain wall — where the children own the geometry — but the edge is the
         same one, and ``RevitArtifactRootObjectBuilder.EmitChild`` is the model.
 
-        Runs after the walk so both ends are already interned with their
-        properties, geometry and IN_COLLECTION edge. ``intern_object`` is
-        idempotent, so resolving a K here never creates a second object; a child
-        whose object never made it into the tree is skipped rather than interned
-        into existence, which would leave a dangling edge.
+        Runs after the walk so both ends are already emitted with their
+        properties, geometry and IN_COLLECTION edge. An end whose object never
+        made it into the tree is skipped rather than interned into existence,
+        which would leave a dangling edge.
         """
         subelements: Dict[str, List[str]] = _attr(root, "subelementIds", {}) or {}
         for parent_id, child_ids in subelements.items():
-            if parent_id not in self._emitted_object_ids:
+            parent = self._builder.try_get_object(parent_id)
+            if parent is None:
                 continue
-            parent_k = self._pipeline.intern_object(parent_id)
             for ord_, child_id in enumerate(child_ids):
-                if child_id not in self._emitted_object_ids:
+                child = self._builder.try_get_object(child_id)
+                if child is None:
                     continue
-                child_k = self._pipeline.intern_object(child_id)
-                self._pipeline.subelement(parent_k, child_k, ord_)
+                parent.add_child(child, ord_)
 
     # ── materials ───────────────────────────────────────────────────────────
 
@@ -303,15 +328,16 @@ class BlenderBundleExporter:
                 or _attr(material, "name")
                 or ""
             )
-            mat_k = self._pipeline.add_material(
+            handle = self._builder.get_or_add_material(
                 mat_id,
+                _attr(material, "name"),
                 argb=int(_attr(material, "diffuse", -1)),
                 opacity=float(_attr(material, "opacity", 1.0)),
                 metalness=float(_attr(material, "metalness", 0.0)),
                 roughness=float(_attr(material, "roughness", 1.0)),
-                name=_attr(material, "name"),
             )
             for geo_id in _attr(proxy, "objects", []) or []:
-                geo_k = self._geo_k_by_id.get(geo_id)
-                if geo_k is not None:
-                    self._pipeline.has_material(geo_k, mat_k)
+                geometry = self._geometry_handles.get(geo_id)
+                if geometry is not None:
+                    # HAS_MATERIAL binds to geometry, not the object
+                    geometry.material = handle

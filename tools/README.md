@@ -16,9 +16,9 @@ The receive path is tested separately, against synthetic bundles (see
 [Receive tests](#receive-tests)):
 
 ```bash
-uv run python tools/test_bundle_reader.py     # parquet -> dataclasses, no Blender
+uv run python tools/test_bundle_reader.py     # parquet -> specklepy Model, no Blender
 /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup \
-  -noaudio --python tools/test_bundle_bake.py # dataclasses -> Outliner shape
+  -noaudio --python tools/test_bundle_bake.py # Model -> Outliner shape
 ```
 
 Exits nonzero when conversion fails or an expectation is unmet.
@@ -30,8 +30,8 @@ Exits nonzero when conversion fails or an expectation is unmet.
 | stage | needs | covered here |
 | --- | --- | --- |
 | `build_collection_hierarchy` — Blender state → Speckle `Collection` | bpy | yes |
-| `BlenderBundleExporter` — `Collection` → parquet files | a directory | yes |
-| `ArtifactPipeline` — parquet files → server | account + network | no |
+| `BlenderBundleExporter` — `Collection` → `BundleBuilder` → parquet files | a directory | yes |
+| `specklepy.bundle.send()` — ingestion + upload | account + network | no |
 
 Most conversion bugs live in the first two stages, so they can be caught
 offline. What still needs a real publish: whether the server ingests the bundle
@@ -88,7 +88,7 @@ additions.
 | `receive_properties` | `{object_name: {key: value}}` a bake restores as user custom properties, **exact** per object |
 | `receive_root_fields` | `{object_name: {path: value}}` of root schema scalars kept internal, **exact** per object |
 
-The two `receive_*` keys are checked against the real `bundle_reader`, not
+The two `receive_*` keys are checked against specklepy's `read_bundle`, not
 `inspect_bundle`'s raw-parquet view, and they compare exactly rather than as
 subsets — their job is proving that nothing *extra* leaks into user custom
 properties (ENG-9027). A fixture can also define `INJECT_ROOT_FIELDS =
@@ -100,8 +100,9 @@ Revit-produced bundle carries that Blender's own publish never writes.
 
 A fixture may also declare `EXPECT_RECEIVE`, keyed by instance loading mode
 (`INSTANCE_PROXIES`, `LINKED_DUPLICATES`). For each mode the harness receives
-the just-exported bundle back into a fresh empty scene through `read_bundle` +
-`bake_bundle` — the same code `load_operation` runs after downloading — and
+the just-exported bundle back into a fresh empty scene through specklepy's
+`read_bundle` + `Model` and the connector's `bake_bundle` — the same code
+`load_operation` runs after downloading — and
 asserts on what the user would see in the outliner. Only scene-reachable
 objects are described; definition "library" collections stay invisible, as they
 do in Blender.
@@ -141,11 +142,10 @@ Three things worth knowing when writing expectations:
 - Assertions only catch what a fixture thought to check. There are no committed
   golden snapshots, by choice — the bundle format is still moving on this
   branch and goldens would go red on every intentional change.
-- Receive coverage stops at the connector's own code: the `receive_*` EXPECT
-  keys exercise `bundle_reader`, and `EXPECT_RECEIVE` exercises `read_bundle` +
-  `bake_bundle` on the local files — plus the synthetic cross-connector tests
-  below. The artifact probe, the download, the upload, and the UI operators
-  stay untested.
+- Receive coverage stops at the local files: the `receive_*` EXPECT keys
+  exercise specklepy's `read_bundle`, and `EXPECT_RECEIVE` exercises
+  `read_bundle` + `Model` + `bake_bundle` — plus the synthetic cross-connector
+  tests below. The download, the upload, and the UI operators stay untested.
 - `--factory-startup` means user preferences are skipped and `sys.path` is
   ordered so `import bpy_speckle` resolves to the working tree rather than the
   symlinked add-on install.
@@ -158,16 +158,15 @@ in the shapes Blender never writes (multiple parentless CONTAINER axes,
 `IN_MODEL`/`IN_SYSTEM`/`IN_GROUP` membership, adversarial node row order), so
 those bundles are fabricated table-by-table with pyarrow instead:
 
-- `test_bundle_reader.py` asserts on what `bundle_reader` joins back — root
-  selection, subtype survival, per-axis membership. It runs in the repo venv
-  (`uv run`) with no Blender, which is the point of keeping `bundle_reader`
-  free of `bpy`.
+- `test_bundle_reader.py` asserts on what specklepy's `read_bundle` + `Model`
+  join back — subtype survival, per-axis membership, placement ordering. It
+  runs in the repo venv (`uv run`) with no Blender.
 - `test_bundle_bake.py` pushes the same shapes through the real
-  `read_bundle -> bake_bundle` receive inside headless Blender and asserts the
-  Outliner shape: model tier, `Groups`/`Systems` branches, additive
-  multi-linking, unknown-subtype tally. Objects carry no geometry on purpose —
-  a geometry-less object bakes to a real (shapeless) Blender object, which is
-  all placement assertions need.
+  `Model -> bake_bundle` receive inside headless Blender and asserts the
+  Outliner shape: root-collection selection, model tier, `Groups`/`Systems`
+  branches, additive multi-linking, unknown-subtype tally. Objects carry no
+  geometry on purpose — a geometry-less object bakes to a real (shapeless)
+  Blender object, which is all placement assertions need.
 
 Both exit nonzero on failure. What they cannot cover: whether a *real*
 Revit/Navisworks producer writes what the synthetic tables assume — that check

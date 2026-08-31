@@ -1,10 +1,11 @@
 """Round-trips an exported bundle back through the receive bake, headlessly.
 
 The publish harness stops at parquet on disk; this picks those files up with
-``read_bundle`` + ``bake_bundle`` — the exact code path ``load_operation`` runs
-after downloading — and reduces the resulting scene to facts a fixture can
-assert: which collection every object landed in, what stayed an instancing
-empty, and where things sit in world space.
+specklepy's ``read_bundle`` + ``Model`` and the connector's ``bake_bundle`` —
+the exact code path ``load_operation`` runs after downloading — and reduces the
+resulting scene to facts a fixture can assert: which collection every object
+landed in, what stayed an instancing empty, and where things sit in world
+space.
 
 The facts deliberately describe **what the user sees** rather than the bake's
 internals: objects reachable from the scene root, and only those. A definition
@@ -20,15 +21,25 @@ from typing import Any, Dict, List
 
 def bake_and_probe(bundle_dir: str, instance_loading_mode: str) -> Dict[str, Any]:
     """Receive the bundle into a fresh empty scene and describe the result."""
+    import os
+
     import bpy
 
-    from bpy_speckle.converter.from_bundle.bundle_reader import read_bundle
+    # bpy_speckle first: importing it runs ensure_dependencies(), which puts
+    # the connector's installed specklepy/pyarrow on sys.path
     from bpy_speckle.converter.from_bundle.bundle_to_native import bake_bundle
+    from specklepy.bundle.bundle_reader import read_bundle
+    from specklepy.bundle.model import Model
 
     # a fresh scene per mode keeps Blender's .001 dedup suffixes deterministic
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    bundle = read_bundle(bundle_dir)
-    bake_bundle(bundle, "Received", instance_loading_mode)
+    files = sorted(
+        os.path.join(bundle_dir, f) for f in sorted(os.listdir(bundle_dir))
+    )
+    # the harness keeps the bundle directory around for re-inspection, so the
+    # Model is never close()d here
+    model = Model("local", "local", "local", bundle_dir, files, read_bundle(bundle_dir))
+    bake_bundle(model, "Received", instance_loading_mode)
     # parented copies get their matrix_world from the depsgraph, not at link time
     bpy.context.view_layer.update()
 

@@ -5,8 +5,9 @@ from typing import Dict, List, Optional, Tuple
 import bpy
 from mathutils import Matrix
 from specklepy.bundle import sgeo
+from specklepy.bundle.bundle_reader import Geometry
+from specklepy.bundle.model import Model, ModelObject
 
-from ...bundle_reader import BundleGeometry, BundleObject, ReceivedBundle
 from ..result import BakeResult
 from ..transforms import recenter_origin, scale_for
 from .curves import build_curve_object
@@ -27,26 +28,32 @@ class GeometryBuilder:
 
     def __init__(
         self,
-        bundle: ReceivedBundle,
+        model: Model,
         materials: Dict[int, bpy.types.Material],
         result: BakeResult,
     ) -> None:
-        self._bundle = bundle
+        self._model = model
         self._materials = materials
         self._result = result
 
-    def build_object(self, obj: BundleObject) -> List[bpy.types.Object]:
+    def build_object(self, obj: ModelObject) -> List[bpy.types.Object]:
         """Build one ordinary object, primary part first."""
-        geometries = [
-            self._bundle.geometries[k]
-            for k in obj.geometry_ks
-            if k in self._bundle.geometries
-        ]
-        if not geometries:
+        model_geometries = obj.geometries
+        if not model_geometries:
             # properties-only, e.g. a metaball sibling — a real object with no shape
             return [bpy.data.objects.new(obj.name or obj.application_id, None)]
 
-        decodable = self._partition_decodable(geometries)
+        pairs: List[Tuple[Geometry, Optional[bpy.types.Material]]] = []
+        for geometry in model_geometries:
+            material = geometry.effective_material
+            pairs.append(
+                (
+                    Geometry(geometry.content, geometry.type),
+                    self._materials.get(material.k) if material else None,
+                )
+            )
+
+        decodable = self._partition_decodable(pairs)
         if not decodable:
             # Entirely unsupported geometry is omitted, rather than represented
             # by a misleading shapeless placeholder.
@@ -61,15 +68,20 @@ class GeometryBuilder:
         )
 
     def build_definition_member(
-        self, name: str, geometry_ids: List[int]
+        self, name: str, geometry_ks: List[int]
     ) -> List[bpy.types.Object]:
-        """Build one definition member from its name and geometry identifiers."""
-        geometries = [
-            self._bundle.geometries[k]
-            for k in geometry_ids
-            if k in self._bundle.geometries
-        ]
-        decodable = self._partition_decodable(geometries)
+        """Build one definition member from its name and geometry Ks."""
+        geometries = self._model.geometries
+        material_by_geometry = self._model.bundle.relations.material_by_geometry
+        pairs: List[Tuple[Geometry, Optional[bpy.types.Material]]] = []
+        for k in geometry_ks:
+            geometry = geometries.get(k)
+            if geometry is None:
+                continue
+            pairs.append(
+                (geometry, self._materials.get(material_by_geometry.get(k, -1)))
+            )
+        decodable = self._partition_decodable(pairs)
         if not decodable:
             return []
         return self._objects_from_geometries(name, name, decodable, name)
@@ -78,21 +90,18 @@ class GeometryBuilder:
         self,
         name: str,
         data_name: str,
-        decodable: List[BundleGeometry],
+        decodable: List[Tuple[Geometry, Optional[bpy.types.Material]]],
         error_key: str,
     ) -> List[bpy.types.Object]:
         """Build one Blender object per geometry family, primary first."""
-        mesh_geos = [g for g in decodable if g.type in _MESH_TYPES]
-        curve_geos = [g for g in decodable if g.type in _CURVE_TYPES]
-        point_geos = [g for g in decodable if g.type in _POINT_TYPES]
 
-        def materials_for(
-            geos: List[BundleGeometry],
-        ) -> List[Optional[bpy.types.Material]]:
-            return [
-                self._materials.get(self._bundle.geometry_materials.get(g.k, -1))
-                for g in geos
-            ]
+        def family(types: frozenset):
+            pairs = [(g, m) for g, m in decodable if g.type in types]
+            return [g for g, _ in pairs], [m for _, m in pairs]
+
+        mesh_geos, mesh_materials = family(_MESH_TYPES)
+        curve_geos, curve_materials = family(_CURVE_TYPES)
+        point_geos, _ = family(_POINT_TYPES)
 
         def record(errors: List[str]) -> None:
             for error in errors:
@@ -105,7 +114,7 @@ class GeometryBuilder:
                 name,
                 data_name,
                 mesh_geos,
-                materials_for(mesh_geos),
+                mesh_materials,
             )
             record(errors)
             if mesh_object is not None:
@@ -116,7 +125,7 @@ class GeometryBuilder:
                 name,
                 f"{data_name}.curves",
                 curve_geos,
-                materials_for(curve_geos),
+                curve_materials,
             )
             record(errors)
             if curve_object is not None:
@@ -142,22 +151,23 @@ class GeometryBuilder:
         return built
 
     def _partition_decodable(
-        self, geometries: List[BundleGeometry]
-    ) -> List[BundleGeometry]:
+        self, pairs: List[Tuple[Geometry, Optional[bpy.types.Material]]]
+    ) -> List[Tuple[Geometry, Optional[bpy.types.Material]]]:
         """Keep supported geometry and tally unsupported blobs by type."""
-        decodable: List[BundleGeometry] = []
-        for geometry in geometries:
+        decodable: List[Tuple[Geometry, Optional[bpy.types.Material]]] = []
+        for geometry, material in pairs:
             if geometry.type in _DECODABLE_TYPES:
-                decodable.append(geometry)
+                decodable.append((geometry, material))
             else:
-                self._result.skipped_by_type[geometry.type] = (
-                    self._result.skipped_by_type.get(geometry.type, 0) + 1
+                label = geometry.type or "unknown"
+                self._result.skipped_by_type[label] = (
+                    self._result.skipped_by_type.get(label, 0) + 1
                 )
         return decodable
 
 
 def _decode_points(
-    geometries: List[BundleGeometry],
+    geometries: List[Geometry],
 ) -> Tuple[List[object], List[str]]:
     """Decode point-family blobs, collecting per-blob failures."""
     decoded: List[object] = []

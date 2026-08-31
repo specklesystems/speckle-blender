@@ -72,7 +72,7 @@ def metaball_properties(
     ``properties.metaball.*`` paths in the bundle's eav table, matching
     ``text_properties``. ``elementTypes`` is a ``{type: count}`` dict rather
     than a list because the eav flattener skips list values — a list would
-    survive a classic send and silently vanish from the bundle.
+    silently vanish from the bundle.
 
     A properties-only child publishes its ``location`` here: with no geometry
     of its own, that is the only record of where in the blob it pulled.

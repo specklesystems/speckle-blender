@@ -6,11 +6,9 @@ walks the publish selection, turns every collection-instance EMPTY into an
 collection's members into the conversion set so their geometry ships once, in
 definition-local coordinates.
 
-Producing proxies rather than emitting bundle nodes directly is what lets one
-unpacker serve both send paths: the classic JSON send puts the proxies straight
-into the payload (which ``to_native`` already knows how to rebuild), while
-``BlenderBundleExporter`` translates the same proxies into DEFINITION/INSTANCE
-nodes. Same split as the C# connectors.
+Producing proxies rather than emitting bundle nodes directly keeps this
+unpacker free of bundle vocabulary: ``BlenderBundleExporter`` translates the
+proxies into DEFINITION/INSTANCE nodes. Same split as the C# connectors.
 
 Two Blender-specific wrinkles:
 

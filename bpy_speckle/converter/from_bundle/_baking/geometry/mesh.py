@@ -4,15 +4,15 @@ from typing import Dict, List, Optional, Tuple
 
 import bpy
 from specklepy.bundle import sgeo
+from specklepy.bundle.bundle_reader import Geometry
 
-from ...bundle_reader import BundleGeometry
 from ..transforms import scale_for
 
 
 def build_mesh_object(
     name: str,
     data_name: str,
-    geometries: List[BundleGeometry],
+    geometries: List[Geometry],
     materials: List[Optional[bpy.types.Material]],
 ) -> Tuple[Optional[bpy.types.Object], List[str]]:
     """Decode and merge one object's mesh geometry into one Blender object."""
@@ -24,7 +24,7 @@ def build_mesh_object(
 
 
 def _decode_meshes(
-    geometries: List[BundleGeometry],
+    geometries: List[Geometry],
 ) -> Tuple[List[sgeo.DecodedMesh], List[str]]:
     """Decode the mesh-family blobs of one object, collecting per-blob failures.
 
@@ -86,9 +86,8 @@ def _mesh_datablock(
 ) -> bpy.types.Mesh:
     """Merge one object's display meshes into a single Blender mesh.
 
-    Mirrors ``meshes_to_native`` on the classic path — same vertex-offset join
-    and same per-face-range material assignment — but reads the flat SGEO arrays
-    directly instead of walking ``Mesh`` objects.
+    A vertex-offset join with per-face-range material assignment, reading the
+    flat SGEO arrays directly instead of walking ``Mesh`` objects.
     """
     blender_mesh = bpy.data.meshes.new(name)
 

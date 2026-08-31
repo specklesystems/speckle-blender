@@ -231,8 +231,28 @@ classes = (
 )
 
 
+def _require_bundle_support():
+    """Fail registration when the artifact-bundle stack is missing.
+
+    The bundle is the only publish/receive path — there is no classic-format
+    fallback — so a specklepy without `specklepy.bundle`, or a missing pyarrow,
+    must stop the add-on at registration with a clear message instead of
+    surfacing later as an ImportError mid-publish.
+    """
+    try:
+        import pyarrow  # noqa: F401
+        import specklepy.bundle  # noqa: F401
+    except ImportError as e:
+        raise RuntimeError(
+            "The Speckle connector requires specklepy with artifact-bundle "
+            "support and pyarrow (specklepy[bundle]). Reinstall the connector "
+            f"dependencies and restart Blender. Import failed with: {e}"
+        ) from e
+
+
 # Register and Unregister
 def register():
+    _require_bundle_support()
     icons.load_icons()
 
     for cls in classes:
