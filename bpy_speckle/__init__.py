@@ -31,6 +31,14 @@ bl_info = {
     "category": "Scene",
 }
 
+# Blender deletes ``bl_info`` from extension modules once the add-on is enabled
+# (``addon_utils.enable``: "Always remove as this is not expected to exist"),
+# because ``blender_manifest.toml`` is the source of truth for extensions. The
+# dict above is still what ``patch_version.py`` rewrites at release time, so
+# alias it under a name Blender leaves alone and read provenance from that —
+# a lazy ``from ... import bl_info`` inside a function fails at runtime.
+ADDON_INFO = bl_info
+
 
 # UI
 from .connector.ui.main_panel import SPECKLE_PT_main_panel

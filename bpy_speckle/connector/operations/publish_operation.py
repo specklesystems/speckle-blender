@@ -38,7 +38,7 @@ from .bundle_publish import (
     publish_bundle,
 )
 from specklepy.logging import metrics
-from ... import bl_info
+from ... import ADDON_INFO
 
 
 # Object types with a conversion path. Anything else is skipped silently — the
@@ -73,7 +73,7 @@ def _build_source_data() -> SourceDataInput:
         except OSError:
             pass
 
-    blender_version = ".".join(map(str, bl_info["blender"]))
+    blender_version = ".".join(map(str, ADDON_INFO["blender"]))
     return SourceDataInput(
         source_application_slug="blender",
         source_application_version=blender_version,
@@ -251,8 +251,8 @@ def publish_operation(
                 account,
                 {
                     "ui": "dui3",
-                    "hostAppVersion": ".".join(map(str, bl_info["blender"])),
-                    "core_version": ".".join(map(str, bl_info["version"])),
+                    "hostAppVersion": ".".join(map(str, ADDON_INFO["blender"])),
+                    "core_version": ".".join(map(str, ADDON_INFO["version"])),
                     "workspace_id": get_project_workspace_id(client, project_id),
                 },
             )

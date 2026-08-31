@@ -12,7 +12,7 @@ from specklepy.objects.graph_traversal.default_traversal import (
 from specklepy.objects.models.collections.collection import Collection as SCollection
 from specklepy.transports.server import ServerTransport
 
-from ... import bl_info
+from ... import ADDON_INFO
 from ...converter.to_native import (
     convert_to_native,
     find_instance_definitions,
@@ -47,8 +47,8 @@ def _mark_received(client, version, project_id: str, wm) -> None:
         client.account,
         {
             "ui": "dui3",
-            "hostAppVersion": ".".join(map(str, bl_info["blender"])),
-            "core_version": ".".join(map(str, bl_info["version"])),
+            "hostAppVersion": ".".join(map(str, ADDON_INFO["blender"])),
+            "core_version": ".".join(map(str, ADDON_INFO["version"])),
             "sourceHostApp": host_applications.get_host_app_from_string(
                 version.source_application
             ).slug,

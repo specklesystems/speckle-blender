@@ -2,8 +2,8 @@ import bpy
 from bpy.types import Context
 from specklepy.api.connector_versions import get_latest_version
 
-# Get current version from bl_info
-from ... import bl_info
+# Get current version from ADDON_INFO
+from ... import ADDON_INFO
 
 
 class SPECKLE_OT_version_check(bpy.types.Operator):
@@ -24,7 +24,7 @@ class SPECKLE_OT_version_check(bpy.types.Operator):
         wm.update_url = ""
 
         try:
-            current_version = bl_info["version"]
+            current_version = ADDON_INFO["version"]
             current_version_str = (
                 f"{current_version[0]}.{current_version[1]}.{current_version[2]}"
             )

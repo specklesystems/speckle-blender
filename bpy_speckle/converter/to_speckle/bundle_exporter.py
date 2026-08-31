@@ -32,14 +32,20 @@ from specklepy.objects.proxies import InstanceProxy
 
 
 def _blender_producer() -> Producer:
-    """Provenance stamped into ``meta.produced_by``/``producer_version``,
-    mirroring the slug/version pair the ingestion reports in
-    ``SourceDataInput`` so the two records agree."""
-    # deferred: importing the package pulls in bpy, and this module must stay
-    # importable outside Blender
-    from ... import bl_info
+    """Provenance stamped into ``meta.produced_by``/``producer_version``: the
+    slug of the connector that wrote the bundle and the version of the Blender
+    actually running, so a bundle self-describes the host that produced it.
 
-    return Producer(slug="blender", version=".".join(map(str, bl_info["blender"])))
+    Deliberately *not* ``ADDON_INFO["blender"]`` — that is the minimum Blender
+    the add-on supports (4.2.0), so every bundle claimed to come from 4.2.0
+    regardless of the host. ``sdk_name``/``sdk_version`` are filled by
+    ``Producer`` itself and cover the specklepy side.
+    """
+    # deferred: this module is a pure Base/Collection -> parquet translator and
+    # keeps bpy out of its module-level imports; only provenance needs the host
+    import bpy
+
+    return Producer(slug="blender", version=".".join(map(str, bpy.app.version)))
 
 
 def _attr(node: Base, key: str, default: Any = None) -> Any:

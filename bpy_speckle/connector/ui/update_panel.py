@@ -22,10 +22,10 @@ class SPECKLE_PT_update_panel(bpy.types.Panel):
         layout: UILayout = self.layout
         wm = context.window_manager
 
-        # Get current version from bl_info
-        from ... import bl_info
+        # Get current version from ADDON_INFO
+        from ... import ADDON_INFO
 
-        current_version = bl_info["version"]
+        current_version = ADDON_INFO["version"]
         current_version_str = (
             f"{current_version[0]}.{current_version[1]}.{current_version[2]}"
         )
