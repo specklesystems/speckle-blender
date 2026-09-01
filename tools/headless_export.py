@@ -108,7 +108,7 @@ def export(objects: List[Any], out_dir: str, apply_modifiers: bool) -> int:
 
     # bpy_speckle first: importing it runs ensure_dependencies(), which puts
     # the connector's installed specklepy/pyarrow on sys.path
-    from bpy_speckle.connector.operations.publish_operation import (
+    from bpy_speckle.converter.to_speckle.scene_to_speckle import (
         build_collection_hierarchy,
     )
     from bpy_speckle.converter.to_speckle.bundle_exporter import (

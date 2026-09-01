@@ -43,14 +43,6 @@ class SPECKLE_OT_create_project(bpy.types.Operator):
         layout.prop(self, "project_name")
 
 
-def register() -> None:
-    bpy.utils.register_class(SPECKLE_OT_create_project)
-
-
-def unregister() -> None:
-    bpy.utils.unregister_class(SPECKLE_OT_create_project)
-
-
 def create_project(
     account_id: str, project_name: str, workspace_id: str
 ) -> Tuple[str, str]:

@@ -21,8 +21,6 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
     model_card_id: bpy.props.StringProperty(name="Model Card ID", default="")  # type: ignore
 
     def execute(self, context: Context) -> Set[str]:
-        wm = context.window_manager
-
         # Get the model card
         model_card = context.scene.speckle_state.get_model_card_by_id(
             self.model_card_id
@@ -59,30 +57,22 @@ class SPECKLE_OT_load_model_card(bpy.types.Operator):
         model_card.objects.clear()
         model_card.collections.clear()
 
-        # set wm
-        wm.selected_account_id = model_card.account_id
-        wm.selected_project_id = model_card.project_id
-        wm.selected_model_name = model_card.model_name
-
         # A bundle version that fails to read raises by design, so guard the
         # load and leave model_card.version_id untouched until it succeeds.
-        # The finally clears the window manager on every exit path.
         try:
-            wm.selected_version_id = version_id
-
             converted_objects = load_operation(
-                context, model_card.instance_loading_mode
+                context,
+                model_card.account_id,
+                model_card.project_id,
+                model_card.model_id,
+                version_id,
+                model_card.model_name,
+                model_card.instance_loading_mode,
             )
         except Exception as e:
             traceback.print_exc()
             self.report({"ERROR"}, f"Load failed: {e}")
             return {"CANCELLED"}
-        finally:
-            # Clear selected model details from Window Manager
-            wm.selected_account_id = ""
-            wm.selected_project_id = ""
-            wm.selected_version_id = ""
-            wm.selected_model_name = ""
 
         # update model card details
         update_model_card_objects(model_card, converted_objects, old_properties)

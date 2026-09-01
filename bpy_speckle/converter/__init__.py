@@ -1,2 +1,1 @@
-from ..converter.to_speckle import *  # noqa: F403
-from ..converter.utils import *  # noqa: F403
+"""Blender <-> Speckle conversion. Import from ``to_speckle``/``from_bundle`` directly."""

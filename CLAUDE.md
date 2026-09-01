@@ -9,10 +9,10 @@ bpy_speckle/
   connector/
     ui/                 panels and dialogs (SPECKLE_PT_*, SPECKLE_OT_*)
     blender_operators/  operator classes bound to UI buttons
-    operations/         publish_operation.py, load_operation.py
+    operations/         publish_operation.py, load_operation.py (network orchestration only)
     utils/              account/project/model/version managers, property groups
   converter/
-    to_speckle/         Blender -> Speckle (per-type modules + bundle_exporter.py)
+    to_speckle/         Blender -> Speckle (per-type modules, scene_to_speckle.py, bundle_exporter.py)
     from_bundle/        specklepy Model -> data-blocks (direct bake)
   installer.py          bootstraps specklepy into the connector install path
 tools/                  local dev harness — NOT shipped, NOT run in CI
@@ -99,7 +99,13 @@ diff in review.
 `publish_operation()` has exactly one path: convert, then hand a populated
 `BundleBuilder` to `specklepy.bundle.send()`.
 
-1. `build_collection_hierarchy` (Blender → Speckle `Collection`) — no network.
+`publish_operation` and `load_operation` take every input (account / project /
+model / version ids) as explicit parameters and never read `WindowManager`
+state — the main-panel and model-card flows call them identically. Operators
+own the `wm.selected_*` lifecycle; operations must not touch it.
+
+1. `build_collection_hierarchy` (`converter/to_speckle/scene_to_speckle.py`,
+   Blender → Speckle `Collection`) — no network.
 2. `BlenderBundleExporter(builder).export(root)` walks the tree onto
    specklepy's `BundleBuilder`, which writes the parquet bundle locally.
 3. `send()` owns everything after conversion: it creates the ingestion, reads

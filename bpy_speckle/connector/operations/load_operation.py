@@ -26,11 +26,11 @@ from specklepy.logging.exceptions import SpeckleException
 
 from ... import ADDON_INFO
 from ...converter.from_bundle.bundle_to_native import bake_bundle
-from ...converter.utils import get_project_workspace_id
 from ..utils.account_manager import _client_cache
+from ..utils.project_manager import get_project_workspace_id
 
 
-def _mark_received(client, version, project_id: str, wm) -> None:
+def _mark_received(client, version, project_id: str) -> None:
     """Tell the server the version was received, and track the metric."""
     metrics.set_host_app("blender")
     client.version.received(
@@ -52,21 +52,26 @@ def _mark_received(client, version, project_id: str, wm) -> None:
                 version.source_application
             ).slug,
             "isMultiplayer": version.author_user.id != client.account.userInfo.id,
-            "workspace_id": get_project_workspace_id(client, wm.selected_project_id),
+            "workspace_id": get_project_workspace_id(client, project_id),
         },
     )
 
 
 def load_operation(
-    context: Context, instance_loading_mode: str = "INSTANCE_PROXIES"
+    context: Context,
+    account_id: str,
+    project_id: str,
+    model_id: str,
+    version_id: str,
+    model_name: str,
+    instance_loading_mode: str = "INSTANCE_PROXIES",
 ) -> Dict[str, Union[bpy.types.Collection, bpy.types.Object]]:
-    """Download the selected version's artifact bundle and bake it."""
-    wm = context.window_manager
-    account_id: str = wm.selected_account_id  # type: ignore
-    project_id: str = wm.selected_project_id  # type: ignore
-    model_id: str = wm.selected_model_id  # type: ignore
-    version_id: str = wm.selected_version_id  # type: ignore
+    """Download the version's artifact bundle and bake it.
 
+    Every input is an explicit parameter — this function never reads
+    ``WindowManager`` state, so the model-card flow and the main-panel flow
+    call it identically.
+    """
     # Raise rather than return {}: an empty result is a legitimate success for a
     # version with no objects, so it cannot double as the failure signal.
     client = _client_cache.get_client(account_id)
@@ -98,7 +103,7 @@ def load_operation(
         )
         result = bake_bundle(
             model,
-            f"{wm.selected_model_name} - {version.id}",
+            f"{model_name} - {version.id}",
             instance_loading_mode=instance_loading_mode,
         )
 
@@ -129,5 +134,5 @@ def load_operation(
         if area.type == "OUTLINER":
             area.tag_redraw()
 
-    _mark_received(client, version, project_id, wm)
+    _mark_received(client, version, project_id)
     return result.objects

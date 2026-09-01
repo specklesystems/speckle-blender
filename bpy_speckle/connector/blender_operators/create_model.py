@@ -59,14 +59,6 @@ class SPECKLE_OT_create_model(bpy.types.Operator):
         layout.prop(self, "model_name")
 
 
-def register() -> None:
-    bpy.utils.register_class(SPECKLE_OT_create_model)
-
-
-def unregister() -> None:
-    bpy.utils.unregister_class(SPECKLE_OT_create_model)
-
-
 def create_model(account_id: str, project_id: str, model_name: str) -> Tuple[str, str]:
     try:
         # Get cached client

@@ -32,20 +32,6 @@ def get_object_by_application_id(app_id: str):
     return None
 
 
-def get_objects_by_application_ids(app_ids: list):
-    """
-    Find multiple Blender objects by their applicationIds
-    """
-    if not app_ids:
-        return {}
-
-    result = {}
-    for obj in bpy.data.objects:
-        if "applicationId" in obj and obj["applicationId"] in app_ids:
-            result[obj["applicationId"]] = obj
-    return result
-
-
 def get_collection_by_application_id(app_id: str):
     """
     Find a Blender collection by its applicationId stored in custom property
@@ -66,19 +52,6 @@ def get_collection_identifier(blender_col: bpy.types.Collection) -> str:
     if "applicationId" in blender_col and blender_col["applicationId"]:
         return blender_col["applicationId"]
     return blender_col.name
-
-
-def find_collection_by_identifier(identifier: str):
-    """
-    Find collection by identifier: try applicationId first, then name
-    """
-    # first try to find by applicationId
-    collection = get_collection_by_application_id(identifier)
-    if collection:
-        return collection
-
-    # fallback to name-based lookup
-    return bpy.data.collections.get(identifier)
 
 
 def capture_modifier_data(blender_obj: bpy.types.Object) -> list:

@@ -4,7 +4,8 @@ from typing import Set
 
 from ..operations.publish_operation import publish_operation
 from ..utils.account_manager import get_server_url_by_account_id, can_create_version
-from ..utils.model_card_utils import model_card_exists, update_model_card_objects
+from ..utils.dialog import redraw_ui
+from ..utils.model_card_utils import update_model_card_objects
 
 
 class SPECKLE_OT_publish(bpy.types.Operator):
@@ -59,7 +60,12 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             return {"CANCELLED"}
 
         success, message, version_id = publish_operation(
-            context, objects_to_convert, apply_modifiers=wm.apply_modifiers
+            context,
+            account_id,
+            project_id,
+            model_id,
+            objects_to_convert,
+            apply_modifiers=wm.apply_modifiers,
         )
 
         if not success:
@@ -70,13 +76,10 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         if hasattr(context.scene, "speckle_state") and hasattr(
             context.scene.speckle_state, "model_cards"
         ):
-            if model_card_exists(
-                wm.selected_project_id, wm.selected_model_id, True, context
-            ):
-                model_card = context.scene.speckle_state.get_model_card_by_id(
-                    f"{wm.ui_mode}-{wm.selected_project_id}-{wm.selected_model_id}"
-                )
-            else:
+            model_card = context.scene.speckle_state.find_model_card(
+                project_id, model_id, is_publish=True
+            )
+            if model_card is None:
                 model_card = context.scene.speckle_state.model_cards.add()
 
             model_card.account_id = account_id
@@ -102,5 +105,5 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         wm.speckle_objects.clear()
 
         self.report({"INFO"}, message)
-        context.area.tag_redraw()
+        redraw_ui(context)
         return {"FINISHED"}

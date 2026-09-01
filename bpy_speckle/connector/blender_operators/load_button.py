@@ -9,7 +9,6 @@ from ..utils.model_card_utils import (
     update_model_card_objects,
     delete_model_card_objects,
     format_load_summary,
-    model_card_exists,
 )
 
 
@@ -27,13 +26,10 @@ class SPECKLE_OT_load(bpy.types.Operator):
         # afterwards could remove the copy we just loaded. Clear the card's
         # object lists to match, or a failed load below leaves the card
         # referencing data-blocks that no longer exist.
-        existing_card = None
-        if model_card_exists(
-            wm.selected_project_id, wm.selected_model_id, False, context
-        ):
-            existing_card = context.scene.speckle_state.get_model_card_by_id(
-                f"{wm.ui_mode}-{wm.selected_project_id}-{wm.selected_model_id}"
-            )
+        existing_card = context.scene.speckle_state.find_model_card(
+            wm.selected_project_id, wm.selected_model_id, is_publish=False
+        )
+        if existing_card is not None:
             delete_model_card_objects(existing_card, context)
             existing_card.objects.clear()
             existing_card.collections.clear()
@@ -42,7 +38,15 @@ class SPECKLE_OT_load(bpy.types.Operator):
         # load and only touch the model card once it has succeeded — otherwise
         # a failure leaves a phantom card for a version that never arrived.
         try:
-            converted_objects = load_operation(context, wm.instance_loading_mode)
+            converted_objects = load_operation(
+                context,
+                wm.selected_account_id,
+                wm.selected_project_id,
+                wm.selected_model_id,
+                wm.selected_version_id,
+                wm.selected_model_name,
+                wm.instance_loading_mode,
+            )
         except Exception as e:
             traceback.print_exc()
             self.report({"ERROR"}, f"Load failed: {e}")

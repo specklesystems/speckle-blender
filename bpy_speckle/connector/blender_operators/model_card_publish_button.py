@@ -13,8 +13,6 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
     model_card_id: bpy.props.StringProperty(name="Model Card ID", default="")  # type: ignore
 
     def execute(self, context: Context) -> Set[str]:
-        wm = context.window_manager
-
         # Get the model card
         model_card = context.scene.speckle_state.get_model_card_by_id(
             self.model_card_id
@@ -27,11 +25,6 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
         if not authorized:
             self.report({"ERROR"}, auth_message)
             return {"CANCELLED"}
-
-        # set wm
-        wm.selected_account_id = model_card.account_id
-        wm.selected_project_id = model_card.project_id
-        wm.selected_model_id = model_card.model_id
 
         # get model card objects
         objects_to_convert = []
@@ -51,6 +44,9 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
         # publish to speckle
         success, message, version_id = publish_operation(
             context,
+            model_card.account_id,
+            model_card.project_id,
+            model_card.model_id,
             objects_to_convert,
             apply_modifiers=model_card.apply_modifiers,
         )
@@ -61,11 +57,6 @@ class SPECKLE_OT_publish_model_card(bpy.types.Operator):
 
         model_card.version_id = version_id
         model_card.is_publish = True
-
-        # Clear selected model details from Window Manager
-        wm.selected_account_id = ""
-        wm.selected_project_id = ""
-        wm.selected_model_id = ""
 
         self.report({"INFO"}, message)
 

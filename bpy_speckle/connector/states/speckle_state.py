@@ -20,6 +20,24 @@ class SpeckleState(PropertyGroup):
                 return model_card
         return None
 
+    def find_model_card(
+        self, project_id: str, model_id: str, is_publish: bool
+    ) -> Optional[speckle_model_card]:
+        """Find a card by the fields that make up its identity.
+
+        A card's id string is derived from exactly these three values
+        (``get_model_card_id``); looking them up directly keeps callers from
+        reassembling the id format by hand.
+        """
+        for model_card in self.model_cards:
+            if (
+                model_card.project_id == project_id
+                and model_card.model_id == model_id
+                and model_card.is_publish == is_publish
+            ):
+                return model_card
+        return None
+
 
 def register() -> None:
     bpy.utils.register_class(SpeckleState)
