@@ -2,7 +2,7 @@ name: "Release workflow"
 on:
   push:
     branches: ["installer-test/**"]
-    tags: ["v202*.*.*"]
+    tags: ["202[0-9].*.*"] # unprefixed CalVer, v-prefix dropped at 2026.9 (ENG-9392)
 
 jobs:
   build:
