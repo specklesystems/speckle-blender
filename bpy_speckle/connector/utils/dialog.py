@@ -41,11 +41,15 @@ def invalidate_downstream_selection(wm, changed: str) -> None:
     `changed` is "PROJECT" or "MODEL".
 
     Model ids are scoped to a project and version ids to a model, so picking a
-    new project leaves `selected_model_id` pointing at a model that does not
-    exist under it. The panel keeps showing the stale name, and its Load /
-    Publish button stays enabled against a project+model pair that never
-    existed together.
-
-    TODO: decide the policy — see the note in the chat.
+    new project would leave `selected_model_id` pointing at a model that does
+    not exist under it. Policy: clear everything downstream of the change.
+    The panel shows the selection as genuinely empty — Load / Publish disable
+    until the user picks again — rather than keeping a stale name next to an
+    enabled button. The project dialog's pasted-URL path is unaffected: it
+    re-fills the model and version fields *after* this call.
     """
-    return None
+    if changed == "PROJECT":
+        wm.selected_model_id = ""
+        wm.selected_model_name = ""
+    wm.selected_version_id = ""
+    wm.selected_version_load_option = ""
