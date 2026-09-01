@@ -1,9 +1,32 @@
 from bpy.types import Object
 from typing import Optional
 from specklepy.objects.data_objects import BlenderObject
-from .curve_to_speckle import curve_to_speckle
+from .curve_to_speckle import curve_to_speckle_display_value
+from .empty_to_speckle import empty_properties
 from .mesh_to_speckle import mesh_to_speckle_meshes
-from .utils import get_object_id, get_curve_element_id
+from .metaball_to_speckle import metaball_properties, metaball_to_speckle_meshes
+from .metaball_unpacker import MetaballRole
+from .surface_to_speckle import surface_to_speckle_meshes
+from .text_to_speckle import text_properties, text_to_speckle_meshes
+from .utils import get_object_id, extract_custom_properties
+
+
+def merge_data_block_properties(object_properties: dict, data_properties: dict) -> dict:
+    """Combine object-level and data-block-level custom properties into the
+    dict published on the BlenderObject.
+
+    Only this merged dict reaches the parquet bundle's eav table (queryable/
+    filterable on the server). Data-block properties are also applied to the
+    displayValue geometry, but SGEO geometry encoding drops them, so today
+    they do not reach the bundle at all.
+
+    TODO: decide how data-block properties surface in the bundle. Options:
+    nest them (e.g. ``{**object_properties, "data": data_properties}`` →
+    eav paths ``properties.data.<key>``, no collisions, clear provenance);
+    merge flat with one side winning on key collisions; or keep the current
+    object-only behavior.
+    """
+    return object_properties
 
 
 def convert_to_speckle(
@@ -11,39 +34,30 @@ def convert_to_speckle(
     scale_factor: float = 1.0,
     units: str = "m",
     apply_modifiers: bool = True,
+    metaball_role: Optional[MetaballRole] = None,
 ) -> Optional[BlenderObject]:
     display_value = []
-    properties = {}
+    properties = merge_data_block_properties(
+        extract_custom_properties(blender_object),
+        extract_custom_properties(blender_object.data) if blender_object.data else {},
+    )
 
     if blender_object.type == "CURVE":
-        # handle curve modifiers apply_modifiers is True
-        if apply_modifiers and blender_object.modifiers:
-            import bpy
+        # bevelled, extruded and filled curves reach the viewer as tessellated
+        # geometry; genuine wire curves keep their NURBS/Bezier definition
+        display_value = curve_to_speckle_display_value(
+            blender_object, scale_factor, units, apply_modifiers
+        )
 
-            # Convert curve with modifiers to mesh
-            depsgraph = bpy.context.evaluated_depsgraph_get()
-            evaluated_obj = blender_object.evaluated_get(depsgraph)
-            evaluated_mesh = evaluated_obj.to_mesh()
+    elif blender_object.type == "SURFACE":
+        # NURBS patches always reach the viewer as tessellated geometry: SGEO
+        # has no Surface primitive, so there is no exact route to the bundle
+        meshes = surface_to_speckle_meshes(
+            blender_object, scale_factor, units, apply_modifiers
+        )
 
-            if evaluated_mesh:
-                meshes = mesh_to_speckle_meshes(
-                    blender_object, evaluated_mesh, scale_factor, units
-                )
-                blender_object.to_mesh_clear()
-                if meshes:
-                    display_value = meshes
-        else:
-            # curve conversion without modifiers
-            curve_result = curve_to_speckle(blender_object, scale_factor)
-            if curve_result and hasattr(curve_result, "@elements"):
-                display_value = curve_result["@elements"]
-                for i, element in enumerate(display_value):
-                    if hasattr(element, "applicationId"):
-                        element.applicationId = get_curve_element_id(blender_object, i)
-            elif curve_result:
-                if hasattr(curve_result, "applicationId"):
-                    curve_result.applicationId = get_curve_element_id(blender_object, 0)
-                display_value = [curve_result]
+        if meshes:
+            display_value = meshes
 
     elif blender_object.type == "MESH":
         # get mesh data - apply modifiers if requested
@@ -69,7 +83,64 @@ def convert_to_speckle(
         if meshes:
             display_value = meshes
 
-    if not display_value:
+    elif blender_object.type == "FONT":
+        # text reaches the viewer as tessellated glyphs; the string and layout
+        # settings ride along as properties so they stay queryable
+        meshes = text_to_speckle_meshes(
+            blender_object, scale_factor, units, apply_modifiers
+        )
+        properties = {**properties, **text_properties(blender_object.data)}
+
+        if meshes:
+            display_value = meshes
+
+    elif blender_object.type == "META":
+        # A metaball family is polygonized as one inseparable isosurface onto its
+        # basis, so only the family object carries geometry; its siblings publish
+        # as properties-only SUBELEMENT children (see metaball_unpacker).
+        role = metaball_role
+        if role is None:
+            # converted outside a publish (no unpacker ran): treat the object as
+            # its own family — correct if it is the basis, and an empty
+            # tessellation drops it if it is not
+            role = MetaballRole(
+                is_family_object=True,
+                geometry_source=blender_object,
+                family_name=blender_object.name,
+                member_count=1,
+            )
+
+        properties = {
+            **properties,
+            **metaball_properties(
+                blender_object,
+                role.family_name,
+                role.is_family_object,
+                role.member_count,
+            ),
+        }
+
+        if role.is_family_object and role.geometry_source is not None:
+            meshes = metaball_to_speckle_meshes(
+                role.geometry_source, scale_factor, units, apply_modifiers
+            )
+            if meshes:
+                display_value = meshes
+
+    elif blender_object.type == "EMPTY":
+        # the one type that publishes without geometry — an empty is a transform
+        # and a name. A collection instance's placement is published separately as
+        # an InstanceProxy (see instance_unpacker); this keeps the empty itself in
+        # the tree so it stays selectable and carries its properties.
+        properties = {**properties, **empty_properties(blender_object, scale_factor)}
+
+    # An EMPTY is always geometry-less, and so is a metaball published as a
+    # SUBELEMENT child — its geometry lives on the family object instead. A
+    # family object that tessellates to nothing still drops, like any other type.
+    publishes_without_geometry = blender_object.type == "EMPTY" or (
+        metaball_role is not None and not metaball_role.is_family_object
+    )
+    if not display_value and not publishes_without_geometry:
         return None
 
     if not isinstance(display_value, list):

@@ -1,23 +1,9 @@
 import bpy
 from bpy.types import ID, Object
+from bpy.types import Mesh as BMesh
 import math
-from typing import Tuple, Optional
-
-OBJECT_NAME_SPECKLE_SEPARATOR = " -- "
-SPECKLE_ID_LENGTH = 32
-_QUICK_TEST_NAME_LENGTH = SPECKLE_ID_LENGTH + len(OBJECT_NAME_SPECKLE_SEPARATOR)
-
-
-def to_speckle_name(blender_object: bpy.types.ID) -> str:
-    does_name_contain_id = (
-        len(blender_object.name) > _QUICK_TEST_NAME_LENGTH
-        and OBJECT_NAME_SPECKLE_SEPARATOR in blender_object.name
-    )
-    if does_name_contain_id:
-        return blender_object.name.rsplit(OBJECT_NAME_SPECKLE_SEPARATOR, 1)[0]
-    else:
-        return blender_object.name
-
+from contextlib import contextmanager
+from typing import Tuple, Optional, Dict, Any, Iterator
 
 """
 Python implementation of Blender's NURBS curve generation for to Speckle conversion
@@ -219,24 +205,167 @@ def get_unique_id(native_object: ID, suffix: Optional[str] = None) -> str:
     return base_id
 
 
-def get_submesh_id(blender_object: Object, material_index: int) -> str:
-    mesh_data = blender_object.data
-    if not mesh_data:
-        return f"Mesh:{blender_object.name_full}_mat{material_index}"
+def get_object_id(blender_object: Object) -> str:
+    return get_unique_id(blender_object)
 
-    return f"Mesh:{mesh_data.name_full}_mat{material_index}"
+
+# Geometry ids are keyed on the OBJECT, never on its data-block. Every displayValue
+# is baked into world coordinates (the direct-display dialect), so two objects
+# sharing one data-block — linked duplicates — describe *different* geometry. A
+# data-block key made those ids collide, and the bundle exporter's id-keyed
+# geometry cache then served every duplicate the first one's world-space mesh, so
+# they all rendered stacked at the first duplicate's transform. Same convention as
+# the C# connectors' `{objectAppId}:g{ord}`.
+
+
+def get_submesh_id(blender_object: Object, material_index: int) -> str:
+    return f"{get_object_id(blender_object)}:mat{material_index}"
 
 
 def get_curve_element_id(blender_object: Object, curve_index: int = 0) -> str:
-    curve_data = blender_object.data
-    if not curve_data:
-        return f"Curve:{blender_object.name_full}_curve{curve_index}"
-
-    if curve_index == 0:
-        return f"Curve:{curve_data.name_full}"
-
-    return f"Curve:{curve_data.name_full}_curve{curve_index}"
+    return f"{get_object_id(blender_object)}:curve{curve_index}"
 
 
-def get_object_id(blender_object: Object) -> str:
-    return get_unique_id(blender_object)
+# Keys the receive bake writes as internal schema state (see
+# from_bundle._baking.properties.apply_properties). Publishing already emits
+# these as root scalars / object columns, so re-collecting them here would mint
+# ``properties.applicationId`` etc. on every receive-and-republish cycle.
+RECEIVE_BAKED_SCHEMA_KEYS = frozenset({"applicationId", "speckle_type"})
+
+
+def extract_custom_properties(blender_id: ID) -> Dict[str, Any]:
+    """
+    Extract custom user-defined properties from a Blender ID datablock.
+
+    Supports strings, ints, floats, bools, arrays of these types, and
+    nested property groups (a bundle receive bakes Revit parameter trees
+    as groups; the eav walker re-flattens the resulting dicts to the same
+    paths). Note: arrays are dropped by the eav flattener (scalars and
+    nested dicts only), so they never reach the published bundle.
+    """
+    properties: Dict[str, Any] = {}
+
+    for key in blender_id.keys():
+        # skip system properties that start with underscore (e.g. _RNA_UI)
+        # and the schema keys a receive baked onto the object
+        if key.startswith("_") or key in RECEIVE_BAKED_SCHEMA_KEYS:
+            continue
+
+        try:
+            value = blender_id[key]
+
+            if isinstance(value, (str, int, float, bool)):
+                properties[key] = value
+            elif isinstance(value, (list, tuple)):
+                if all(isinstance(item, (str, int, float, bool)) for item in value):
+                    properties[key] = list(value)
+            elif type(value).__name__ == "IDPropertyGroup":
+                try:
+                    properties[key] = value.to_dict()
+                except (TypeError, ValueError):
+                    continue
+            elif type(value).__name__ == "IDPropertyArray":
+                # Blender IDPropertyArray (bool/int/float arrays)
+                try:
+                    array_list = (
+                        value.to_list() if hasattr(value, "to_list") else list(value)
+                    )
+                    if all(
+                        isinstance(item, (str, int, float, bool)) for item in array_list
+                    ):
+                        properties[key] = array_list
+                except (TypeError, ValueError):
+                    continue
+        except (KeyError, TypeError):
+            # skip properties that can't be accessed or have unsupported types
+            continue
+
+    return properties
+
+
+def apply_cached_properties(speckle_obj, properties: Dict[str, Any]) -> None:
+    """Apply pre-extracted custom properties to a Speckle object if they exist."""
+    if properties:
+        speckle_obj.properties = properties
+
+
+def has_cross_object_geometry_deps(blender_data: Optional[ID]) -> bool:
+    """Whether a Curve/TextCurve datablock builds its surface from *other*
+    objects — ``bevel_object`` (a curve used as the swept cross-section) or
+    ``taper_object`` (a curve scaling that section along the path).
+
+    Those references are resolved by the depsgraph and nothing else: calling
+    ``to_mesh()`` on the original object returns zero faces, with or without a
+    ``depsgraph=`` argument (measured on Blender 4.3). Only
+    ``evaluated_get(depsgraph).to_mesh()`` produces the surface.
+    """
+    if blender_data is None:
+        return False
+
+    return bool(
+        getattr(blender_data, "bevel_object", None)
+        or getattr(blender_data, "taper_object", None)
+    )
+
+
+def needs_evaluated_object(blender_object: Object, apply_modifiers: bool) -> bool:
+    """Whether tessellation has to go through the depsgraph-evaluated copy.
+
+    Modifiers are the obvious case. The subtler one is a curve whose profile
+    lives on another object: there is no un-evaluated route to that surface, so
+    the choice is between evaluating (and inheriting modifiers the caller asked
+    us to skip) or publishing no faces at all.
+
+    TODO: confirm the behaviour when ``apply_modifiers`` is False *and* the
+    curve has a bevel/taper object. Options:
+      - evaluate anyway (current): the profile is honoured, so the published
+        tube matches the viewport, but any modifiers ride along against the
+        caller's wish. Only affects curves that have both.
+      - respect the flag: return False here, tessellation finds no faces and
+        the curve falls back to publishing its path as a wire. Honest about
+        the setting, but the user sees a line where Blender shows a solid.
+    """
+    if apply_modifiers and blender_object.modifiers:
+        return True
+
+    if blender_object.type == "META":
+        # a metaball has no un-evaluated surface at all: the isosurface is a
+        # scene-level computation over every family member's field, so the
+        # original object's to_mesh() yields nothing regardless of modifiers
+        return True
+
+    return has_cross_object_geometry_deps(blender_object.data)
+
+
+@contextmanager
+def temporary_mesh(
+    blender_object: Object, apply_modifiers: bool
+) -> Iterator[Optional[BMesh]]:
+    """Yield the tessellated mesh of ``blender_object``, freeing it afterwards.
+
+    Used by every object type that has no Speckle geometry primitive of its own
+    (text, bevelled/extruded curves) and therefore has to reach the viewer as
+    triangles. Blender already tessellates these for the viewport, so we borrow
+    that result instead of reimplementing the sweep or the fill.
+
+    ``to_mesh()`` hands back a mesh owned by the object it was called on, so the
+    matching ``to_mesh_clear()`` has to target that same object — the evaluated
+    copy when we went through the depsgraph, the original otherwise.
+    """
+    source = blender_object
+    if needs_evaluated_object(blender_object, apply_modifiers):
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        source = blender_object.evaluated_get(depsgraph)
+
+    mesh: Optional[BMesh] = None
+    try:
+        mesh = source.to_mesh()
+    except RuntimeError:
+        # object state that Blender refuses to tessellate
+        mesh = None
+
+    try:
+        yield mesh
+    finally:
+        if mesh is not None:
+            source.to_mesh_clear()

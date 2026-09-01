@@ -1,4 +1,15 @@
 from .to_speckle import convert_to_speckle  # noqa: F401
+from .instance_unpacker import (  # noqa: F401
+    InstanceUnpackResult,
+    is_collection_instance,
+    unpack_instances,
+)
+from .metaball_unpacker import (  # noqa: F401
+    MetaballRole,
+    MetaballUnpackResult,
+    is_metaball,
+    unpack_metaballs,
+)
 from .material_to_speckle import (  # noqa: F401
     blender_material_to_speckle,
     create_render_material_proxies,

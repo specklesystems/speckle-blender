@@ -1,6 +1,7 @@
 import bpy
 from bpy.types import UILayout, Context
 from .icons import get_icon
+from ..utils.misc import strip_non_renderable
 
 
 class SPECKLE_PT_model_cards_panel(bpy.types.Panel):
@@ -36,7 +37,9 @@ class SPECKLE_PT_model_cards_panel(bpy.types.Panel):
         for project_name, model_cards in project_groups.items():
             project_box = layout.box()
             project_row = project_box.row()
-            project_row.label(text=f"Project: {project_name}", icon="TRIA_RIGHT")
+            project_row.label(
+                text=f"Project: {strip_non_renderable(project_name)}", icon="TRIA_RIGHT"
+            )
 
             for model_card in model_cards:
                 box: UILayout = project_box.box()
@@ -73,7 +76,7 @@ class SPECKLE_PT_model_cards_panel(bpy.types.Panel):
                     print({"ERROR"}, "Model card state unknown")
                     return
 
-                row_1.label(text=f"{model_card.model_name}")
+                row_1.label(text=strip_non_renderable(model_card.model_name))
 
                 # Select button in the model card
                 select_op = row_1.operator(

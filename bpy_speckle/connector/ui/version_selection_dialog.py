@@ -1,6 +1,11 @@
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
-from ..utils.version_manager import get_versions_for_model, get_latest_version
+from ..speckle_api import get_versions_for_model, get_latest_version
+from ..utils.dialog import (
+    DIALOG_WIDTH,
+    redraw_ui,
+)
+from ..utils.misc import strip_non_renderable
 
 
 class SPECKLE_UL_versions_list(bpy.types.UIList):
@@ -24,7 +29,7 @@ class SPECKLE_UL_versions_list(bpy.types.UIList):
             split = row.split(factor=0.166)
             split.label(text=item.id)
             right_split = split.split(factor=0.7)
-            right_split.label(text=item.message)
+            right_split.label(text=strip_non_renderable(item.message))
             right_split.label(text=item.updated)
 
         elif self.layout_type == "GRID":
@@ -91,8 +96,9 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             if latest_version:
                 version_id_to_store = latest_version[0]
             else:
-                print(
-                    f"Could not fetch latest version for model {wm.selected_model_id}"
+                self.report(
+                    {"ERROR"},
+                    f"Could not fetch latest version for model {wm.selected_model_id}",
                 )
                 return {"CANCELLED"}
 
@@ -120,7 +126,7 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
                 f"Model card updated: Selected version: {model_card.version_id}, Option: {self.load_option}",
             )
             bpy.ops.speckle.model_card_load(model_card_id=self.model_card_id)
-            context.area.tag_redraw()
+            redraw_ui(context)
 
             return {"FINISHED"}
 
@@ -130,7 +136,7 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             f"Selected version: {version_id_to_store} (Option: {self.load_option})",
         )
 
-        context.area.tag_redraw()
+        redraw_ui(context)
 
         return {"FINISHED"}
 
@@ -148,7 +154,7 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
 
         self.update_versions_list(context)
 
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=DIALOG_WIDTH)
 
     def draw(self, context: Context) -> None:
         layout: UILayout = self.layout
@@ -162,8 +168,8 @@ class SPECKLE_OT_version_selection_dialog(bpy.types.Operator):
             project_name = model_card.project_name
             model_name = model_card.model_name
 
-        layout.label(text=f"Project: {project_name}")
-        layout.label(text=f"Model: {model_name}")
+        layout.label(text=f"Project: {strip_non_renderable(project_name)}")
+        layout.label(text=f"Model: {strip_non_renderable(model_name)}")
 
         layout.prop(
             self,

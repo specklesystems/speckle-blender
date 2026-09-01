@@ -1,32 +1,17 @@
 import bpy
 from bpy.types import Context
-from bpy.types import Event
 from typing import Set
 
 from ..operations.publish_operation import publish_operation
-from ..utils.account_manager import get_server_url_by_account_id, can_create_version
-from ..utils.model_card_utils import model_card_exists, update_model_card_objects
+from ..speckle_api import get_server_url_by_account_id, can_create_version
+from ..utils.dialog import redraw_ui
+from ..utils.model_card_utils import update_model_card_objects
 
 
 class SPECKLE_OT_publish(bpy.types.Operator):
     bl_idname = "speckle.publish"
     bl_label = "Publish to Speckle"
     bl_description = "Publish selected objects to Speckle"
-
-    version_message: bpy.props.StringProperty(name="Version Message")  # type: ignore
-    apply_modifiers: bpy.props.BoolProperty(  # type: ignore
-        name="Apply Modifiers",
-        description="Apply all modifiers to objects before conversion",
-        default=True,
-    )
-
-    def draw(self, context: Context) -> None:
-        layout = self.layout
-        layout.prop(self, "version_message")
-        layout.prop(self, "apply_modifiers")
-
-    def invoke(self, context: Context, event: Event) -> Set[str]:
-        return context.window_manager.invoke_props_dialog(self)
 
     def execute(self, context: Context) -> Set[str]:
         wm = context.window_manager
@@ -75,7 +60,12 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             return {"CANCELLED"}
 
         success, message, version_id = publish_operation(
-            context, objects_to_convert, self.version_message, self.apply_modifiers
+            context,
+            account_id,
+            project_id,
+            model_id,
+            objects_to_convert,
+            apply_modifiers=wm.apply_modifiers,
         )
 
         if not success:
@@ -86,13 +76,10 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         if hasattr(context.scene, "speckle_state") and hasattr(
             context.scene.speckle_state, "model_cards"
         ):
-            if model_card_exists(
-                wm.selected_project_id, wm.selected_model_id, True, context
-            ):
-                model_card = context.scene.speckle_state.get_model_card_by_id(
-                    f"{wm.ui_mode}-{wm.selected_project_id}-{wm.selected_model_id}"
-                )
-            else:
+            model_card = context.scene.speckle_state.find_model_card(
+                project_id, model_id, is_publish=True
+            )
+            if model_card is None:
                 model_card = context.scene.speckle_state.model_cards.add()
 
             model_card.account_id = account_id
@@ -104,7 +91,7 @@ class SPECKLE_OT_publish(bpy.types.Operator):
             model_card.is_publish = True
             model_card.load_option = "SPECIFIC"  # published versions are specific
             model_card.version_id = version_id
-            model_card.apply_modifiers = self.apply_modifiers
+            model_card.apply_modifiers = wm.apply_modifiers
             update_model_card_objects(model_card, objects_to_convert)
 
         # clear selected model details from Window Manager
@@ -118,5 +105,5 @@ class SPECKLE_OT_publish(bpy.types.Operator):
         wm.speckle_objects.clear()
 
         self.report({"INFO"}, message)
-        context.area.tag_redraw()
+        redraw_ui(context)
         return {"FINISHED"}

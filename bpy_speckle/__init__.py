@@ -31,12 +31,19 @@ bl_info = {
     "category": "Scene",
 }
 
+# Blender deletes ``bl_info`` from extension modules once the add-on is enabled
+# (``addon_utils.enable``: "Always remove as this is not expected to exist"),
+# because ``blender_manifest.toml`` is the source of truth for extensions. The
+# dict above is still what ``patch_version.py`` rewrites at release time, so
+# alias it under a name Blender leaves alone and read provenance from that —
+# a lazy ``from ... import bl_info`` inside a function fails at runtime.
+ADDON_INFO = bl_info
+
 
 # UI
 from .connector.ui.main_panel import SPECKLE_PT_main_panel
 from .connector.ui.update_panel import SPECKLE_PT_update_panel
 from .connector.ui.model_cards_panel import SPECKLE_PT_model_cards_panel
-from .connector.utils.account_manager import speckle_workspace
 from .connector.ui.project_selection_dialog import (
     SPECKLE_OT_project_selection_dialog,
     SPECKLE_UL_projects_list,
@@ -57,6 +64,8 @@ from .connector.utils.property_groups import (
     speckle_object,
     speckle_collection,
     speckle_model_card,
+    speckle_account,
+    speckle_workspace,
 )
 
 # Operators
@@ -80,18 +89,13 @@ from .connector.blender_operators.model_card_load_button import (
 from .connector.blender_operators.model_card_publish_button import (
     SPECKLE_OT_publish_model_card,
 )
-from .connector.blender_operators.add_project_by_url import (
-    SPECKLE_OT_add_project_by_url,
-)
-
 from .connector.blender_operators.create_project import SPECKLE_OT_create_project
 from .connector.blender_operators.create_model import SPECKLE_OT_create_model
 from .connector.blender_operators.version_check import SPECKLE_OT_version_check
 from .connector.blender_operators.update_button import SPECKLE_OT_update_button
-from .connector.utils.account_manager import (
-    speckle_account,
-    get_default_account_id,
-    _client_cache,
+from .connector.speckle_api import (
+    get_startup_account_id,
+    client_cache,
 )
 
 # States
@@ -155,6 +159,29 @@ def invoke_window_manager_properties():
     )
     # Objects
     WindowManager.speckle_objects = bpy.props.CollectionProperty(type=speckle_object)
+    WindowManager.apply_modifiers = bpy.props.BoolProperty(
+        name="Apply Modifiers",
+        description="Apply all modifiers to objects before conversion",
+        default=True,
+    )
+    # Instance loading mode, shown in the panel's LOAD section
+    WindowManager.instance_loading_mode = bpy.props.EnumProperty(  # type: ignore
+        name="Instance Loading",
+        description="Choose how to load instances",
+        items=[
+            (
+                "INSTANCE_PROXIES",
+                "Collection Instances",
+                "Load objects as collection instances",
+            ),
+            (
+                "LINKED_DUPLICATES",
+                "Linked Duplicates",
+                "Get objects as linked duplicates",
+            ),
+        ],
+        default="INSTANCE_PROXIES",
+    )
     # Update checking
     WindowManager.update_available = bpy.props.BoolProperty(default=False)
     WindowManager.latest_version = bpy.props.StringProperty(default="")
@@ -192,7 +219,6 @@ classes = (
     SPECKLE_OT_dismiss_popup,
     SPECKLE_OT_load_model_card,
     SPECKLE_OT_publish_model_card,
-    SPECKLE_OT_add_project_by_url,
     SPECKLE_OT_create_project,
     SPECKLE_OT_create_model,
     SPECKLE_OT_version_check,
@@ -205,8 +231,28 @@ classes = (
 )
 
 
+def _require_bundle_support():
+    """Fail registration when the artifact-bundle stack is missing.
+
+    The bundle is the only publish/receive path — there is no classic-format
+    fallback — so a specklepy without `specklepy.bundle`, or a missing pyarrow,
+    must stop the add-on at registration with a clear message instead of
+    surfacing later as an ImportError mid-publish.
+    """
+    try:
+        import pyarrow  # noqa: F401
+        import specklepy.bundle  # noqa: F401
+    except ImportError as e:
+        raise RuntimeError(
+            "The Speckle connector requires specklepy with artifact-bundle "
+            "support and pyarrow (specklepy[bundle]). Reinstall the connector "
+            f"dependencies and restart Blender. Import failed with: {e}"
+        ) from e
+
+
 # Register and Unregister
 def register():
+    _require_bundle_support()
     icons.load_icons()
 
     for cls in classes:
@@ -215,16 +261,14 @@ def register():
 
     invoke_window_manager_properties()
 
-    # Pre-warm client cache for default account
+    # Pre-warm client cache for the account the UI will pre-select
     try:
-        default_account_id = get_default_account_id()
-        if default_account_id:
+        startup_account_id = get_startup_account_id()
+        if startup_account_id and startup_account_id != "NO_ACCOUNTS":
+            print(f"[Speckle] Pre-warming client for account: {startup_account_id}")
+            client_cache.get_client(startup_account_id)
             print(
-                f"[Speckle] Pre-warming client for default account: {default_account_id}"
-            )
-            _client_cache.get_client(default_account_id)
-            print(
-                f"[Speckle] Client pre-warming complete for account: {default_account_id}"
+                f"[Speckle] Client pre-warming complete for account: {startup_account_id}"
             )
     except Exception as e:
         print(f"[Speckle] Failed to pre-warm client: {e}")
@@ -245,7 +289,7 @@ def unregister():
 
     icons.unload_icons()
     unregister_speckle_state()  # Unregister SpeckleState
-    _client_cache.clear()
+    client_cache.clear()
     for cls in classes:
         bpy.utils.unregister_class(cls)
 

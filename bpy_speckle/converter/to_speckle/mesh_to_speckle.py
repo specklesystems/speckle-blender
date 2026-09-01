@@ -8,7 +8,7 @@ from mathutils import Vector as MVector
 
 from specklepy.objects.base import Base
 from specklepy.objects.geometry.mesh import Mesh
-from .utils import get_submesh_id
+from .utils import get_submesh_id, apply_cached_properties, extract_custom_properties
 
 
 def mesh_to_speckle(
@@ -41,6 +41,9 @@ def mesh_to_speckle_meshes(
     normal_transform = transform.to_3x3().inverted().transposed()
 
     submeshes = []
+
+    # extract custom properties once for all submeshes (shared mesh data)
+    mesh_properties = extract_custom_properties(data)
 
     # sort material indices to ensure consistent ordering
     for material_index in sorted(submesh_data.keys()):
@@ -107,26 +110,8 @@ def mesh_to_speckle_meshes(
 
         speckle_mesh.applicationId = get_submesh_id(blender_object, material_index)
 
+        apply_cached_properties(speckle_mesh, mesh_properties)
+
         submeshes.append(speckle_mesh)
 
     return submeshes
-
-
-def is_closed_mesh(faces: List[int]) -> bool:
-    """
-    check if a mesh is closed by verifying that each edge is shared by exactly 2 faces.
-    """
-    edge_counts = {}
-
-    i = 0
-    while i < len(faces):
-        vertex_count = faces[i]
-        for j in range(vertex_count):
-            v1 = faces[i + 1 + j]
-            v2 = faces[i + 1 + ((j + 1) % vertex_count)]
-            edge = tuple(sorted([v1, v2]))
-            edge_counts[edge] = edge_counts.get(edge, 0) + 1
-
-        i += vertex_count + 1
-
-    return all(count == 2 for count in edge_counts.values())

@@ -48,6 +48,17 @@ def format_role(role: str) -> str:
     return f"{split_role[1]}"
 
 
-def strip_non_ascii(text):
-    # Keep English letters, digits, spaces and basic punctuation
-    return re.sub(r"[^a-zA-Z0-9\s.,!?]", "", text)
+# C0 and C1 control characters, including newline/tab — UI labels are
+# single-line and these are the only characters Blender's font stack
+# (Noto fallback fonts + last-resort font) cannot draw
+_NON_RENDERABLE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def strip_non_renderable(text: str) -> str:
+    """
+    Remove characters Blender's UI cannot render.
+
+    Display-only: call this from connector UI draw code. Names stored in
+    window-manager state, model cards, collections and objects stay raw.
+    """
+    return _NON_RENDERABLE.sub("", text)

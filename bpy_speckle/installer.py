@@ -22,24 +22,6 @@ def _path() -> Optional[Path]:
 _application_name = "Speckle"
 
 
-def override_application_name(application_name: str) -> None:
-    """Override the global Speckle application name."""
-    global _application_name
-    _application_name = application_name
-
-
-def override_application_data_path(path: Optional[str]) -> None:
-    """
-    Override the global Speckle application data path.
-
-    If the value of path is `None` the environment variable gets deleted.
-    """
-    if path:
-        os.environ[_user_data_env_var] = path
-    else:
-        os.environ.pop(_user_data_env_var, None)
-
-
 def _ensure_folder_exists(base_path: Path, folder_name: str) -> Path:
     path = base_path.joinpath(folder_name)
     path.mkdir(exist_ok=True, parents=True)
