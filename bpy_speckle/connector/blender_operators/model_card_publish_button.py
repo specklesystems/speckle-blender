@@ -2,7 +2,7 @@ import bpy
 from typing import Set
 from bpy.types import Context
 from ..operations.publish_operation import publish_operation
-from ..utils.account_manager import can_create_version
+from ..speckle_api import can_create_version
 
 
 class SPECKLE_OT_publish_model_card(bpy.types.Operator):

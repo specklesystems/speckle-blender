@@ -26,8 +26,7 @@ from ...converter.to_speckle.scene_to_speckle import (
     build_collection_hierarchy,
     count_objects_in_collection,
 )
-from ..utils.account_manager import _client_cache
-from ..utils.project_manager import get_project_workspace_id
+from ..speckle_api import client_cache, get_project_workspace_id
 from specklepy.logging import metrics
 from ... import ADDON_INFO
 
@@ -106,7 +105,7 @@ def publish_operation(
     """
     try:
         # get cached client
-        client = _client_cache.get_client(account_id)
+        client = client_cache.get_client(account_id)
         if not client:
             return False, "No Speckle client found", None
 
@@ -159,5 +158,5 @@ def publish_operation(
 
         traceback.print_exc()
         # Clear cache on error to prevent stale clients
-        _client_cache.clear()
+        client_cache.clear()
         return False, f"Failed to publish: {str(e)}", None

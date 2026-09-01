@@ -10,7 +10,12 @@ bpy_speckle/
     ui/                 panels and dialogs (SPECKLE_PT_*, SPECKLE_OT_*)
     blender_operators/  operator classes bound to UI buttons
     operations/         publish_operation.py, load_operation.py (network orchestration only)
-    utils/              account/project/model/version managers, property groups
+    speckle_api/        the one seam onto the server: client cache + failure
+                        policy, account/project/model/version queries, URL
+                        resolver. Import from the package, not its modules.
+    authentication.py   OAuth-over-localhost account-add flow (stdlib only)
+    utils/              property groups, model-card bookkeeping, DUI3 config,
+                        display formatting, dialog plumbing — no network
   converter/
     to_speckle/         Blender -> Speckle (per-type modules, scene_to_speckle.py, bundle_exporter.py)
     from_bundle/        specklepy Model -> data-blocks (direct bake)

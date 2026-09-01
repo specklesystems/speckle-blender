@@ -26,8 +26,7 @@ from specklepy.logging.exceptions import SpeckleException
 
 from ... import ADDON_INFO
 from ...converter.from_bundle.bundle_to_native import bake_bundle
-from ..utils.account_manager import _client_cache
-from ..utils.project_manager import get_project_workspace_id
+from ..speckle_api import client_cache, get_project_workspace_id
 
 
 def _mark_received(client, version, project_id: str) -> None:
@@ -74,7 +73,7 @@ def load_operation(
     """
     # Raise rather than return {}: an empty result is a legitimate success for a
     # version with no objects, so it cannot double as the failure signal.
-    client = _client_cache.get_client(account_id)
+    client = client_cache.get_client(account_id)
     if not client:
         raise ValueError(f"No Speckle client found for account {account_id}")
 

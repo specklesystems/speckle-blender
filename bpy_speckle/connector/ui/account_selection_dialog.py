@@ -1,17 +1,19 @@
 import bpy
 from bpy.types import Context, Event
 from typing import List, Tuple
-from ..utils.account_manager import (
+from ..speckle_api import (
     get_account_enum_items,
-    speckle_account,
-    speckle_workspace,
     get_workspaces,
     get_active_workspace,
     get_account_from_id,
+    get_projects_for_account,
 )
 from ..utils.config_store import set_user_selected_account_id
-from ..utils.project_manager import get_projects_for_account
-from ..ui.project_selection_dialog import speckle_project
+from ..utils.property_groups import (
+    speckle_account,
+    speckle_project,
+    speckle_workspace,
+)
 from ..utils.dialog import DIALOG_WIDTH
 from ..utils.misc import strip_non_renderable
 

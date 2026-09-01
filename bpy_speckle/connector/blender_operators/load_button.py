@@ -4,7 +4,7 @@ from typing import Set
 import bpy
 from bpy.types import Context
 from ..operations.load_operation import load_operation
-from ..utils.account_manager import get_server_url_by_account_id
+from ..speckle_api import get_server_url_by_account_id
 from ..utils.model_card_utils import (
     update_model_card_objects,
     delete_model_card_objects,

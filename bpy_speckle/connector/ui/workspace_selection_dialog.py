@@ -1,9 +1,12 @@
 import bpy
 from bpy.types import Context, UILayout, Event, PropertyGroup
 from typing import List, Tuple
-from ..utils.account_manager import get_workspaces, speckle_workspace
-from ..utils.project_manager import get_projects_for_account
-from ..utils.account_manager import can_create_project_in_workspace
+from ..speckle_api import (
+    can_create_project_in_workspace,
+    get_projects_for_account,
+    get_workspaces,
+)
+from ..utils.property_groups import speckle_workspace
 from ..utils.dialog import DIALOG_WIDTH
 from ..utils.misc import strip_non_renderable
 

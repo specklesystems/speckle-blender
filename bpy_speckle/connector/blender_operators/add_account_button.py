@@ -2,7 +2,7 @@ import bpy
 import textwrap
 from bpy.types import Event, Context
 from typing import Optional
-from ..utils.authentication import (
+from ..authentication import (
     AuthenticationServer,
     SPECKLE_AUTH_PORT,
 )
@@ -137,7 +137,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
             print("[Add Account] Account added successfully - refreshing UI")
 
             # Import account management functions
-            from ..utils.account_manager import get_account_enum_items, _client_cache
+            from ..speckle_api import get_account_enum_items, client_cache
             from ..utils.config_store import set_user_selected_account_id
             from ..ui.account_selection_dialog import (
                 update_workspaces_list,
@@ -154,7 +154,7 @@ class SPECKLE_OT_add_account(bpy.types.Operator):
                 set_user_selected_account_id(new_account_id)
 
                 # Clear client cache to force re-authentication
-                _client_cache.clear()
+                client_cache.clear()
 
                 # Refresh UI state
                 try:

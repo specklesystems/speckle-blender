@@ -3,7 +3,7 @@ from typing import List
 from bpy.types import Operator, Context, Object
 from bpy.props import EnumProperty
 from ..utils.model_card_utils import update_model_card_objects
-from ..utils.account_manager import can_create_version
+from ..speckle_api import can_create_version
 from ..utils.dialog import DIALOG_WIDTH
 from ..utils.misc import strip_non_renderable
 from .icons import get_icon_for_type

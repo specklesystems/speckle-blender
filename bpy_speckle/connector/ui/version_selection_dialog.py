@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
-from ..utils.version_manager import get_versions_for_model, get_latest_version
+from ..speckle_api import get_versions_for_model, get_latest_version
 from ..utils.dialog import (
     DIALOG_WIDTH,
     redraw_ui,

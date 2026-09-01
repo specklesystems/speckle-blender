@@ -3,7 +3,7 @@ from bpy.types import Context
 from typing import Set
 
 from ..operations.publish_operation import publish_operation
-from ..utils.account_manager import get_server_url_by_account_id, can_create_version
+from ..speckle_api import get_server_url_by_account_id, can_create_version
 from ..utils.dialog import redraw_ui
 from ..utils.model_card_utils import update_model_card_objects
 

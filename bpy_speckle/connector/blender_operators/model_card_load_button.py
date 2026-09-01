@@ -3,7 +3,7 @@ from typing import Set
 
 import bpy
 from bpy.types import Context
-from ..utils.version_manager import get_latest_version
+from ..speckle_api import get_latest_version
 from ..operations.load_operation import load_operation
 from ..utils.model_card_utils import (
     delete_model_card_objects,

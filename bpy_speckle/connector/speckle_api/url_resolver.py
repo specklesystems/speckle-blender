@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 from urllib.parse import urlparse
 
-from .misc import format_relative_time, format_role
+from ..utils.misc import format_relative_time, format_role
 
 
 class UnsupportedUrlError(ValueError):
@@ -108,9 +108,9 @@ def resolve_speckle_url(
     resolve_version=False (publish mode) skips version lookups entirely —
     a version is meaningless for a publish target.
     """
-    from .account_manager import _client_cache
+    from .client_cache import client_cache
 
-    client = _client_cache.get_client(account_id)
+    client = client_cache.get_client(account_id)
 
     try:
         project = client.project.get(parsed.project_id)

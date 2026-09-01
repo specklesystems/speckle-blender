@@ -115,3 +115,19 @@ class speckle_model_card(bpy.types.PropertyGroup):
             return f"PUBLISH-{self.project_id}-{self.model_id}"
         else:
             return f"LOAD-{self.project_id}-{self.model_id}"
+
+
+class speckle_account(bpy.types.PropertyGroup):
+    id: bpy.props.StringProperty()  # type: ignore
+    user_name: bpy.props.StringProperty()  # type: ignore
+    server_url: bpy.props.StringProperty()  # type: ignore
+    user_email: bpy.props.StringProperty()  # type: ignore
+
+
+class speckle_workspace(bpy.types.PropertyGroup):
+    """
+    PropertyGroup for storing workspace information
+    """
+
+    id: bpy.props.StringProperty(name="ID")  # type: ignore
+    name: bpy.props.StringProperty()  # type: ignore

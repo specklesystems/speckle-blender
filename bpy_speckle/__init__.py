@@ -44,7 +44,6 @@ ADDON_INFO = bl_info
 from .connector.ui.main_panel import SPECKLE_PT_main_panel
 from .connector.ui.update_panel import SPECKLE_PT_update_panel
 from .connector.ui.model_cards_panel import SPECKLE_PT_model_cards_panel
-from .connector.utils.account_manager import speckle_workspace
 from .connector.ui.project_selection_dialog import (
     SPECKLE_OT_project_selection_dialog,
     SPECKLE_UL_projects_list,
@@ -65,6 +64,8 @@ from .connector.utils.property_groups import (
     speckle_object,
     speckle_collection,
     speckle_model_card,
+    speckle_account,
+    speckle_workspace,
 )
 
 # Operators
@@ -92,10 +93,9 @@ from .connector.blender_operators.create_project import SPECKLE_OT_create_projec
 from .connector.blender_operators.create_model import SPECKLE_OT_create_model
 from .connector.blender_operators.version_check import SPECKLE_OT_version_check
 from .connector.blender_operators.update_button import SPECKLE_OT_update_button
-from .connector.utils.account_manager import (
-    speckle_account,
+from .connector.speckle_api import (
     get_startup_account_id,
-    _client_cache,
+    client_cache,
 )
 
 # States
@@ -266,7 +266,7 @@ def register():
         startup_account_id = get_startup_account_id()
         if startup_account_id and startup_account_id != "NO_ACCOUNTS":
             print(f"[Speckle] Pre-warming client for account: {startup_account_id}")
-            _client_cache.get_client(startup_account_id)
+            client_cache.get_client(startup_account_id)
             print(
                 f"[Speckle] Client pre-warming complete for account: {startup_account_id}"
             )
@@ -289,7 +289,7 @@ def unregister():
 
     icons.unload_icons()
     unregister_speckle_state()  # Unregister SpeckleState
-    _client_cache.clear()
+    client_cache.clear()
     for cls in classes:
         bpy.utils.unregister_class(cls)
 

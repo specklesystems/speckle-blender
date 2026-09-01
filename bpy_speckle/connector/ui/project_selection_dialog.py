@@ -1,22 +1,20 @@
 import bpy
 from bpy.types import UILayout, Context, PropertyGroup, Event
 from typing import List, Tuple
-from ..utils.account_manager import (
+from ..speckle_api import (
+    ParsedSpeckleUrl,
+    UnsupportedUrlError,
     can_create_project_in_workspace,
     get_active_workspace,
     get_startup_account_id,
     get_account_from_id,
     get_server_url_by_account_id,
-)
-from ..utils.project_manager import get_projects_for_account
-from ..utils.property_groups import speckle_project
-from ..utils.url_resolver import (
-    ParsedSpeckleUrl,
-    UnsupportedUrlError,
+    get_projects_for_account,
     is_same_server,
     parse_speckle_url,
     resolve_speckle_url,
 )
+from ..utils.property_groups import speckle_project
 from ..utils.dialog import (
     DIALOG_WIDTH,
     invalidate_downstream_selection,
