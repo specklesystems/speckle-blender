@@ -33,9 +33,7 @@ def bake_and_probe(bundle_dir: str, instance_loading_mode: str) -> Dict[str, Any
 
     # a fresh scene per mode keeps Blender's .001 dedup suffixes deterministic
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    files = sorted(
-        os.path.join(bundle_dir, f) for f in sorted(os.listdir(bundle_dir))
-    )
+    files = sorted(os.path.join(bundle_dir, f) for f in sorted(os.listdir(bundle_dir)))
     # the harness keeps the bundle directory around for re-inspection, so the
     # Model is never close()d here
     model = Model("local", "local", "local", bundle_dir, files, read_bundle(bundle_dir))

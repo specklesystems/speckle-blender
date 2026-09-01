@@ -210,10 +210,10 @@ def write_bundle(
 
 def read_model(bundle_dir: str) -> Model:
     """Wrap a written bundle directory in the SDK's ``Model`` facade."""
-    files = sorted(
-        os.path.join(bundle_dir, f) for f in sorted(os.listdir(bundle_dir))
+    files = sorted(os.path.join(bundle_dir, f) for f in sorted(os.listdir(bundle_dir)))
+    return Model(
+        "project", "model", "version", bundle_dir, files, read_bundle(bundle_dir)
     )
-    return Model("project", "model", "version", bundle_dir, files, read_bundle(bundle_dir))
 
 
 def build_model(bundle_dir: str, **kwargs: Any) -> Model:
@@ -257,8 +257,7 @@ def navis_federation() -> None:
             ],
         )
         check(
-            [c.subtype for c in model.collections]
-            == ["Network", "Model", "Model"],
+            [c.subtype for c in model.collections] == ["Network", "Model", "Model"],
             "subtype must survive the read",
         )
         check(

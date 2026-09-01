@@ -63,9 +63,7 @@ def _send_bundle(
             print(f"Skipped geometry '{geo_id}' in bundle: {error}")
 
         if object_count == 0:
-            raise SpeckleException(
-                "No objects could be written to the artifact bundle"
-            )
+            raise SpeckleException("No objects could be written to the artifact bundle")
 
         file_name = bpy.path.basename(bpy.data.filepath) or "Untitled.blend"
         file_size_bytes: Optional[int] = None

@@ -187,9 +187,7 @@ class BlenderBundleExporter:
 
         if isinstance(obj, InstanceProxy):
             if standalone:
-                definition = self._builder.get_or_add_definition(
-                    obj.definitionId, None
-                )
+                definition = self._builder.get_or_add_definition(obj.definitionId, None)
                 self._placement_instances[app_id] = handle.place(
                     definition, obj.transform, _attr(obj, "units"), key=app_id
                 )
