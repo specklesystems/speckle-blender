@@ -21,7 +21,8 @@ dui3/
 # (../atlas/scripts/sync-agents.py). The hook trio stays tracked.
 .agents/
 .claude/skills/
-.claude/worktrees/
+# Agent worktrees live at .worktrees/<name> (atlas/ways-of-working.md § Worktrees).
+.worktrees/
 .claude/*.local.*
 !.claude/settings.json
 .mcp.json
