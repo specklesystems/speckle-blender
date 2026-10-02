@@ -51,7 +51,7 @@ jobs:
         run: ./export_dependencies.sh
 
       - name: 🗃 Zip Package
-        run: zip -r ${{env.ZIP_NAME}} bpy_speckle
+        run: zip -r ${{env.ZIP_NAME}} bpy_speckle -x '*/AGENTS.md'
 
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
