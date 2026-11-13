@@ -135,7 +135,7 @@ def publish_operation(
                 account,
                 {
                     "ui": "dui3",
-                    "hostAppVersion": ".".join(map(str, ADDON_INFO["blender"])),
+                    "hostAppVersion": ".".join(map(str, bpy.app.version)),
                     "core_version": ".".join(map(str, ADDON_INFO["version"])),
                     "workspace_id": get_project_workspace_id(client, project_id),
                 },

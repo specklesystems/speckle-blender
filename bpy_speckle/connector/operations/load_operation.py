@@ -45,7 +45,7 @@ def _mark_received(client, version, project_id: str) -> None:
         client.account,
         {
             "ui": "dui3",
-            "hostAppVersion": ".".join(map(str, ADDON_INFO["blender"])),
+            "hostAppVersion": ".".join(map(str, bpy.app.version)),
             "core_version": ".".join(map(str, ADDON_INFO["version"])),
             "sourceHostApp": host_applications.get_host_app_from_string(
                 version.source_application
