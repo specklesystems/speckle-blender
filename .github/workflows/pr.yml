@@ -3,14 +3,22 @@ on:
   pull_request:
     branches:
       - "main"
+
+permissions: {}
+
 jobs:
   build:
     name: Pre-commit Checks
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.11"
           enable-cache: true
@@ -19,7 +27,7 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit/
           key: ${{ hashFiles('.pre-commit-config.yaml') }}
@@ -29,3 +37,20 @@ jobs:
 
       - name: Minimize uv cache
         run: uv cache prune --ci
+
+  lint-github-actions:
+    name: Lint GitHub Actions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor 🌈
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          advanced-security: false
+          persona: regular
+          min-severity: medium
