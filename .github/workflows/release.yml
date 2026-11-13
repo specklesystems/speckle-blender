@@ -4,10 +4,14 @@ on:
     branches: ["installer-test/**"]
     tags: ["202[0-9].*.*"] # unprefixed CalVer, v-prefix dropped at 2026.9 (ENG-9392)
 
+permissions: {}
+
 jobs:
   build:
     name: Build Zip
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       ZIP_NAME: "blender.zip"
       SEMVER: null
@@ -16,33 +20,41 @@ jobs:
       semver: ${{ steps.set-version.outputs.semver }}
       fileVersion: ${{ steps.set-version.outputs.fileVersion }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: 🐍 Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.11"
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
+          enable-cache: false # releases are never built from a cache: https://docs.zizmor.sh/audits/#cache-poisoning
 
       - id: set-version
         name: Set version to output
         run: |
-          TAG=${{ github.ref_name }}
-          if [[ "${{ github.ref }}" != refs/tags/* ]]; then
-            TAG="0.0.0.${{ github.run_number }}"
+          TAG=${REF_NAME}
+          if [[ "${REF}" != refs/tags/* ]]; then
+            TAG="0.0.0.${RUN_NUMBER}"
           fi
           SEMVER="$TAG"
           FILE_VERSION=$(echo "$TAG" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-          FILE_VERSION="$FILE_VERSION.${{ github.run_number }}"
+          FILE_VERSION="$FILE_VERSION.${RUN_NUMBER}"
 
           echo "semver=$SEMVER" >> "$GITHUB_OUTPUT"
           echo "fileVersion=$FILE_VERSION" >> "$GITHUB_OUTPUT"
 
           echo $SEMVER
           echo $FILE_VERSION
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
+          RUN_NUMBER: ${{ github.run_number }}
 
       - name: ✏ Patch Version
-        run: python patch_version.py ${{ steps.set-version.outputs.fileVersion }}
+        run: python patch_version.py "$FILE_VERSION"
+        env:
+          FILE_VERSION: ${{ steps.set-version.outputs.fileVersion }}
 
       - name: 🔄 UV Sync
         run: uv sync --all-extras --dev
@@ -51,19 +63,16 @@ jobs:
         run: ./export_dependencies.sh
 
       - name: 🗃 Zip Package
-        run: zip -r ${{env.ZIP_NAME}} bpy_speckle -x '*/AGENTS.md'
+        run: zip -r "$ZIP_NAME" bpy_speckle -x '*/AGENTS.md'
 
       - name: ⬆️ Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: output-${{ steps.set-version.outputs.semver }}
           path: ${{env.ZIP_NAME}}
           if-no-files-found: error
           retention-days: 1
           compression-level: 0 # no compression
-
-      - name: 💾 Minimize uv cache
-        run: uv cache prune --ci
 
   deploy-installers:
     runs-on: ubuntu-latest
@@ -72,7 +81,7 @@ jobs:
       IS_PUBLIC_RELEASE: ${{ github.ref_type == 'tag' }}
     steps:
       - name: 🔫 Trigger Build Installer(s)
-        uses: the-actions-org/workflow-dispatch@v4.0.0
+        uses: the-actions-org/workflow-dispatch@3133c5d135c7dbe4be4f9793872b6ef331b53bc7 # v4.0.0
         with:
           workflow: Build Installers
           repo: specklesystems/connector-installers
@@ -92,6 +101,6 @@ jobs:
           display-workflow-run-url: true
           display-workflow-run-url-interval: 10s
 
-      - uses: geekyeggo/delete-artifact@v5
+      - uses: geekyeggo/delete-artifact@176a747ab7e287e3ff4787bf8a148716375ca118 # v6.0.0
         with:
           name: output-*
