@@ -827,7 +827,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pyarrow", specifier = ">=17.0.0" },
-    { name = "specklepy", specifier = ">=2026.9.0" },
+    { name = "specklepy", specifier = ">=2026.9.3" },
 ]
 
 [package.metadata.requires-dev]
@@ -839,7 +839,7 @@ dev = [
 
 [[package]]
 name = "specklepy"
-version = "2026.9.2"
+version = "2026.9.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -851,9 +851,9 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "ujson" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/f2/9f6fa9a81e95604bb2e6f346f192f18f24438548332aedc4e329fc2ba4fb/specklepy-2026.9.2.tar.gz", hash = "sha256:b339593812c81a3b9d0076c0a40d24475311962c2beaa7b71cc69897973150f2", size = 164729, upload-time = "2026-11-06T13:42:08.036Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ad/fa/fa2a5a48ccf5480888d8166ad7d8350f414866ef933dacd7c278b72e087e/specklepy-2026.9.3.tar.gz", hash = "sha256:27569d74d94a36e0c4998a489935e73fcc06fc6680ca258a14b52ed0bf4b0432", size = 164744, upload-time = "2026-11-16T15:41:13.463Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/12/dbcaf9974d28ac756001bcdc6f948c47fbf967f3ee6376c7738b5c444a84/specklepy-2026.9.2-py3-none-any.whl", hash = "sha256:27cd37e909d1fdf991a644829d1fba526fe754489d7f5ce62abda97883ceef4e", size = 229475, upload-time = "2026-11-06T13:42:06.469Z" },
+    { url = "https://files.pythonhosted.org/packages/80/0b/46201f12a8a604f652bc844414f7f39602e5f8c249a5bf7421e7235d493f/specklepy-2026.9.3-py3-none-any.whl", hash = "sha256:7b64740167d40a3c3a067b984fd911b8e9664ea1ff61ba91ca49aeea3818f80a", size = 229497, upload-time = "2026-11-16T15:41:11.8Z" },
 ]
 
 [[package]]
