@@ -35,7 +35,7 @@ from specklepy.bundle.builder import (
     BundleInstance,
 )
 from specklepy.bundle.envelope_writer import Producer, SceneViewKey
-from specklepy.bundle.spec import Rel
+from specklepy.bundle.spec import Material, Rel
 from specklepy.objects.base import Base
 from specklepy.objects.models.collections.collection import Collection
 from specklepy.objects.proxies import InstanceProxy
@@ -328,11 +328,13 @@ class BlenderBundleExporter:
             )
             handle = self._builder.get_or_add_material(
                 mat_id,
-                _attr(material, "name"),
-                argb=int(_attr(material, "diffuse", -1)),
-                opacity=float(_attr(material, "opacity", 1.0)),
-                metalness=float(_attr(material, "metalness", 0.0)),
-                roughness=float(_attr(material, "roughness", 1.0)),
+                Material(
+                    argb=int(_attr(material, "diffuse", -1)),
+                    opacity=float(_attr(material, "opacity", 1.0)),
+                    metalness=float(_attr(material, "metalness", 0.0)),
+                    roughness=float(_attr(material, "roughness", 1.0)),
+                    name=_attr(material, "name"),
+                ),
             )
             for geo_id in _attr(proxy, "objects", []) or []:
                 geometry = self._geometry_handles.get(geo_id)

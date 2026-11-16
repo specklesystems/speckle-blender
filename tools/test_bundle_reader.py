@@ -257,11 +257,12 @@ def navis_federation() -> None:
             ],
         )
         check(
-            [c.subtype for c in model.collections] == ["Network", "Model", "Model"],
+            [c.fields.subtype for c in model.collections]
+            == ["Network", "Model", "Model"],
             "subtype must survive the read",
         )
         check(
-            not any(c.subtype == "Collection" for c in model.collections),
+            not any(c.fields.subtype == "Collection" for c in model.collections),
             "no container here belongs to the authored tree",
         )
         duct = model.object_by_application_id("duct-1")
@@ -278,13 +279,7 @@ def navis_federation() -> None:
 
 
 def revit_systems_overlap() -> None:
-    """An MEP object belongs to every system that runs through it.
-
-    Known SDK narrowing: specklepy reads IN_SYSTEM as single-valued (the last
-    edge wins), so only one membership survives today. This pins that the edge
-    resolves at all; restoring the overlap is a specklepy change, not a
-    connector shim.
-    """
+    """An MEP object belongs to every system that runs through it."""
     with tempfile.TemporaryDirectory() as bundle_dir:
         model = build_model(
             bundle_dir,
@@ -296,11 +291,9 @@ def revit_systems_overlap() -> None:
             relations=[(IN_SYSTEM, 0, 1), (IN_SYSTEM, 0, 2)],
         )
         ahu = model.object_by_application_id("ahu-1")
-        check(ahu.system is not None, "an IN_SYSTEM membership must resolve")
         check(
-            ahu.system.k == 2,
-            "the SDK keeps the last IN_SYSTEM edge; if this fails because both "
-            "now accumulate, delete this narrowing note and assert the overlap",
+            [system.k for system in ahu.systems] == [1, 2],
+            "every IN_SYSTEM membership must resolve",
         )
 
 
