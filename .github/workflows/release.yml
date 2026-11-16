@@ -81,11 +81,11 @@ jobs:
       IS_PUBLIC_RELEASE: ${{ github.ref_type == 'tag' }}
     steps:
       - name: 🔫 Trigger Build Installer(s)
-        uses: the-actions-org/workflow-dispatch@3133c5d135c7dbe4be4f9793872b6ef331b53bc7 # v4.0.0
+        uses: benc-uk/workflow-dispatch@d004979be141727c7a17c28f603e2facc40d0855 # v1.3.3
         with:
           workflow: Build Installers
           repo: specklesystems/connector-installers
-          token: ${{ secrets.CONNECTORS_GH_TOKEN }}
+          token: ${{ secrets.CONNECTORS_GH_TOKEN }} # zizmor: ignore[secrets-outside-env]
           inputs: '{
             "run_id": "${{ github.run_id }}",
             "semver": "${{ needs.build.outputs.semver }}",
@@ -96,10 +96,8 @@ jobs:
             }'
           ref: main
           wait-for-completion: true
-          wait-for-completion-interval: 10s
-          wait-for-completion-timeout: 10m
-          display-workflow-run-url: true
-          display-workflow-run-url-interval: 10s
+          sync-status: true
+        timeout-minutes: 15
 
       - uses: geekyeggo/delete-artifact@176a747ab7e287e3ff4787bf8a148716375ca118 # v6.0.0
         with:
