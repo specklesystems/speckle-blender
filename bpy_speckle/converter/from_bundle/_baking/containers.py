@@ -9,15 +9,9 @@ from specklepy.bundle.spec import Rel
 from .result import BakeResult
 
 
-def _subtype(model: Model, container: ModelContainer) -> Optional[str]:
-    # The raw node, not ``container.fields``: that raises on a NULL subtype,
-    # which would fail the whole receive over one malformed container.
-    return model.bundle.nodes[container.k].subtype
-
-
-def _is_collection(model: Model, container: ModelContainer) -> bool:
+def _is_collection(container: ModelContainer) -> bool:
     """Part of the authored collection tree, as opposed to another axis."""
-    return _subtype(model, container) == "Collection"
+    return container.fields.subtype == "Collection"
 
 
 def _root_container(model: Model) -> Optional[ModelContainer]:
@@ -30,9 +24,7 @@ def _root_container(model: Model) -> Optional[ModelContainer]:
     lowest node id so the choice is deterministic. ``None`` when the bundle
     has no authored collections at all (a bare Navis federation, say).
     """
-    roots = [
-        c for c in model.collections if c.parent is None and _is_collection(model, c)
-    ]
+    roots = [c for c in model.collections if c.parent is None and _is_collection(c)]
     return min(roots, key=lambda c: c.k) if roots else None
 
 
@@ -67,7 +59,7 @@ def build_containers(
 
     for container in model.collections:
         if container.k not in created:
-            subtype = _subtype(model, container) or "(no subtype)"
+            subtype = container.fields.subtype
             result.unmapped_containers[subtype] = (
                 result.unmapped_containers.get(subtype, 0) + 1
             )
@@ -94,7 +86,7 @@ def _build_collection_tree(
 
     def link_children(parent: ModelContainer, parent_bcoll) -> None:
         for child in parent.children:
-            if not _is_collection(model, child) or child.k in created:
+            if not _is_collection(child) or child.k in created:
                 continue
             collection = _new_collection(child)
             parent_bcoll.children.link(collection)
@@ -106,7 +98,7 @@ def _build_collection_tree(
     # Any collection not reachable from the root (a second parentless root, a
     # broken def_ref) still needs a home, or its objects would silently vanish.
     for container in model.collections:
-        if _is_collection(model, container) and container.k not in created:
+        if _is_collection(container) and container.k not in created:
             collection = _new_collection(container)
             root_collection.children.link(collection)
             created[container.k] = collection
@@ -124,7 +116,7 @@ def _build_model_tier(
     root does; a real federation gets one collection per model under the root,
     the spec's "outermost scene-view tier when >1 model".
     """
-    models = [c for c in model.collections if _subtype(model, c) == "Model"]
+    models = [c for c in model.collections if c.fields.subtype == "Model"]
     if not models:
         return
     if len(models) == 1:
@@ -151,7 +143,7 @@ def _build_axis_branch(
     as forty top-level folders. The branch only exists when the axis does, so a
     Blender-published bundle gains nothing.
     """
-    members = {c.k: c for c in model.collections if _subtype(model, c) in subtypes}
+    members = {c.k: c for c in model.collections if c.fields.subtype in subtypes}
     if not members:
         return
     branch = bpy.data.collections.new(branch_name)
