@@ -69,9 +69,8 @@ point inward from the coordinator and never back to `bundle_to_native` or `load_
   it, so a load does not add a redundant folder level.
 - **CONTAINER is polymorphic and each subtype is its own grouping axis.** `subtype`
   (`Collection` | `Model` | `MEP System` | `Network` | `Group`) discriminates; membership comes via
-  `IN_COLLECTION`/`IN_MODEL` (scalar) and `IN_SYSTEM`/`IN_GROUP` (overlapping by design — but note
-  specklepy currently reads `IN_SYSTEM` as single-valued, last edge wins; only groups accumulate.
-  Restoring the system overlap is a specklepy fix, not a connector shim). The root is the
+  `IN_COLLECTION`/`IN_MODEL` (scalar) and `IN_SYSTEM`/`IN_GROUP` (overlapping by design — the bake
+  links an object into every system and group it belongs to). The root is the
   parentless `CONTAINER(Collection)` with the lowest node id, **never** "first parentless row": a
   cross-producer bundle roots every axis, so row order would crown a random model or system. The
   bake maps models to the outermost tier (>1) or onto the root (1), and parks groups/systems under

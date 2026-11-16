@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11.9, <4.0.0"
 
 [[package]]
@@ -384,6 +384,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/24/bf/d1bda4f6168e0b2e9e5958945e01910052158313224ada5ce1fb2e1113b8/nodeenv-1.10.0.tar.gz", hash = "sha256:996c191ad80897d076bdfba80a41994c2b47c68e224c542b48feba42ba00f8bb", size = 55611, upload-time = "2025-12-20T14:08:54.006Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/88/b2/d0896bdcdc8d28a7fc5717c305f1a861c26e18c05047949fb371034d98bd/nodeenv-1.10.0-py2.py3-none-any.whl", hash = "sha256:5bb13e3eed2923615535339b3c620e76779af4cb4c6a90deccc9e36b274d3827", size = 23438, upload-time = "2025-12-20T14:08:52.782Z" },
+]
+
+[[package]]
+name = "opentelemetry-api"
+version = "1.45.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/19/14/cf3a6b6448849656e1e5f4e2101f3988dc6789724050096aba1bc5ccf592/opentelemetry_api-1.45.2.tar.gz", hash = "sha256:d7b0008e21e5fd61cbe7a7f34ca3b6905a78ab677d9bc395e299359c75cda6b4", size = 73277, upload-time = "2026-10-29T17:29:37.888Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/2d/610db864d7513158cebb8f36cc88e67e73bd6c7aa1905ef18d89e1281c81/opentelemetry_api-1.45.2-py3-none-any.whl", hash = "sha256:2cbd737377e710ee740d261c94e93fa0f08e6d037c18f17513cc0a2d94479a34", size = 60335, upload-time = "2026-10-29T17:29:06.955Z" },
 ]
 
 [[package]]
@@ -815,7 +827,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pyarrow", specifier = ">=17.0.0" },
-    { name = "specklepy", specifier = ">=2026.9.0b3" },
+    { name = "specklepy", specifier = ">=2026.9.3" },
 ]
 
 [package.metadata.requires-dev]
@@ -827,20 +839,21 @@ dev = [
 
 [[package]]
 name = "specklepy"
-version = "2026.9.0b3"
+version = "2026.9.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "deprecated" },
     { name = "gql", extra = ["requests", "websockets"] },
     { name = "httpx" },
+    { name = "opentelemetry-api" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "ujson" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/d7/33eca95b5fd0663c70f9dacdb24fed1842805b4ba15ca35707aee3d9ea5a/specklepy-2026.9.0b3.tar.gz", hash = "sha256:dcc3688fa80f40a96e736306c677faf5cd7b96372ab4c7f09a1cec91412b4120", size = 155993, upload-time = "2026-09-01T11:22:59.249Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ad/fa/fa2a5a48ccf5480888d8166ad7d8350f414866ef933dacd7c278b72e087e/specklepy-2026.9.3.tar.gz", hash = "sha256:27569d74d94a36e0c4998a489935e73fcc06fc6680ca258a14b52ed0bf4b0432", size = 164744, upload-time = "2026-11-16T15:41:13.463Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/fd/25e0809024414ffc7dcfe65717fd43cd302d773577d34c63f69d94e5c984/specklepy-2026.9.0b3-py3-none-any.whl", hash = "sha256:5f08fa5e97b366b6126cd709c1d11b781f2c5f53e69599560f04a1495f6c8d60", size = 218628, upload-time = "2026-09-01T11:22:58.146Z" },
+    { url = "https://files.pythonhosted.org/packages/80/0b/46201f12a8a604f652bc844414f7f39602e5f8c249a5bf7421e7235d493f/specklepy-2026.9.3-py3-none-any.whl", hash = "sha256:7b64740167d40a3c3a067b984fd911b8e9664ea1ff61ba91ca49aeea3818f80a", size = 229497, upload-time = "2026-11-16T15:41:11.8Z" },
 ]
 
 [[package]]

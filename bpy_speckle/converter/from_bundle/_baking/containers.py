@@ -11,7 +11,7 @@ from .result import BakeResult
 
 def _is_collection(container: ModelContainer) -> bool:
     """Part of the authored collection tree, as opposed to another axis."""
-    return container.subtype == "Collection"
+    return container.fields.subtype == "Collection"
 
 
 def _root_container(model: Model) -> Optional[ModelContainer]:
@@ -59,7 +59,7 @@ def build_containers(
 
     for container in model.collections:
         if container.k not in created:
-            subtype = container.subtype or "(no subtype)"
+            subtype = container.fields.subtype
             result.unmapped_containers[subtype] = (
                 result.unmapped_containers.get(subtype, 0) + 1
             )
@@ -116,7 +116,7 @@ def _build_model_tier(
     root does; a real federation gets one collection per model under the root,
     the spec's "outermost scene-view tier when >1 model".
     """
-    models = [c for c in model.collections if c.subtype == "Model"]
+    models = [c for c in model.collections if c.fields.subtype == "Model"]
     if not models:
         return
     if len(models) == 1:
@@ -143,7 +143,7 @@ def _build_axis_branch(
     as forty top-level folders. The branch only exists when the axis does, so a
     Blender-published bundle gains nothing.
     """
-    members = {c.k: c for c in model.collections if c.subtype in subtypes}
+    members = {c.k: c for c in model.collections if c.fields.subtype in subtypes}
     if not members:
         return
     branch = bpy.data.collections.new(branch_name)
@@ -202,12 +202,9 @@ def link_object_parts(
     target = _primary_home(model, obj, containers, root_collection)
 
     # group / system memberships are additive, not a move: the object stays in
-    # its spatial home and also appears in each grouping it belongs to. The SDK
-    # reads IN_SYSTEM as single-valued (last edge wins); restoring overlapping
-    # system membership needs a specklepy change, not a shim here.
+    # its spatial home and also appears in each grouping it belongs to.
     extras = [group.k for group in obj.groups]
-    if obj.system is not None:
-        extras.append(obj.system.k)
+    extras.extend(system.k for system in obj.systems)
 
     # the primary carries the object's identity; extra parts only appear for
     # mixed-family objects and are already parented to it
