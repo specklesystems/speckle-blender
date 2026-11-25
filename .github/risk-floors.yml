@@ -20,10 +20,13 @@ yellow:
   - '**/.betterleaks.toml'
   - '**/.betterleaksignore'
   - '**/.gitleaksignore'
-  # Release: what release.yml bundles with the add-on, and the installer that
-  # fetches specklepy on the user's machine
+  # Release: what release.yml bundles with the add-on (the dependencies come from
+  # pyproject.toml), the version it writes, and the installer that fetches
+  # specklepy on the user's machine
   - export_dependencies.sh
   - export_dependencies.ps1
+  - pyproject.toml
+  - patch_version.py
   - bpy_speckle/installer.py
 red:
   - .github/**
